@@ -1,11 +1,11 @@
 # VENUS-8 — Virtual Analog Synthesizer
 
-## Downloads — Venus-8 v0.2.0 (Windows)
+## Downloads — Venus-8 v0.2.1 (Windows)
 
 | Plataforma | Pacote | Download | Tamanho | Data | Downloads |
 |---|---|---|---|---|---|
-| Windows 10/11 x64 | Instalador | [`Venus-8-v0.2.0-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.0/Venus-8-v0.2.0-Windows-Setup.exe) | 18.6 MB | 2026-10-18 | ![Downloads](https://img.shields.io/github/downloads/alexpmr/venus-8/v0.2.0/Venus-8-v0.2.0-Windows-Setup.exe?label=downloads) |
-| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.2.0-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.0/Venus-8-v0.2.0-Windows-Portable.exe) | 24.3 MB | 2026-10-18 | ![Downloads](https://img.shields.io/github/downloads/alexpmr/venus-8/v0.2.0/Venus-8-v0.2.0-Windows-Portable.exe?label=downloads) |
+| Windows 10/11 x64 | Instalador | [`Venus-8-v0.2.1-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.1/Venus-8-v0.2.1-Windows-Setup.exe) | 18.6 MB | 2026-10-18 | ![Downloads](https://img.shields.io/github/downloads/alexpmr/venus-8/v0.2.1/Venus-8-v0.2.1-Windows-Setup.exe?label=downloads) |
+| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.2.1-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.1/Venus-8-v0.2.1-Windows-Portable.exe) | 24.3 MB | 2026-10-18 | ![Downloads](https://img.shields.io/github/downloads/alexpmr/venus-8/v0.2.1/Venus-8-v0.2.1-Windows-Portable.exe?label=downloads) |
 
 **Downloads:** contadores do GitHub Releases por arquivo, não instalações. [Histórico de versões](https://github.com/alexpmr/venus-8/releases).
 
