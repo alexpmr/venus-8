@@ -59,6 +59,8 @@ class App:
         self.root.minsize(1050, 690)
         self.root.configure(bg=DARK)
         self.synth = Synth()
+        self.process = psutil.Process()
+        self.process.cpu_percent(None)
         self.stream = None
         self.port = None
         self.midi_devices = []
@@ -325,14 +327,14 @@ class App:
     @property
     def cpu_text(self):
         try:
-            return f"{psutil.Process().cpu_percent():.1f}%"
+            return f"{self.process.cpu_percent(None):.1f}%"
         except Exception:
             return "—"
 
     @property
     def ram_text(self):
         try:
-            return f"{psutil.Process().memory_info().rss/1048576:.0f} MB"
+            return f"{self.process.memory_info().rss/1048576:.0f} MB"
         except Exception:
             return "—"
 
