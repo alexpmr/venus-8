@@ -77,12 +77,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git fetch origin main
+          git checkout -B main origin/main
           python scripts/update_release_table.py
           if ($LASTEXITCODE -ne 0) { throw 'README update failed' }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch origin main
-          git checkout main
           git add README.md
           if (git diff --cached --quiet) {
             Write-Output 'README already current'
