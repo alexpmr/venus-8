@@ -44,3 +44,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: gh release create ${{ github.ref_name }} dist/Venus-8-v0.1.0-Windows-Setup.exe dist/Venus-8-v0.1.0-Windows-Portable.zip --title "Venus-8 ${{ github.ref_name }}" --notes "Primeiro protótipo funcional. Build automático; hardware Windows real ainda necessita validação."
+
+      - name: Refresh README download counters for this release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          git fetch origin main
+          git checkout main
+          python scripts/update_download_badges.py ${{ github.ref_name }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if (git diff --cached --quiet) { Write-Output 'README already up to date' } else { git commit -m "docs: point platform download counters at ${{ github.ref_name }}"; git push origin main }
