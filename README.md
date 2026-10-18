@@ -6,7 +6,6 @@
 |---|---|---|---|---|---|
 | Windows 10/11 x64 | Instalador | `Venus-8-v0.1.0-Windows-Setup.exe` | — | — | Build não confirmado |
 | Windows 10/11 x64 | Portátil (EXE único) | `Venus-8-v0.1.0-Windows-Portable.exe` | — | — | Build não confirmado |
-| Código-fonte | ZIP | [`main.zip` — baixar](https://github.com/alexpmr/venus-8/archive/refs/heads/main.zip) | Variável | Branch `main` | Disponível |
 | macOS | Aplicativo | — | — | — | Não disponível |
 | Linux | Aplicativo | — | — | — | Não disponível |
 
