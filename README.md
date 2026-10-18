@@ -4,28 +4,26 @@
 
 *Mockup conceitual — a interface da versão 0.1 ainda é um protótipo e não corresponde integralmente à imagem.*
 
-## ⬇️ Download da versão mais recente
+## ⬇️ Downloads — situação atual
 
-**[Baixar a última versão disponível — GitHub Releases](https://github.com/alexpmr/venus-8/releases/latest)**
+**✅ [Baixar o projeto v0.1 em ZIP (código-fonte)](https://github.com/alexpmr/venus-8/archive/refs/heads/main.zip)**
 
-**Enquanto o instalador não estiver disponível:** [baixar o projeto atual como ZIP](https://github.com/alexpmr/venus-8/archive/refs/heads/main.zip).
+**⚠️ Instalador Windows 10/11: ainda indisponível.** O executável ainda não foi publicado no GitHub Releases. Por isso, o link antigo para `releases/latest` podia levar a uma página inexistente.
 
-> **Windows 10/11 64 bits:** somente haverá instalador para download após a conclusão bem-sucedida do workflow de compilação e publicação.
-
-| Plataforma | Download | Contagem por instalador |
+| Plataforma | Instalador | Downloads |
 |---|---|---|
-| Windows x64 — Setup | [Última versão](https://github.com/alexpmr/venus-8/releases/latest) | ![Downloads Setup](https://img.shields.io/github/downloads/alexpmr/venus-8/latest/Venus-8-v0.1.0-Windows-Setup.exe?label=downloads) |
-| Windows x64 — Portable | [Última versão](https://github.com/alexpmr/venus-8/releases/latest) | ![Downloads Portable](https://img.shields.io/github/downloads/alexpmr/venus-8/latest/Venus-8-v0.1.0-Windows-Portable.zip?label=downloads) |
-| macOS | Ainda não disponível | — |
-| Linux | Ainda não disponível | — |
+| Windows 10/11 x64 — Setup | Aguardando compilação e publicação | — |
+| Windows 10/11 x64 — Portable | Aguardando compilação e publicação | — |
+| macOS | Não implementado | — |
+| Linux | Não implementado | — |
 
-Os contadores consultam downloads reais dos assets do GitHub Releases: **não** representam usuários únicos nem instalações. Novas plataformas serão exibidas apenas quando houver binários publicados. A versão nominal dos badges deve acompanhar cada lançamento.
+Quando a primeira Release for publicada com arquivos válidos, os botões e contadores por instalador serão ativados aqui. **Não há download de executável disponível até lá.** Os contadores futuros serão os downloads registrados pelo GitHub para cada arquivo publicado, não o número de instalações.
 
-### Instalação
+**[Consultar andamento dos builds Windows](https://github.com/alexpmr/venus-8/actions/workflows/build-windows.yml)**
 
-1. Abra **[Releases/latest](https://github.com/alexpmr/venus-8/releases/latest)**.
-2. Em **Assets**, escolha o instalador Windows Setup, ou o ZIP Portable.
-3. No Windows 10/11 x64, execute o Setup ou extraia e abra o executável portátil.
+### Executar o projeto a partir do código-fonte
+
+É necessário Python 3.11 com dependências instaladas. Veja as instruções de compilação abaixo. O ZIP não é um instalador Windows.
 
 ## Primeira versão — v0.1.0
 
