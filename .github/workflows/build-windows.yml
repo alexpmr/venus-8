@@ -7,6 +7,7 @@ on:
       - 'venus8/**'
       - 'tests/**'
       - 'installer/**'
+      - 'scripts/update_release_table.py'
       - 'requirements.txt'
       - 'run.py'
       - '.github/workflows/build-windows.yml'
@@ -24,6 +25,14 @@ jobs:
         with:
           python-version: '3.11'
           architecture: x64
+      - name: Resolve application version
+        shell: pwsh
+        run: |
+          $contents = Get-Content venus8/__init__.py -Raw
+          $version = [regex]::Match($contents, '__version__\s*=\s*"(\d+\.\d+\.\d+)"').Groups[1].Value
+          if (-not $version) { throw "Version not defined" }
+          "VENUS_VERSION=$version" >> $env:GITHUB_ENV
+          "VENUS_TAG=v$version" >> $env:GITHUB_ENV
       - name: Install dependencies
         shell: pwsh
         run: |
@@ -31,63 +40,70 @@ jobs:
           pip install -r requirements.txt pyinstaller
       - name: Run tests
         run: python -m unittest discover -s tests -v
-      - name: Build Windows installer application
+      - name: Compile source
+        run: python -m compileall -q venus8 tests run.py
+      - name: Build executable for Windows setup
         run: pyinstaller --noconfirm --clean --windowed --name Venus-8 --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
-      - name: Build setup executable
+      - name: Build Inno Setup installer
         shell: pwsh
         run: |
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' '/DMyAppVersion=0.1.0' 'installer\venus8.iss'
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DMyAppVersion=$env:VENUS_VERSION" 'installer\venus8.iss'
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
-      - name: Build single-file portable EXE
+      - name: Build single-file portable executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name Venus-8-v0.1.0-Windows-Portable --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name "Venus-8-$env:VENUS_TAG-Windows-Portable" --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
           if ($LASTEXITCODE -ne 0) { throw 'Portable build failed' }
-      - name: Check executable outputs and checksums
+      - name: Verify files and generate SHA256SUMS
         shell: pwsh
         run: |
-          $files = @('dist/Venus-8-v0.1.0-Windows-Setup.exe', 'dist/Venus-8-v0.1.0-Windows-Portable.exe')
+          $files = @("dist/Venus-8-$env:VENUS_TAG-Windows-Setup.exe", "dist/Venus-8-$env:VENUS_TAG-Windows-Portable.exe")
+          $lines = @()
           foreach ($file in $files) {
-            if (!(Test-Path $file)) { throw "Missing build output: $file" }
-            if ((Get-Item $file).Length -lt 100000) { throw "Invalid small output: $file" }
-            Get-FileHash $file -Algorithm SHA256 | Format-List
+            if (-not (Test-Path $file)) { throw "Missing output: $file" }
+            if ((Get-Item $file).Length -lt 100000) { throw "Invalid output: $file" }
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            $lines += "$hash  $(Split-Path $file -Leaf)"
           }
-      - name: Upload Actions artifact
+          [System.IO.File]::WriteAllText("$pwd/dist/SHA256SUMS.txt", ($lines -join "`n")+"`n", [System.Text.UTF8Encoding]::new($false))
+          Get-Content dist/SHA256SUMS.txt
+      - name: Upload Actions artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Venus-8-v0.1.0-Windows
-          path: |
-            dist/Venus-8-v0.1.0-Windows-Setup.exe
-            dist/Venus-8-v0.1.0-Windows-Portable.exe
+          name: Venus-8-Windows-${{ env.VENUS_TAG }}
           if-no-files-found: error
-      - name: Create first release, if absent
+          path: |
+            dist/Venus-8-*-Windows-Setup.exe
+            dist/Venus-8-*-Windows-Portable.exe
+            dist/SHA256SUMS.txt
+      - name: Publish this version if not already published
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.1.0 --repo ${{ github.repository }} *> $null
+          gh release view $env:VENUS_TAG --repo ${{ github.repository }} *> $null
           if ($LASTEXITCODE -eq 0) {
-            Write-Output "v0.1.0 already exists, not replacing published binaries."
+            Write-Output "Release already exists. Skipping to prevent silent replacement."
           } else {
-            gh release create v0.1.0 dist/Venus-8-v0.1.0-Windows-Setup.exe dist/Venus-8-v0.1.0-Windows-Portable.exe --repo ${{ github.repository }} --target ${{ github.sha }} --title "Venus-8 v0.1.0 — Windows x64" --notes "Primeira versão para testes (Windows 10/11 x64). Inclui instalador e portátil EXE de arquivo único. Ainda não homologada em hardware Windows real. Builds automatizados e testes unitários aprovados." --prerelease
-            if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+            gh release create $env:VENUS_TAG "dist/Venus-8-$env:VENUS_TAG-Windows-Setup.exe" "dist/Venus-8-$env:VENUS_TAG-Windows-Portable.exe" dist/SHA256SUMS.txt --repo ${{ github.repository }} --target ${{ github.sha }} --title "Venus-8 $env:VENUS_TAG — Windows x64" --notes "Prévia funcional Windows 10/11 x64. Interface completa com controles futuros desativados; três osciladores, filtro passa-baixas, envelopes Attack/Release, LFO 1, delay, MIDI USB e patches. Atualização por GitHub Releases com SHA-256. Testes de hardware ainda dependem de validação do usuário." --prerelease
+            if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed' }
           }
-      - name: Update README with verified release files
+      - name: Refresh README download table from GitHub release assets
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git fetch origin main
           git checkout -B main origin/main
-          python scripts/update_release_table.py
-          if ($LASTEXITCODE -ne 0) { throw 'README update failed' }
+          python scripts/update_release_table.py $env:VENUS_TAG
+          if ($LASTEXITCODE -ne 0) { throw 'README generation failed' }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add README.md
           if (git diff --cached --quiet) {
-            Write-Output 'README already current'
+            Write-Output 'No README changes'
           } else {
-            git commit -m 'docs: show published Windows release downloads [skip ci]'
+            git commit -m "docs: Windows downloads for $env:VENUS_TAG [skip ci]"
             git push origin main
-            if ($LASTEXITCODE -ne 0) { throw 'Could not update README' }
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot push README updates' }
           }
