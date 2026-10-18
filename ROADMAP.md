@@ -1,5 +1,7 @@
 # VENUS-8 — Roadmap de desenvolvimento
 
+**Escopo de plataformas (até nova orientação): somente Windows 10/11 x64, instalador e portátil em `.exe`. Nenhum build macOS/Linux.**
+
 Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber `[x]` quando existir no código e passar na validação apropriada. A marcação `[x]` na v0.1 indica **implementação básica identificada no repositório**, não homologação Windows, DSP final ou entrega de Release.
 
 **Legenda:** `✅` = implementado em nível especificado; `[ ]` = pendente, incompleto ou sem validação suficiente. Não marcar apenas por existir no mockup.
@@ -192,7 +194,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Release Windows com Setup e Portable realmente testados.
 - [ ] Links diretos para instaladores existentes na versão mais recente.
 - [ ] Contadores reais de downloads separados por asset/plataforma, sem confundir com usuários ou instalações.
-- [ ] Publicação futura de macOS/Linux, após avaliação de compatibilidade.
+- [ ] Suporte a outras plataformas: suspenso até autorização explícita.
 - [ ] Registrar evidência da implementação e testes para cada checkbox concluído.
 
 ## Regra de manutenção
