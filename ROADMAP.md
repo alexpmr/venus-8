@@ -32,7 +32,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
-## v0.2.1 — Prévia interativa de testes (incremental)
+## v0.2.2 — Prévia interativa de testes (incremental)
 
 - ✅ Painel vintage de tela inteira, com todas as seções do design em seus lugares.
 - ✅ Knobs, sliders e botões gráficos com feedback de mouse.
@@ -49,9 +49,9 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Download de atualização com SHA-256 e execução assistida do novo instalador.
 - ✅ Portátil: abrir versão nova baixada sem substituir o EXE em uso.
 - ✅ Testes unitários de DSP, patches e seleção de atualizações adicionados.
-- [ ] Conclusão do GitHub Actions para v0.2.1 verificada.
+- [ ] Conclusão do GitHub Actions para v0.2.2 verificada.
 - [ ] Teste da nova interface e áudio no Windows real.
-- [ ] Verificação real da atualização v0.2.1 → versão seguinte.
+- [ ] Verificação real da atualização v0.2.2 → versão seguinte.
 - [ ] Teste de performance com 16 vozes, áudio ASIO/WASAPI e MIDI físico.
 - [ ] Finalizar ADSR completo, antialiasing, resonância e mod matrix.
 
@@ -210,7 +210,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 
 ## Requisitos transversais e publicação
 
-- ✅ Indicador de atualização/versão na barra superior e download verificado de EXE (prévia v0.2.1).
+- ✅ Indicador de atualização/versão na barra superior e download verificado de EXE (prévia v0.2.2).
 - ✅ Download HTTPS, SHA-256, progresso e execução do instalador com confirmação (sem substituição em uso no portátil).
 - ✅ Exibição inicial de CPU, RAM e número de vozes (sem métricas DSP ainda).
 - [ ] Monitor completo DSP, áudio, buffer, latência, picos, underruns e MIDI.
