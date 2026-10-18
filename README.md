@@ -1,13 +1,13 @@
 # VENUS-8 — Virtual Analog Synthesizer
 
-## Downloads — versão Windows v0.1.0
+## Downloads — Venus-8 v0.1.0 (Windows)
 
-| Plataforma | Pacote | Download | Tamanho | Data | Estado |
+| Plataforma | Pacote | Download | Tamanho | Data | Downloads |
 |---|---|---|---|---|---|
-| Windows 10/11 x64 | Instalador | `Venus-8-v0.1.0-Windows-Setup.exe` | — | — | Build não confirmado |
-| Windows 10/11 x64 | Portátil (EXE único) | `Venus-8-v0.1.0-Windows-Portable.exe` | — | — | Build não confirmado |
+| Windows 10/11 x64 | Instalador | [`Venus-8-v0.1.0-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.1.0/Venus-8-v0.1.0-Windows-Setup.exe) | 18.6 MB | 2026-10-18 | 0 |
+| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.1.0-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.1.0/Venus-8-v0.1.0-Windows-Portable.exe) | 24.2 MB | 2026-10-18 | 0 |
 
-**Os nomes dos executáveis Windows já estão definidos.** Tamanho, data, links diretos e contadores de downloads serão adicionados após a publicação real dos arquivos. [Consultar builds Windows](https://github.com/alexpmr/venus-8/actions/workflows/build-windows.yml).
+**Contadores:** registrados pelo GitHub por arquivo, não por instalação; os números da tabela foram apurados na publicação e podem variar. [Consultar contagem atualizada em Releases](https://github.com/alexpmr/venus-8/releases/tag/v0.1.0).
 
 ![VENUS-8 — Interface do sintetizador](docs/venus-8-mockup.jpg)
 
