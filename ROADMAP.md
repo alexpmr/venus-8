@@ -2,21 +2,21 @@
 
 Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber `[x]` quando existir no código e passar na validação apropriada. A marcação `[x]` na v0.1 indica **implementação básica identificada no repositório**, não homologação Windows, DSP final ou entrega de Release.
 
-**Legenda:** `[x] ✅` = implementado em nível especificado; `[ ]` = pendente, incompleto ou sem validação suficiente. Não marcar apenas por existir no mockup.
+**Legenda:** `✅` = implementado em nível especificado; `[ ]` = pendente, incompleto ou sem validação suficiente. Não marcar apenas por existir no mockup.
 
 ## v0.1 — Fundação, interface e Windows
 
-- [x] ✅ Código inicial do aplicativo Windows em Python/Tkinter
-- [x] ✅ Interface vintage inicial, redimensionável
-- [x] ✅ Teclado virtual com clique do mouse
-- [x] ✅ Quatro formas de onda e geração básica de áudio estéreo
-- [x] ✅ Polifonia inicial com limite de 16 vozes
-- [x] ✅ Seleção básica da saída de áudio
-- [x] ✅ Detecção e seleção de entrada MIDI
-- [x] ✅ Indicadores superiores de CPU, RAM e vozes
-- [x] ✅ Controle Master Volume e botão Panic
-- [x] ✅ Salvamento e carregamento simples de patches JSON
-- [x] ✅ Arquivos de workflow Windows, PyInstaller e script Inno Setup
+- ✅ Código inicial do aplicativo Windows em Python/Tkinter
+- ✅ Interface vintage inicial, redimensionável
+- ✅ Teclado virtual com clique do mouse
+- ✅ Quatro formas de onda e geração básica de áudio estéreo
+- ✅ Polifonia inicial com limite de 16 vozes
+- ✅ Seleção básica da saída de áudio
+- ✅ Detecção e seleção de entrada MIDI
+- ✅ Indicadores superiores de CPU, RAM e vozes
+- ✅ Controle Master Volume e botão Panic
+- ✅ Salvamento e carregamento simples de patches JSON
+- ✅ Arquivos de workflow Windows, PyInstaller e script Inno Setup
 - [ ] Compilação comprovada do executável Windows 10/11 x64
 - [ ] Publicação de instalador Setup e portátil em Release
 - [ ] Teste real da instalação, inicialização, áudio e MIDI em Windows 10/11
@@ -185,10 +185,10 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 
 - [ ] Indicador de atualização e número da versão na barra superior; clique inicia atualização integrada.
 - [ ] Download autenticado e verificado, indicação de progresso e reinício seguro.
-- [x] ✅ Exibição inicial de CPU, RAM e número de vozes (sem métricas DSP ainda).
+- ✅ Exibição inicial de CPU, RAM e número de vozes (sem métricas DSP ainda).
 - [ ] Monitor completo DSP, áudio, buffer, latência, picos, underruns e MIDI.
 - [ ] Coerência de valores entre MIDI, mouse, touch, preset e automação VST3.
-- [x] ✅ README com imagem conceitual e link para página Releases.
+- ✅ README com imagem conceitual e link para página Releases.
 - [ ] Release Windows com Setup e Portable realmente testados.
 - [ ] Links diretos para instaladores existentes na versão mais recente.
 - [ ] Contadores reais de downloads separados por asset/plataforma, sem confundir com usuários ou instalações.
