@@ -11,7 +11,7 @@ if len(sys.argv) != 2 or not re.fullmatch(r"v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)
 version = sys.argv[1]
 readme = Path("README.md")
 text = readme.read_text(encoding="utf-8")
-for suffix in ("Windows-Setup.exe", "Windows-Portable.zip"):
+for suffix in ("Windows-Setup.exe", "Windows-Portable.exe"):
     text = re.sub(
         r"Venus-8-v[^/)]+-" + re.escape(suffix),
         "Venus-8-" + version + "-" + suffix,
