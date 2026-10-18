@@ -3,9 +3,18 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    tags: ['v*']
+    paths:
+      - 'venus8/**'
+      - 'tests/**'
+      - 'installer/**'
+      - 'requirements.txt'
+      - 'run.py'
+      - '.github/workflows/build-windows.yml'
 permissions:
   contents: write
+concurrency:
+  group: venus8-windows-release
+  cancel-in-progress: false
 jobs:
   windows:
     runs-on: windows-2022
@@ -20,40 +29,65 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
-      - name: Tests
+      - name: Run tests
         run: python -m unittest discover -s tests -v
-      - name: Compile executable
+      - name: Build Windows installer application
         run: pyinstaller --noconfirm --clean --windowed --name Venus-8 --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
-      - name: Build Windows installer
+      - name: Build setup executable
         shell: pwsh
         run: |
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DMyAppVersion=0.1.0" 'installer\venus8.iss'
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' '/DMyAppVersion=0.1.0' 'installer\venus8.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
       - name: Build single-file portable EXE
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --name Venus-8-v0.1.0-Windows-Portable --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
-      - name: Upload build artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Portable build failed' }
+      - name: Check executable outputs and checksums
+        shell: pwsh
+        run: |
+          $files = @('dist/Venus-8-v0.1.0-Windows-Setup.exe', 'dist/Venus-8-v0.1.0-Windows-Portable.exe')
+          foreach ($file in $files) {
+            if (!(Test-Path $file)) { throw "Missing build output: $file" }
+            if ((Get-Item $file).Length -lt 100000) { throw "Invalid small output: $file" }
+            Get-FileHash $file -Algorithm SHA256 | Format-List
+          }
+      - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: Venus-8-v0.1.0-Windows
           path: |
             dist/Venus-8-v0.1.0-Windows-Setup.exe
             dist/Venus-8-v0.1.0-Windows-Portable.exe
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/v')
+          if-no-files-found: error
+      - name: Create first release, if absent
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: gh release create ${{ github.ref_name }} dist/Venus-8-v0.1.0-Windows-Setup.exe dist/Venus-8-v0.1.0-Windows-Portable.exe --title "Venus-8 ${{ github.ref_name }}" --notes "Primeiro protótipo funcional. Build automático; hardware Windows real ainda necessita validação."
-
-      - name: Refresh README download counters for this release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
         run: |
+          gh release view v0.1.0 --repo ${{ github.repository }} *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "v0.1.0 already exists, not replacing published binaries."
+          } else {
+            gh release create v0.1.0 dist/Venus-8-v0.1.0-Windows-Setup.exe dist/Venus-8-v0.1.0-Windows-Portable.exe --repo ${{ github.repository }} --target ${{ github.sha }} --title "Venus-8 v0.1.0 — Windows x64" --notes "Primeira versão para testes (Windows 10/11 x64). Inclui instalador e portátil EXE de arquivo único. Ainda não homologada em hardware Windows real. Builds automatizados e testes unitários aprovados." --prerelease
+            if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          }
+      - name: Update README with verified release files
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/update_release_table.py
+          if ($LASTEXITCODE -ne 0) { throw 'README update failed' }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin main
           git checkout main
-          python scripts/update_download_badges.py ${{ github.ref_name }}
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md
-          if (git diff --cached --quiet) { Write-Output 'README already up to date' } else { git commit -m "docs: point platform download counters at ${{ github.ref_name }}"; git push origin main }
+          if (git diff --cached --quiet) {
+            Write-Output 'README already current'
+          } else {
+            git commit -m 'docs: show published Windows release downloads [skip ci]'
+            git push origin main
+            if ($LASTEXITCODE -ne 0) { throw 'Could not update README' }
+          }
