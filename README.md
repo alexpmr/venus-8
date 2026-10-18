@@ -2,28 +2,9 @@
 
 ![VENUS-8 — mockup da interface final](docs/venus-8-mockup.jpg)
 
-*Mockup conceitual — a interface da versão 0.1 ainda é um protótipo e não corresponde integralmente à imagem.*
+## Downloads
 
-## ⬇️ Downloads — situação atual
-
-**✅ [Baixar o projeto v0.1 em ZIP (código-fonte)](https://github.com/alexpmr/venus-8/archive/refs/heads/main.zip)**
-
-**⚠️ Instalador Windows 10/11: ainda indisponível.** O executável ainda não foi publicado no GitHub Releases. Por isso, o link antigo para `releases/latest` podia levar a uma página inexistente.
-
-| Plataforma | Instalador | Downloads |
-|---|---|---|
-| Windows 10/11 x64 — Setup | Aguardando compilação e publicação | — |
-| Windows 10/11 x64 — Portable | Aguardando compilação e publicação | — |
-| macOS | Não implementado | — |
-| Linux | Não implementado | — |
-
-Quando a primeira Release for publicada com arquivos válidos, os botões e contadores por instalador serão ativados aqui. **Não há download de executável disponível até lá.** Os contadores futuros serão os downloads registrados pelo GitHub para cada arquivo publicado, não o número de instalações.
-
-**[Consultar andamento dos builds Windows](https://github.com/alexpmr/venus-8/actions/workflows/build-windows.yml)**
-
-### Executar o projeto a partir do código-fonte
-
-É necessário Python 3.11 com dependências instaladas. Veja as instruções de compilação abaixo. O ZIP não é um instalador Windows.
+Os instaladores oficiais serão disponibilizados em **[GitHub Releases](https://github.com/alexpmr/venus-8/releases)** após a compilação e validação. No momento, não há instalador publicado.
 
 ## Primeira versão — v0.1.0
 
