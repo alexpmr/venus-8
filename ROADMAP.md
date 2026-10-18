@@ -1,8 +1,10 @@
 # VENUS-8 — Roadmap de desenvolvimento
 
+<p align="center"><img src="docs/venus-8-mockup.jpg" alt="Venus-8: interface final de referência" width="100%"></p>
+
 **Escopo de plataformas (até nova orientação): somente Windows 10/11 x64, instalador e portátil em `.exe`. Nenhum build macOS/Linux.**
 
-Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber `[x]` quando existir no código e passar na validação apropriada. A marcação `[x]` na v0.1 indica **implementação básica identificada no repositório**, não homologação Windows, DSP final ou entrega de Release.
+Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber `[x]` quando existir no código e passar na validação apropriada. As marcações verdes representam recursos implementados no código; testes de hardware e homologação são etapas independentes.
 
 **Legenda:** `✅` = implementado em nível especificado; `[ ]` = pendente, incompleto ou sem validação suficiente. Não marcar apenas por existir no mockup.
 
@@ -19,8 +21,8 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Controle Master Volume e botão Panic
 - ✅ Salvamento e carregamento simples de patches JSON
 - ✅ Arquivos de workflow Windows, PyInstaller e script Inno Setup
-- [ ] Compilação comprovada do executável Windows 10/11 x64
-- [ ] Publicação de instalador Setup e portátil em Release
+- ✅ Compilação do executável Windows 10/11 x64 confirmada para v0.1.0
+- ✅ Publicação de instalador Setup e portátil na Release v0.1.0
 - [ ] Teste real da instalação, inicialização, áudio e MIDI em Windows 10/11
 - [ ] Interface final em tela cheia conforme mockup aprovado
 - [ ] Knobs, sliders, switches e display animados/operacionais
@@ -29,6 +31,29 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Isolamento robusto do processamento de áudio em tempo real
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
+
+## v0.2.1 — Prévia interativa de testes (incremental)
+
+- ✅ Painel vintage de tela inteira, com todas as seções do design em seus lugares.
+- ✅ Knobs, sliders e botões gráficos com feedback de mouse.
+- ✅ Seções não desenvolvidas presentes em cinza, desabilitadas e identificadas.
+- ✅ Três osciladores sonoros com forma de onda, nível e ajuste de afinação individuais.
+- ✅ Suboscilador e ruído com controles de nível.
+- ✅ Mixer e filtro passa-baixas funcionais (Cutoff).
+- ✅ Ataque e Release do amplificador; Decay e Sustain ainda pendentes.
+- ✅ LFO 1 com Rate e Depth; LFO 2 pendente.
+- ✅ Drive e Delay com Mix, Time e Feedback.
+- ✅ Banco local de patches JSON: salvar, abrir e navegar.
+- ✅ Entrada MIDI USB, teclado virtual e alterações visuais recebidas por MIDI.
+- ✅ Indicador de update e verificação periódica de Releases.
+- ✅ Download de atualização com SHA-256 e execução assistida do novo instalador.
+- ✅ Portátil: abrir versão nova baixada sem substituir o EXE em uso.
+- ✅ Testes unitários de DSP, patches e seleção de atualizações adicionados.
+- [ ] Conclusão do GitHub Actions para v0.2.1 verificada.
+- [ ] Teste da nova interface e áudio no Windows real.
+- [ ] Verificação real da atualização v0.2.1 → versão seguinte.
+- [ ] Teste de performance com 16 vozes, áudio ASIO/WASAPI e MIDI físico.
+- [ ] Finalizar ADSR completo, antialiasing, resonância e mod matrix.
 
 ## v0.2 — Síntese analógica
 
@@ -185,15 +210,15 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 
 ## Requisitos transversais e publicação
 
-- [ ] Indicador de atualização e número da versão na barra superior; clique inicia atualização integrada.
-- [ ] Download autenticado e verificado, indicação de progresso e reinício seguro.
+- ✅ Indicador de atualização/versão na barra superior e download verificado de EXE (prévia v0.2.1).
+- ✅ Download HTTPS, SHA-256, progresso e execução do instalador com confirmação (sem substituição em uso no portátil).
 - ✅ Exibição inicial de CPU, RAM e número de vozes (sem métricas DSP ainda).
 - [ ] Monitor completo DSP, áudio, buffer, latência, picos, underruns e MIDI.
 - [ ] Coerência de valores entre MIDI, mouse, touch, preset e automação VST3.
 - ✅ README com imagem conceitual e link para página Releases.
 - [ ] Release Windows com Setup e Portable realmente testados.
-- [ ] Links diretos para instaladores existentes na versão mais recente.
-- [ ] Contadores reais de downloads separados por asset/plataforma, sem confundir com usuários ou instalações.
+- ✅ Links diretos no README para os instaladores publicados da última Release.
+- ✅ Contadores de downloads por arquivo GitHub Releases, sem confundir com instalações.
 - [ ] Suporte a outras plataformas: suspenso até autorização explícita.
 - [ ] Registrar evidência da implementação e testes para cada checkbox concluído.
 
