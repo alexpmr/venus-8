@@ -8,6 +8,8 @@
 
 **[Baixar a última versão disponível — GitHub Releases](https://github.com/alexpmr/venus-8/releases/latest)**
 
+**Enquanto o instalador não estiver disponível:** [baixar o projeto atual como ZIP](https://github.com/alexpmr/venus-8/archive/refs/heads/main.zip).
+
 > **Windows 10/11 64 bits:** somente haverá instalador para download após a conclusão bem-sucedida do workflow de compilação e publicação.
 
 | Plataforma | Download | Contagem por instalador |
