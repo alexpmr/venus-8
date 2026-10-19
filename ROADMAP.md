@@ -32,6 +32,19 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.4 — Validação do layout definitivo Windows
+
+- ✅ Layout reestruturado segundo o mockup aprovado: 3 osciladores, mixer, filtro, 3 envelopes, 2 LFOs, display central, matriz, arp, sequenciador, efeitos e master.
+- ✅ Teclado inferior proporcional com pitch bend/mod wheel à esquerda.
+- ✅ Controles implementados ativos e módulos futuros visíveis/desabilitados.
+- ✅ Indicador de atualização com texto de progresso na barra superior.
+- ✅ Pitch Bend virtual retorna ao centro ao soltar o mouse.
+- ✅ Tabela do README com quantidades **numéricas** reais de downloads por executável, sem badges.
+- ✅ Workflow periódico para atualizar contagens por arquivo a cada seis horas.
+- [ ] Confirmação de build e publicação dos dois executáveis Windows v0.2.4.
+- [ ] Homologação visual, áudio, MIDI e autoupdate no computador Windows do usuário.
+- [ ] Aproximação pixel a pixel do mockup final: gradientes, texturas, tipografia e knobs 3D.
+
 ## v0.2.2 — Prévia interativa de testes (incremental)
 
 - ✅ Painel vintage de tela inteira, com todas as seções do design em seus lugares.
