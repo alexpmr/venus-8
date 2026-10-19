@@ -2,7 +2,8 @@ import unittest
 
 from PIL import Image
 
-from venus8.components import (KEYBOARD, KNOB_GEOMETRY, PAINTED_CAPS, KeySprites,
+from venus8.components import (INACTIVE_FADER_BANKS, INACTIVE_KNOBS, KEYBOARD,
+                               KNOB_GEOMETRY, PAINTED_CAPS, KeySprites,
                                clean_artwork, keyboard_layout, render_knob)
 
 
@@ -53,6 +54,25 @@ class CleanArtworkTests(unittest.TestCase):
         for ident, (cx, cy, r) in KNOB_GEOMETRY.items():
             box = self.clean.crop((cx - r, cy - r, cx + r, cy + r)).convert("L")
             self.assertLess(box.getextrema()[1], 120, ident)
+
+
+    def test_future_controls_are_greyed_out(self):
+        def lit(image, box):
+            return sum(amber(p) for p in image.crop(box).getdata())
+        for ident, (cx, cy, r) in INACTIVE_KNOBS.items():
+            box = (cx - r, cy - r, cx + r, cy + r)
+            self.assertEqual(lit(self.clean, box), 0, ident)
+        for ident, box in INACTIVE_FADER_BANKS.items():
+            self.assertGreater(lit(self.art, box), 0, ident)
+            self.assertEqual(lit(self.clean, box), 0, ident)
+
+    def test_working_controls_are_not_greyed_out(self):
+        for ident, (x, y, r) in KNOB_GEOMETRY.items():
+            for other, (ox, oy, orad) in INACTIVE_KNOBS.items():
+                self.assertGreater((x - ox) ** 2 + (y - oy) ** 2, (r + orad) ** 2, (ident, other))
+        for ident, (x, line) in PAINTED_CAPS.items():
+            for bank, (x1, y1, x2, y2) in INACTIVE_FADER_BANKS.items():
+                self.assertFalse(x1 <= x <= x2 and y1 <= line <= y2, (ident, bank))
 
 
 class SpriteTests(unittest.TestCase):
