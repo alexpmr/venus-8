@@ -44,6 +44,17 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.24 — Baixa latência
+
+- ✅ Notas, pitch bend e sustain do controlador MIDI tocam na hora, direto na thread MIDI; antes esperavam a interface (até 70 ms a mais).
+- ✅ Áudio com latência "low" do PortAudio e buffer de 256 amostras (~6 ms) em vez de 512 com latência alta.
+- ✅ Driver WASAPI escolhido primeiro (o MME do Windows soma ~100 ms); cada saída aparece com o driver, ex.: "Alto-falantes [Windows WASAPI]".
+- ✅ SETTINGS: buffer de áudio ajustável (64 a 1024 amostras, com o tempo em ms).
+- ✅ Display mostra a latência real de saída na linha ÁUDIO.
+- ✅ Testes do caminho rápido de MIDI e da ordem dos drivers.
+- [ ] Homologar no Windows real: latência perceptível ao tocar e ausência de estalos com 256 amostras.
+- [ ] Reduzir o custo fixo do motor por bloco (para buffers de 64/128 sem estalos).
+
 ## v0.2.23 — Arpeggiator
 
 - ✅ ARPEGGIATOR ativo: ON (LED e botão ARP), MODE (Up, Down, Up/Down, Random, As Played), RATE (40–240 BPM, notas de 1/16), GATE (5–100 %) e OCT (1 a 4 oitavas).

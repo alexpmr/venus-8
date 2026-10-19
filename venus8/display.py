@@ -285,10 +285,17 @@ class LiveDisplay:
             ("BANCO", app.patch_bank, self.pal["ink"]),
             ("VOZES", f"{len(app.synth.voices)} / {app.synth.max_voices}", self.pal["ink"]),
             ("MIDI", midi, self.pal["ink"] if port is not None else self.pal["alert"]),
-            ("ÁUDIO", short(f"{audio} · {rate:.1f} kHz", 20), self.pal["ink"]),
+            ("ÁUDIO", short(self.audio_text(audio, rate), 20), self.pal["ink"]),
             ("CARGA DSP", f"{load:.0f}%", self.pal["alert"] if load > 70 else self.pal["ink"]),
             self.adjust_row(tweak, last),
         ]
+
+    def audio_text(self, audio, rate):
+        """Output latency first: it is what the player feels."""
+        latency = getattr(self.app, "audio_latency", 0.0) * 1000
+        if latency > 0:
+            return f"{latency:.0f} ms · {rate:.1f} kHz · {audio}"
+        return f"{audio} · {rate:.1f} kHz"
 
     def adjust_row(self, tweak, last):
         """Last tweak, or the MIDI Learn state while assigning a controller."""

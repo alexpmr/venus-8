@@ -79,6 +79,38 @@ def match_midi_name(saved, names):
     return next((n for n in names if base and re.sub(r"\s+\d+$", "", n) == base), None)
 
 
+# Audio buffer sizes offered in SETTINGS; 256 samples is ~5.8 ms at 44.1 kHz.
+BUFFER_SIZES=(64,128,256,512,1024)
+DEFAULT_BUFFER=256
+# Windows host APIs from the lowest to the highest latency.
+HOSTAPI_ORDER=("Windows WASAPI","ASIO","Windows WDM-KS","Windows DirectSound","MME")
+
+
+def audio_outputs(devices,hostapis):
+    """[(index, "Device [Host API]")] for stereo outputs, low-latency drivers first."""
+    found=[]
+    for index,device in enumerate(devices):
+        if device.get("max_output_channels",0)<2:
+            continue
+        api=hostapis[device["hostapi"]]["name"] if "hostapi" in device else ""
+        rank=HOSTAPI_ORDER.index(api) if api in HOSTAPI_ORDER else len(HOSTAPI_ORDER)
+        found.append((rank,index,f"{device['name']} [{api}]" if api else device["name"]))
+    return [(index,label) for rank,index,label in sorted(found,key=lambda f:(f[0],f[1]))]
+
+
+def pick_output(devices,desired):
+    """Saved device; an older setting without the driver picks the same
+    device on the fastest driver; otherwise the first (fastest) output."""
+    exact=next(((i,label) for i,label in devices if label==desired),None)
+    if exact:
+        return exact
+    if desired:
+        same=next(((i,label) for i,label in devices if label.split(" [")[0]==desired),None)
+        if same:
+            return same
+    return devices[0]
+
+
 class App:
     def __init__(self):
         setup_windows_dpi()
@@ -690,7 +722,7 @@ class App:
 
     def scan_devices(self):
         try:
-            self.audio_devices=[(i,d["name"]) for i,d in enumerate(sd.query_devices()) if d.get("max_output_channels",0)>=2]
+            self.audio_devices=audio_outputs(sd.query_devices(),sd.query_hostapis())
         except Exception as exc:
             self.audio_devices=[]
             self.audio_error=str(exc)
@@ -714,18 +746,26 @@ class App:
         devices=self.audio_devices
         if not devices:
             return
-        selected=next(((i,name) for i,name in devices if name==desired),devices[0])
-        i,name=selected
+        i,name=pick_output(devices,desired)
+        buffer=int(self.settings.get("buffer",DEFAULT_BUFFER))
         try:
+            # Low latency: small buffer, "low" PortAudio latency and, by
+            # default, the WASAPI driver (MME adds ~100 ms on Windows).
             try:
                 self.stream=sd.OutputStream(device=i,samplerate=self.synth.sample_rate,channels=2,
-                                            blocksize=512,callback=self.audio_callback)
+                                            blocksize=buffer,latency="low",
+                                            callback=self.audio_callback)
             except Exception:
                 sr=int(sd.query_devices(i)["default_samplerate"])
-                self.synth.sample_rate=sr
+                self.synth.set_sample_rate(sr)
                 self.stream=sd.OutputStream(device=i,samplerate=sr,channels=2,
-                                            blocksize=512,callback=self.audio_callback)
+                                            blocksize=buffer,latency="low",
+                                            callback=self.audio_callback)
             self.stream.start()
+            try:
+                self.audio_latency=float(self.stream.latency)
+            except Exception:
+                self.audio_latency=0.0
             self.audio_name=name
             self.settings["audio"]=name
             self._save_settings()
@@ -735,6 +775,8 @@ class App:
             self.stream=None
 
     def audio_callback(self,outdata,frames,timing,status):
+        if getattr(status,"output_underflow",False):
+            self.underruns=getattr(self,"underruns",0)+1
         started=time.perf_counter()
         try:
             outdata[:]=self.synth.render(frames)
@@ -756,7 +798,7 @@ class App:
             return
         name = name if name in self.midi_devices else self.midi_devices[0]
         try:
-            self.port=mido.open_input(name,callback=lambda msg:self.events.put(("midi",msg)))
+            self.port=mido.open_input(name,callback=self.midi_callback)
             self.settings["midi"]=name
             self._save_settings()
         except Exception as exc:
@@ -863,31 +905,49 @@ class App:
         if ident not in ("modwheel","pitch_bend"):
             self.patch_dirty=True
 
-    def midi_message(self,msg):
-        self.last_midi=f"MIDI: {msg.type}"
+    def midi_callback(self,msg):
+        """MIDI thread: notes, bend and sustain reach the synth at once (the
+        synth is locked); the UI catches up from the queue."""
+        played=self.play_midi(msg)
+        self.events.put(("midi",msg,played))
+
+    def play_midi(self,msg):
+        """Sound-only part of a MIDI message; True if it was handled here."""
         if msg.type=="note_on" and msg.velocity:
             self.synth.note_on(msg.note,msg.velocity)
-            self.midi_held.add(msg.note)
         elif msg.type=="note_off" or (msg.type=="note_on" and not msg.velocity):
             self.synth.note_off(msg.note)
+        elif msg.type=="pitchwheel":
+            self.synth.pitch_bend=msg.pitch/8192*2
+        elif msg.type=="control_change" and msg.control==64 and not getattr(self,"learning",None):
+            self.synth.set_sustain(msg.value>=64)
+        else:
+            return False
+        return True
+
+    def midi_message(self,msg,played=False):
+        self.last_midi=f"MIDI: {msg.type}"
+        if not played and self.play_midi(msg):
+            played=True
+        if msg.type=="note_on" and msg.velocity:
+            self.midi_held.add(msg.note)
+        elif msg.type=="note_off" or (msg.type=="note_on" and not msg.velocity):
             self.midi_held.discard(msg.note)
+        elif played:
+            pass
         elif msg.type=="control_change" and getattr(self,"learning",None):
             self.learn_cc(msg.control)
-        elif msg.type=="control_change" and msg.control==64:
-            self.synth.set_sustain(msg.value>=64)
         elif msg.type=="program_change":
             entries=self.catalog()
             if entries:
                 self.load_catalog_entry(entries[msg.program % len(entries)])
-        elif msg.type=="pitchwheel":
-            self.synth.pitch_bend=msg.pitch/8192*2
         elif msg.type=="control_change":
             self.midi_control(msg.control,msg.value)
 
     def open_settings(self):
         box=tk.Toplevel(self.root)
         box.title("VENUS-8 — Audio e MIDI")
-        box.geometry("560x470")
+        box.geometry("560x540")
         box.configure(bg=PANEL)
         box.transient(self.root)
         tk.Label(box,text="DISPOSITIVOS DE ÁUDIO E MIDI",bg=PANEL,fg=GOLD,
@@ -910,11 +970,23 @@ class App:
         display.pack(pady=7)
         current=self.settings.get("display_mode","color")
         display.current(modes.index(current) if current in modes else 0)
+        tk.Label(box,text="Buffer de áudio (menor = menos latência)",bg=PANEL,fg=WHITE).pack()
+        buffers=list(BUFFER_SIZES)
+        buffer_box=ttk.Combobox(box,state="readonly",width=30,
+                                values=[f"{b} amostras (~{1000*b/self.synth.sample_rate:.1f} ms)" for b in buffers])
+        buffer_box.pack(pady=7)
+        current_buffer=int(self.settings.get("buffer",DEFAULT_BUFFER))
+        buffer_box.current(buffers.index(current_buffer) if current_buffer in buffers else buffers.index(DEFAULT_BUFFER))
         invert=tk.BooleanVar(value=self.settings.get("invert_drawbars",True))
         tk.Checkbutton(box,text="Drawbars por MIDI invertidos (fader para cima recolhe o drawbar)",
                        variable=invert,bg=PANEL,fg=WHITE,selectcolor=PANEL,
                        activebackground=PANEL,activeforeground=WHITE).pack(pady=(4,0))
         def apply():
+            if buffers[buffer_box.current()]!=int(self.settings.get("buffer",DEFAULT_BUFFER)):
+                self.settings["buffer"]=buffers[buffer_box.current()]
+                self._save_settings()
+                if audio.current()<0 and self.stream:
+                    self.open_audio(self.audio_name)
             if audio.current()>=0:self.open_audio(self.audio_devices[audio.current()][1])
             if midi.current()>=0:self.open_midi(self.midi_devices[midi.current()])
             if invert.get()!=self.settings.get("invert_drawbars",True):
@@ -1221,7 +1293,7 @@ class App:
             try:kind,*value=self.events.get_nowait()
             except queue.Empty:break
             if kind=="midi":
-                self.midi_message(value[0])
+                self.midi_message(value[0],played=value[1] if len(value)>1 else False)
                 dirty=True
             elif kind=="update_check":
                 rel,error,manual=value
@@ -1265,7 +1337,7 @@ class App:
                     self.update_error=str(exc)
                 dirty=True
         if dirty:self.draw()
-        self.root.after(70,self.poll)
+        self.root.after(15,self.poll)
 
     def close(self,force=False):
         if self.patch_dirty and not force:

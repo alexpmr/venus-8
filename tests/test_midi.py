@@ -110,6 +110,41 @@ class OrganSwitchTests(unittest.TestCase):
         self.assertEqual(app.synth.get_param("leslie"), 0.0)
 
 
+class LowLatencyTests(unittest.TestCase):
+    def test_notes_sound_on_the_midi_thread_and_the_ui_catches_up(self):
+        import queue
+        app = bare_app()
+        app.events = queue.Queue()
+        note = mock.Mock(type="note_on", note=60, velocity=100)
+        app.midi_callback(note)
+        self.assertIn(60, app.synth.voices)             # sounding before any UI poll
+        self.assertFalse(app.midi_held)
+        kind, msg, played = app.events.get_nowait()
+        self.assertTrue(played)
+        serial = app.synth.voices[60]["serial"]
+        app.midi_message(msg, played=played)
+        self.assertEqual(app.midi_held, {60})
+        self.assertEqual(app.synth.voices[60]["serial"], serial)   # not retriggered
+        app.midi_callback(mock.Mock(type="control_change", control=64, value=127))
+        self.assertTrue(app.synth.sustain)
+        app.midi_callback(mock.Mock(type="pitchwheel", pitch=8191))
+        self.assertGreater(app.synth.pitch_bend, 1.9)
+
+    def test_fast_drivers_come_first_and_old_settings_still_match(self):
+        from venus8.app import audio_outputs, pick_output
+        hostapis = [{"name": "MME"}, {"name": "Windows DirectSound"}, {"name": "Windows WASAPI"}]
+        devices = [{"name": "Speakers", "hostapi": 0, "max_output_channels": 2},
+                   {"name": "Mic", "hostapi": 0, "max_output_channels": 0},
+                   {"name": "Speakers", "hostapi": 1, "max_output_channels": 2},
+                   {"name": "Speakers", "hostapi": 2, "max_output_channels": 2}]
+        outputs = audio_outputs(devices, hostapis)
+        self.assertEqual(outputs[0], (3, "Speakers [Windows WASAPI]"))
+        self.assertEqual([label for _, label in outputs][-1], "Speakers [MME]")
+        self.assertEqual(pick_output(outputs, "Speakers"), outputs[0])         # pre-0.2.24 setting
+        self.assertEqual(pick_output(outputs, "Speakers [MME]"), (0, "Speakers [MME]"))
+        self.assertEqual(pick_output(outputs, None), outputs[0])
+
+
 class VoiceModeButtonTests(unittest.TestCase):
     def test_mode_buttons_switch_and_silence_hanging_notes(self):
         app = bare_app()

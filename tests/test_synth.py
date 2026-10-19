@@ -554,6 +554,19 @@ class TestPerformanceModes(unittest.TestCase):
         self.assertTrue(np.isfinite(moving).all())
 
 
+class TestSampleRate(unittest.TestCase):
+    def test_48k_device_renders_every_effect(self):
+        s = Synth()
+        s.set_sample_rate(48000)
+        s.load_params({"chorus_on": 1.0, "phaser_on": 1.0, "reverb_on": 1.0, "delay_mix": 0.3,
+                       "leslie": 1.0, "drawbar3": 1.0, "organ_vibrato": 1.0})
+        s.note_on(60)
+        audio = np.concatenate([s.render(480) for _ in range(50)])
+        self.assertEqual(len(s.delay_buffer), 96000)
+        self.assertTrue(np.isfinite(audio).all())
+        self.assertGreater(np.abs(audio).max(), 0.01)
+
+
 class TestArpeggiator(unittest.TestCase):
     def run_arp(self, keys=(60, 64, 67), steps=8, block=64, **params):
         s = Synth()
