@@ -44,6 +44,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.9 — Controles reais e independentes
+
+- ✅ Teclado real de 85 teclas (C1–C8) com padrão correto de piano; cada tecla é um objeto independente que acende somente com mouse ou MIDI.
+- ✅ Teclas acesas e padrão irregular de teclas pretas do mockup removidos da arte.
+- ✅ Os 12 knobs ativos redesenhados como componentes giratórios com anel de LEDs; ponteiros pintados removidos da arte.
+- ✅ Tampas dos 9 faders ativos removidas da arte e redesenhadas como objetos móveis.
+- ✅ Atualização incremental: cada controle se atualiza individualmente, sem recriar o painel a cada evento.
+- ✅ Testes automatizados de layout do teclado, limpeza da arte, knobs e teclas.
+- ✅ Testes executados em todo pull request (workflow `Tests`), sem compilar ou publicar.
+- [ ] Homologar aparência e resposta de mouse/MIDI no Windows real (Full HD, 2K e 4K).
+- [ ] Botões de forma de onda, LEDs e controles futuros ainda pintados na arte; converter ao implementar cada recurso.
+
 ## v0.2.6 — Arte oficial HD e identidade do Windows
 
 - ✅ Mockup original **1600 × 959 PNG sem perda**, armazenado no GitHub como `docs/venus-8-mockup.png`.
@@ -55,7 +67,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Ajuste de DPI por monitor no Windows para reduzir perda de nitidez.
 - ✅ Teste automático para validar a resolução da imagem e a geração do ícone.
 - [ ] Testar no Windows 10/11 em monitor Full HD, 2K e 4K.
-- [ ] Aperfeiçoar elementos dinâmicos sobre a arte: ponteiros, faders e notas efetivamente pressionadas.
+- ✅ Aperfeiçoar elementos dinâmicos sobre a arte: ponteiros, faders e notas efetivamente pressionadas (v0.2.9).
 - [ ] Validar produção sonora e atualizador na v0.2.6.
 
 ## v0.2.4 — Validação do layout definitivo Windows
