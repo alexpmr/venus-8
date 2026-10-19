@@ -526,8 +526,30 @@ PERFORMANCE_PROGRAMS = (
         "attack": 0.45, "decay": 0.5, "sustain": 0.85, "release": 0.5, "chorus_on": 1.0,
         "chorus_depth": 0.5, "reverb_on": 1.0, "reverb_mix": 0.3, "volume": 0.8}),
 )
+# Arpeggiator (v0.2.23): hold a chord and it plays itself.
+ARP_PROGRAMS = (
+    ("Classic Arp", "Arp", "Arpejo para cima em 2 oitavas com pluck brilhante.", {
+        "arp_on": 1.0, "arp_mode": 0.0, "arp_rate": 0.45, "arp_gate": 0.45, "arp_oct": 1 / 3,
+        "osc1_wave": 0.0, "osc2_wave": 0.33, "osc1_level": 0.8, "osc2_level": 0.5,
+        "osc3_level": 0.0, "osc2_tune": 0.505, "cutoff": 0.4, "resonance": 0.4,
+        "filter_env_on": 1.0, "fenv_decay": 0.25, "fenv_sustain": 0.0, "attack": 0.0,
+        "decay": 0.3, "sustain": 0.4, "release": 0.15, "delay_mix": 0.2,
+        "delay_time": 0.35, "volume": 0.7}),
+    ("Random Arp", "Arp", "Notas aleatórias do acorde, com eco e reverb.", {
+        "arp_on": 1.0, "arp_mode": 0.75, "arp_rate": 0.5, "arp_gate": 0.3, "arp_oct": 2 / 3,
+        "osc1_wave": 1 / 3, "osc1_level": 0.8, "osc2_level": 0.0, "osc3_level": 0.0,
+        "osc1_pw": 0.4, "cutoff": 0.55, "resonance": 0.3, "attack": 0.0, "decay": 0.25,
+        "sustain": 0.3, "release": 0.2, "delay_mix": 0.3, "delay_feedback": 0.45,
+        "reverb_on": 1.0, "reverb_mix": 0.25, "volume": 0.75}),
+    ("Hold Arp Pad", "Arp", "Arpejo sobe e desce que continua tocando (HOLD).", {
+        "arp_on": 1.0, "arp_hold": 1.0, "arp_mode": 0.5, "arp_rate": 0.3, "arp_gate": 0.8,
+        "arp_oct": 1 / 3, "osc1_wave": 0.0, "osc2_wave": 0.0, "osc1_level": 0.7,
+        "osc2_level": 0.6, "osc3_level": 0.0, "osc2_tune": 0.507, "cutoff": 0.5,
+        "resonance": 0.2, "attack": 0.05, "decay": 0.4, "sustain": 0.7, "release": 0.4,
+        "chorus_on": 1.0, "reverb_on": 1.0, "reverb_mix": 0.35, "volume": 0.6}),
+)
 PROGRAMS = (PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
-            + PERFORMANCE_PROGRAMS)
+            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS)
 
 
 def factory_programs():

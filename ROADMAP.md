@@ -44,6 +44,16 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.23 — Arpeggiator
+
+- ✅ ARPEGGIATOR ativo: ON (LED e botão ARP), MODE (Up, Down, Up/Down, Random, As Played), RATE (40–240 BPM, notas de 1/16), GATE (5–100 %) e OCT (1 a 4 oitavas).
+- ✅ HOLD: o arpejo continua depois de soltar as teclas; um novo acorde substitui o anterior.
+- ✅ Tempo exato por amostra (o áudio é dividido em cada passo do arpejo), funciona com teclado virtual e MIDI.
+- ✅ Nova categoria Arp com 3 timbres: Classic Arp, Random Arp e Hold Arp Pad (84 timbres).
+- ✅ Testes de modos, oitavas, gate, tempo, hold e desligamento sem notas presas.
+- [ ] SYNC do arpejo com o clock MIDI (BPM externo).
+- [ ] Homologar no Windows real.
+
 ## v0.2.22 — Filtro completo, LFOs, Reverb e Performance
 
 - ✅ FILTER ENV ativo (A, D, S, R) com o botão ENV: envelope de filtro parafônico (um envelope para o filtro, redisparado a cada nova tecla e liberado quando nenhuma tecla está pressionada), até 4,5 oitavas.
@@ -393,8 +403,10 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 
 ## v0.8 — Arpeggiator e Step Sequencer
 
-- [ ] Arpeggiator Up/Down/Up-Down/Random e Chord
-- [ ] Latch, Hold, Gate, Swing e oitavas
+- ✅ Arpeggiator Up/Down/Up-Down/Random/As Played (v0.2.23).
+- [ ] Modo Chord
+- ✅ Hold (latch), Gate e oitavas (v0.2.23).
+- [ ] Swing
 - [ ] Divisões rítmicas e sincronismo BPM/DAW
 - [ ] Sequencer 16/32/64 passos
 - [ ] Edição de nota, Velocity, Gate, Tie e Rest por passo

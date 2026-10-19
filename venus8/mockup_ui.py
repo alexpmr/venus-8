@@ -17,13 +17,13 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          FX_LEDS, CHORUS_TITLE, CHORUS_TITLE_BOX, TUBE_WINDOW, render_tube,
                          LED_CLICK, FILTER_TYPE_BOX, FILTER_TYPE_TEXT, LFO_WAVE_BOXES,
                          render_lfo_button, VOICE_MODE_BOXES, VOICE_MODE_LABELS,
-                         render_mode_button,
+                         render_mode_button, ARP_MODE_BOX, ARP_MODE_TEXT, ARP_BUTTONS,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
                          render_knob, wave_box)
 from .display import LiveDisplay, format_value
-from .synth import FILTER_TYPES
+from .synth import ARP_MODES, FILTER_TYPES
 
 ART_W, ART_H = 1600, 959
 
@@ -215,6 +215,28 @@ class MockupRenderer:
                                                    text="", anchor="w", fill="#e8e3da",
                                                    font=("Segoe UI", max(6, round(11*scale)), "normal"))
         app.buttons["filter_type"] = FILTER_TYPE_BOX
+        # Arpeggiator mode selector and the ARP / HOLD buttons.
+        tx1, ty1, tx2, ty2 = ARP_MODE_TEXT
+        self.arp_mode_text = canvas.create_text(*app.bounds(tx1 + 3, (ty1 + ty2) / 2, 0, 0)[:2],
+                                                text="", anchor="w", fill="#e8e3da",
+                                                font=("Segoe UI", max(6, round(10*scale)), "normal"))
+        app.buttons["arp_mode"] = ARP_MODE_BOX
+        x, y, r = KNOBS["arp_oct"]                # its painted 1..4 scale was under the knob
+        for number in range(4):
+            angle = math.radians(180 + 60 * number)
+            canvas.create_text(*app.bounds(x + (r + 9) * math.cos(angle),
+                                           y + (r + 9) * math.sin(angle), 0, 0)[:2],
+                               text=str(number + 1), fill="#d8d2c8",
+                               font=("Segoe UI", max(5, round(7*scale)), "bold"))
+        self.arp_items = {}
+        for ident, (label, box) in ARP_BUTTONS.items():
+            size_px = (box[2] - box[0], box[3] - box[1])
+            faces = tuple(self.photo(render_mode_button(label, lit, size_px, scale))
+                          for lit in (False, True))
+            sx, sy = app.bounds(*box)[:2]
+            self.arp_items[ident] = [canvas.create_image(round(sx), round(sy), image=faces[0],
+                                                         anchor="nw"), faces, False]
+            app.buttons[f"switch:{ident}"] = box
         # Voice mode buttons.
         self.mode_items = {}
         for index, box in enumerate(VOICE_MODE_BOXES):
@@ -287,7 +309,7 @@ class MockupRenderer:
         if frame not in self.knob_frames:
             _, _, r = KNOBS[ident]
             self.knob_frames[frame] = self.photo(render_knob(
-                r, frame[1] / 100, self.app.scale, detents=ident in DETENT_KNOBS))
+                r, frame[1] / 100, self.app.scale, detents=DETENT_KNOBS.get(ident, False)))
         return self.knob_frames[frame]
 
     def update(self):
@@ -329,6 +351,13 @@ class MockupRenderer:
         for ident, item in self.led_items.items():
             on = app.synth.get_param(ident) >= 0.5
             canvas.itemconfigure(item, state="normal" if on else "hidden")
+        for ident, entry in self.arp_items.items():
+            lit = app.synth.get_param(ident) >= 0.5
+            if lit != entry[2]:
+                canvas.itemconfigure(entry[0], image=entry[1][lit])
+                entry[2] = lit
+        canvas.itemconfigure(self.arp_mode_text,
+                             text=ARP_MODES[round(app.synth.get_param("arp_mode") * 4)])
         mode = round(app.synth.get_param("voice_mode") * 3)
         for index, entry in self.mode_items.items():
             if (index == mode) != entry[2]:
