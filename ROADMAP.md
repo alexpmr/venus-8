@@ -1,6 +1,6 @@
 # VENUS-8 — Roadmap de desenvolvimento
 
-<p align="center"><img src="docs/venus-8-mockup.jpg" alt="Venus-8: interface final de referência" width="100%"></p>
+<p align="center"><img src="docs/venus-8-mockup.png" alt="Venus-8: interface final de referência" width="100%"></p>
 
 **Escopo de plataformas (até nova orientação): somente Windows 10/11 x64, instalador e portátil em `.exe`. Nenhum build macOS/Linux.**
 
