@@ -17,6 +17,7 @@ import sounddevice as sd
 
 from . import __version__
 from .synth import DEFAULTS, WAVES, Synth
+from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
 
@@ -105,7 +106,12 @@ class App:
         self.controls = {}
         self.scale = 1.0
         self.offset = (0, 0)
-        self.patch_name = "INIT ANALOG"
+        self.patch_name = "Ladder Bass"
+        self.patch_bank = "Factory"
+        self.patch_category = "Bass"
+        self.patch_description = "Baixo vintage encorpado"
+        self.patch_identity = ("Factory", self.patch_name)
+        self.synth.load_params(factory_programs()[0]["params"])
         self.patch_dirty = False
         self.patch_dir = Path(os.environ.get("APPDATA") or Path.home()) / "Venus-8" / "Patches"
         self.patch_dir.mkdir(parents=True, exist_ok=True)
@@ -576,8 +582,12 @@ class App:
             self.open_settings()
         elif ident=="save":
             self.save_patch()
-        elif ident in ("load", "browse"):
+        elif ident == "browse":
+            self.browse_patches()
+        elif ident == "load":
             self.load_patch()
+        elif ident in ("bank", "category"):
+            self.browse_patches(default_bank="Factory" if ident == "bank" else "Todos")
         elif ident=="panic":
             self.panic()
         elif ident=="check_update":
@@ -732,9 +742,12 @@ class App:
              initialfile=self.patch_name+".json",defaultextension=".json",filetypes=[("Venus Patch","*.json")])
         if not filename:return
         try:
-            data={"format":"venus8-patch","schema":2,"name":Path(filename).stem,"params":self.synth.snapshot()}
+            data={"format":"venus8-patch","schema":2,"name":Path(filename).stem,"category":self.patch_category,"description":self.patch_description,"params":self.synth.snapshot()}
             Path(filename).write_text(json.dumps(data,indent=2),encoding="utf-8")
             self.patch_name=Path(filename).stem
+            self.patch_bank="User"
+            self.patch_category=self.patch_category if self.patch_category != "Uncategorized" else "User"
+            self.patch_identity=("User",str(Path(filename).resolve()))
             self.patch_dirty=False
         except Exception as exc:
             messagebox.showerror("Salvar patch",str(exc),parent=self.root)
@@ -747,8 +760,13 @@ class App:
             params={k:v for k,v in data.items() if k in DEFAULTS}
             if data.get("wave") in WAVES:params["osc1_wave"]=WAVES.index(data["wave"])/3
         if not isinstance(params,dict):raise ValueError("Invalid patch parameters")
+        self.synth.panic()
         self.synth.load_params(params)
         self.patch_name=str(data.get("name") or Path(path).stem)[:40]
+        self.patch_category=str(data.get("category") or "User")
+        self.patch_bank="User"
+        self.patch_description=str(data.get("description") or "Timbre do usuário")
+        self.patch_identity=("User",str(Path(path).resolve()))
         self.patch_dirty=False
         self.draw()
 
@@ -758,12 +776,140 @@ class App:
             try:self.open_patch(filename)
             except Exception as exc:messagebox.showerror("Abrir patch",str(exc),parent=self.root)
 
+    def catalog(self):
+        """Factory programs plus user JSON patches, without altering Factory assets."""
+        entries=[]
+        for program in factory_programs():
+            entries.append({"name":program["name"], "bank":"Factory",
+                            "category":program["category"],
+                            "description":program["description"],
+                            "identity":("Factory",program["name"]),
+                            "data":program})
+        for path in sorted(self.patch_dir.glob("*.json")):
+            try:
+                contents=json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(contents,dict):
+                    continue
+            except (OSError, ValueError):
+                continue
+            entries.append({"name":str(contents.get("name") or path.stem),
+                            "category":str(contents.get("category") or "User"),
+                            "bank":"User",
+                            "description":str(contents.get("description") or "Timbre do usuário"),
+                            "identity":("User",str(path.resolve())), "path":path})
+        return entries
+
+    def load_catalog_entry(self,entry):
+        if self.patch_dirty and not messagebox.askyesno(
+            "Venus-8", "O timbre atual foi alterado. Descartar as alterações?",
+            parent=self.root):
+            return False
+        if entry["bank"] == "Factory":
+            self.synth.panic()
+            self.synth.load_params(entry["data"]["params"])
+            self.patch_name=entry["name"]
+            self.patch_bank="Factory"
+            self.patch_category=entry["category"]
+            self.patch_description=entry["description"]
+            self.patch_identity=entry["identity"]
+            self.patch_dirty=False
+            self.draw()
+        else:
+            try:
+                self.open_patch(entry["path"])
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                messagebox.showerror("Abrir patch",str(exc),parent=self.root)
+                return False
+        return True
+
+    def browse_patches(self,default_bank="Todos"):
+        entries=self.catalog()
+        window=tk.Toplevel(self.root)
+        window.title("VENUS-8 — Browser de timbres")
+        window.configure(bg=PANEL)
+        window.geometry("840x525")
+        window.minsize(690,425)
+        window.transient(self.root)
+        bar=tk.Frame(window,bg=PANEL)
+        bar.pack(fill="x",padx=15,pady=(16,10))
+        tk.Label(bar,text="ANALOG CLASSICS",fg=GOLD,bg=PANEL,
+                 font=("Segoe UI",18,"bold")).pack(side="left",padx=(0,24))
+        tk.Label(bar,text="Banco",fg=WHITE,bg=PANEL).pack(side="left")
+        bank=ttk.Combobox(bar,values=("Todos","Factory","User"),
+                          state="readonly",width=11)
+        bank.set(default_bank)
+        bank.pack(side="left",padx=6)
+        tk.Label(bar,text="Categoria",fg=WHITE,bg=PANEL).pack(side="left")
+        categories=sorted({x["category"] for x in entries})
+        category=ttk.Combobox(bar,values=["Todas"]+categories,
+                              state="readonly",width=13)
+        category.set("Todas")
+        category.pack(side="left",padx=6)
+        columns=("bank","category","name")
+        table=ttk.Treeview(window,columns=columns,show="headings",selectmode="browse",height=13)
+        for key,label,width in (("bank","Banco",110),("category","Categoria",110),("name","Timbre",380)):
+            table.heading(key,text=label)
+            table.column(key,width=width,anchor="w",stretch=key=="name")
+        table.pack(fill="both",expand=True,padx=16)
+        desc=tk.StringVar(value="Escolha um timbre Factory ou User.")
+        tk.Label(window,textvariable=desc,bg=PANEL,fg=WHITE,
+                 wraplength=790,justify="left",anchor="w").pack(fill="x",padx=17,pady=12)
+        visible=[]
+        def refresh(*unused):
+            visible.clear()
+            table.delete(*table.get_children())
+            for entry in entries:
+                if bank.get() != "Todos" and entry["bank"] != bank.get():
+                    continue
+                if category.get() != "Todas" and entry["category"] != category.get():
+                    continue
+                visible.append(entry)
+                table.insert("", "end", iid=str(len(visible)-1),
+                             values=(entry["bank"],entry["category"],entry["name"]))
+            for idx,entry in enumerate(visible):
+                if entry["identity"] == self.patch_identity:
+                    table.selection_set(str(idx))
+                    table.see(str(idx))
+                    break
+            if visible and not table.selection():
+                table.selection_set("0")
+            show_info()
+        def selected_entry():
+            selection=table.selection()
+            if not selection:
+                return None
+            return visible[int(selection[0])]
+        def show_info(*unused):
+            entry=selected_entry()
+            desc.set((f"{entry['name']}  •  {entry['bank']} / {entry['category']}\n"
+                      f"{entry['description']}") if entry else "Nenhum timbre nesta categoria.")
+        def load_current(*unused):
+            entry=selected_entry()
+            if entry and self.load_catalog_entry(entry):
+                window.destroy()
+        buttons=tk.Frame(window,bg=PANEL)
+        buttons.pack(fill="x",padx=16,pady=(0,15))
+        tk.Button(buttons,text="CARREGAR TIMBRE",command=load_current,
+                  bg="#b36c3c",fg="white").pack(side="left",padx=4)
+        def import_patch():
+            window.destroy()
+            self.load_patch()
+        tk.Button(buttons,text="IMPORTAR JSON",command=import_patch).pack(side="left",padx=8)
+        tk.Button(buttons,text="FECHAR",command=window.destroy).pack(side="right")
+        bank.bind("<<ComboboxSelected>>",refresh)
+        category.bind("<<ComboboxSelected>>",refresh)
+        table.bind("<<TreeviewSelect>>",show_info)
+        table.bind("<Double-1>",load_current)
+        table.bind("<Return>",load_current)
+        refresh()
+
     def cycle_patch(self,direction):
-        paths=sorted(self.patch_dir.glob("*.json"))
-        if not paths:return
-        names=[p.stem for p in paths]
-        i=names.index(self.patch_name) if self.patch_name in names else -1
-        self.open_patch(paths[(i+direction)%len(paths)])
+        entries=self.catalog()
+        if not entries:
+            return
+        selected=next((i for i,entry in enumerate(entries)
+                       if entry["identity"]==self.patch_identity),-1)
+        self.load_catalog_entry(entries[(selected+direction)%len(entries)])
 
     def panic(self):
         self.synth.panic()
