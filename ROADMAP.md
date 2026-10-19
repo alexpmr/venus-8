@@ -44,15 +44,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
-## v0.2.22 — Filtro completo, LFOs e Reverb
+## v0.2.22 — Filtro completo, LFOs, Reverb e Performance
 
 - ✅ FILTER ENV ativo (A, D, S, R) com o botão ENV: envelope de filtro parafônico (um envelope para o filtro, redisparado a cada nova tecla e liberado quando nenhuma tecla está pressionada), até 4,5 oitavas.
 - ✅ KEY TRACK: o corte do filtro acompanha a nota tocada (última nota).
 - ✅ Seletor de filtro: Low Pass 24 dB, Low Pass 12 dB, Band Pass 12 dB e High Pass 12 dB (clique no seletor).
 - ✅ LFO 1 e LFO 2 com formas de onda SINE, TRI, SAW e S&H (aleatório), FADE (entrada gradual após a primeira tecla) e SYNC (o LFO recomeça a cada primeira tecla).
 - ✅ REVERB (SIZE, DAMP, MIX e LED) estéreo e WIDTH no MASTER (0 = mono, centro = normal, máximo = mais largo).
-- ✅ 6 timbres novos: Envelope Bass, Acid Line, Bandpass Pluck, Cathedral Pad, Random Bleeps e Delayed Vibrato Lead (77 timbres).
-- ✅ Testes dos tipos de filtro, envelope de filtro, key track, ondas/fade/sync dos LFOs, reverb, width e independência do tamanho de bloco.
+- ✅ Modos de voz POLY, MONO (última nota tem prioridade e volta à tecla ainda pressionada), LEGATO (desliza sem redisparar o envelope) e UNISON (4 cópias desafinadas pelo knob DETUNE).
+- ✅ GLIDE (portamento) com o knob TIME, em qualquer modo.
+- ✅ PW (largura de pulso) e PWM (modulação pelo LFO 1) nos 3 osciladores, na onda PULSE.
+- ✅ 10 timbres novos: Envelope Bass, Acid Line, Bandpass Pluck, Cathedral Pad, Random Bleeps, Delayed Vibrato Lead, Glide Lead, Slide Bass, Unison Saw e PWM Strings (81 timbres).
+- ✅ Testes dos tipos de filtro, envelope de filtro, key track, ondas/fade/sync dos LFOs, reverb, width, modos de voz, glide, unison, PW/PWM e independência do tamanho de bloco.
 - [ ] Homologar no Windows real.
 
 ## v0.2.21 — Efeitos, válvula, CP-70 e estilo no display
@@ -303,7 +306,7 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 ## v0.2 — Síntese analógica
 
 - [ ] Três VCOs independentes e antialiasing
-- [ ] Ondas sine/saw/triangle/square/pulse com PWM
+- ✅ Ondas sine/saw/triangle/pulse com PW e PWM (v0.2.22).
 - ✅ Coarse/Fine Tune e ajuste de oitavas por VCO (v0.2.14).
 - ✅ FM entre osciladores (v0.2.19).
 - [ ] Oscillator Sync, Hard Sync, Ring Mod e Cross Mod
@@ -321,9 +324,11 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 
 ## v0.3 — Polifonia e performance
 
-- [ ] Modos Mono, Poly, Legato, Unison
-- [ ] Unison Detune e Stereo Spread
-- [ ] Glide/Portamento: tempo e comportamento
+- ✅ Modos Mono, Poly, Legato, Unison (v0.2.22).
+- ✅ Unison Detune (v0.2.22).
+- [ ] Stereo Spread
+- ✅ Glide/Portamento com tempo (v0.2.22).
+- [ ] Modo CONST (tempo constante x taxa)
 - [ ] Pitch Bend e Mod Wheel operacionais e sincronizados na interface
 - [ ] Velocity, Channel Pressure, Poly Aftertouch
 - [ ] Voice Allocation/Stealing e prioridades Last/Low/High

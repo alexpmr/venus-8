@@ -16,7 +16,8 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          ORGAN_LABEL_X, ORGAN_SWITCHES, render_switch, FM_BUTTONS,
                          FX_LEDS, CHORUS_TITLE, CHORUS_TITLE_BOX, TUBE_WINDOW, render_tube,
                          LED_CLICK, FILTER_TYPE_BOX, FILTER_TYPE_TEXT, LFO_WAVE_BOXES,
-                         render_lfo_button,
+                         render_lfo_button, VOICE_MODE_BOXES, VOICE_MODE_LABELS,
+                         render_mode_button,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -214,6 +215,16 @@ class MockupRenderer:
                                                    text="", anchor="w", fill="#e8e3da",
                                                    font=("Segoe UI", max(6, round(11*scale)), "normal"))
         app.buttons["filter_type"] = FILTER_TYPE_BOX
+        # Voice mode buttons.
+        self.mode_items = {}
+        for index, box in enumerate(VOICE_MODE_BOXES):
+            size_px = (box[2] - box[0], box[3] - box[1])
+            faces = tuple(self.photo(render_mode_button(VOICE_MODE_LABELS[index], lit, size_px, scale))
+                          for lit in (False, True))
+            sx, sy = app.bounds(*box)[:2]
+            self.mode_items[index] = [canvas.create_image(round(sx), round(sy), image=faces[0],
+                                                          anchor="nw"), faces, False]
+            app.buttons[f"voicemode{index}"] = box
         # LFO wave buttons: lit and unlit faces, one object each.
         self.lfo_items = {}
         for (lfo, index), box in LFO_WAVE_BOXES.items():
@@ -318,6 +329,11 @@ class MockupRenderer:
         for ident, item in self.led_items.items():
             on = app.synth.get_param(ident) >= 0.5
             canvas.itemconfigure(item, state="normal" if on else "hidden")
+        mode = round(app.synth.get_param("voice_mode") * 3)
+        for index, entry in self.mode_items.items():
+            if (index == mode) != entry[2]:
+                canvas.itemconfigure(entry[0], image=entry[1][index == mode])
+                entry[2] = index == mode
         for (lfo, index), entry in self.lfo_items.items():
             name = "lfo_wave" if lfo == 1 else "lfo2_wave"
             lit = round(app.synth.get_param(name) * 3) == index

@@ -635,6 +635,9 @@ class App:
         if ident.startswith("wave"):
             _,number,index = ident[0:4],int(ident[4]),int(ident[6])
             self.change(f"osc{number}_wave",index/3)
+        elif ident.startswith("voicemode"):
+            self.synth.panic()               # no hanging notes across a mode change
+            self.change("voice_mode",int(ident[9])/3)
         elif ident.startswith("lfowave"):
             lfo,index=int(ident[7]),int(ident[9])
             self.change("lfo_wave" if lfo==1 else "lfo2_wave",index/3)

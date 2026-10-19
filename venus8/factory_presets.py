@@ -498,7 +498,36 @@ FILTER_PROGRAMS = (
         "attack": 0.01, "sustain": 0.9, "release": 0.2, "reverb_on": 1.0,
         "reverb_mix": 0.2, "volume": 0.75}),
 )
-PROGRAMS = PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
+# Voice modes, glide, unison and PWM (v0.2.22).
+PERFORMANCE_PROGRAMS = (
+    ("Glide Lead", "Lead", "Lead monofônico legato com glide entre as notas.", {
+        "voice_mode": 2 / 3, "glide_time": 0.35, "osc1_wave": 0.0, "osc2_wave": 0.0,
+        "osc1_level": 0.8, "osc2_level": 0.6, "osc3_level": 0.0, "osc2_tune": 0.505,
+        "sub_level": 0.2, "cutoff": 0.55, "resonance": 0.3, "drive": 0.3,
+        "filter_env_on": 1.0, "fenv_decay": 0.4, "fenv_sustain": 0.4, "attack": 0.005,
+        "sustain": 0.9, "release": 0.15, "lfo2_rate": 0.45, "lfo2_depth": 0.12,
+        "lfo2_fade": 0.4, "volume": 0.5}),
+    ("Slide Bass", "Bass", "Baixo mono que desliza entre notas ligadas.", {
+        "voice_mode": 2 / 3, "glide_time": 0.2, "osc1_wave": 0.33, "osc1_level": 0.9,
+        "osc2_level": 0.4, "osc2_octave": 0.25, "osc3_level": 0.0, "sub_level": 0.4,
+        "cutoff": 0.3, "resonance": 0.35, "filter_env_on": 1.0, "fenv_decay": 0.3,
+        "fenv_sustain": 0.2, "attack": 0.002, "sustain": 0.85, "release": 0.1,
+        "volume": 0.6}),
+    ("Unison Saw", "Lead", "Quatro serras desafinadas em uníssono: enorme e brilhante.", {
+        "voice_mode": 1.0, "unison_detune": 0.7, "osc1_wave": 0.0, "osc1_level": 0.8,
+        "osc2_level": 0.0, "osc3_level": 0.0, "sub_level": 0.25, "cutoff": 0.7,
+        "resonance": 0.15, "attack": 0.005, "sustain": 0.9, "release": 0.2,
+        "chorus_on": 1.0, "chorus_depth": 0.4, "reverb_on": 1.0, "reverb_mix": 0.2,
+        "volume": 0.75}),
+    ("PWM Strings", "Strings", "Cordas de pulso com PWM lento, estilo anos 80.", {
+        "osc1_wave": 1 / 3, "osc2_wave": 1 / 3, "osc1_level": 0.7, "osc2_level": 0.6,
+        "osc3_level": 0.0, "osc2_tune": 0.506, "osc1_pwm": 0.6, "osc2_pwm": 0.5,
+        "lfo_rate": 0.22, "lfo_depth": 0.0, "cutoff": 0.55, "resonance": 0.1,
+        "attack": 0.45, "decay": 0.5, "sustain": 0.85, "release": 0.5, "chorus_on": 1.0,
+        "chorus_depth": 0.5, "reverb_on": 1.0, "reverb_mix": 0.3, "volume": 0.8}),
+)
+PROGRAMS = (PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
+            + PERFORMANCE_PROGRAMS)
 
 
 def factory_programs():

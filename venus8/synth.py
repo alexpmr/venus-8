@@ -38,6 +38,8 @@ EP_SLOT = 4 + len(DRAWBARS)
 DEFAULTS["ep_model"] = 0.0
 GRAND_PARTIALS = 10
 GRAND_SLOT = EP_SLOT + 1
+UNISON_SLOT = GRAND_SLOT + 10      # 4 copies x (OSC1-3 + sub) phase slots
+PHASE_SLOTS = UNISON_SLOT + 4 * 4
 # Effects: chorus/flanger (one unit, chorus_type 0/1) and a 4-stage phaser.
 DEFAULTS.update({"chorus_on": 0.0, "chorus_type": 0.0, "chorus_depth": 0.5,
                  "chorus_rate": 0.3, "phaser_on": 0.0, "phaser_depth": 0.6,
@@ -62,6 +64,14 @@ DEFAULTS.update({"reverb_on": 0.0, "reverb_size": 0.5, "reverb_damp": 0.4,
 REVERB_COMBS = (1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617)
 REVERB_ALLPASSES = (556, 441, 341, 225)
 REVERB_SPREAD = 23
+# Performance: voice mode (Poly, Mono, Legato, Unison), unison detune, glide,
+# and pulse width / PWM (by LFO 1) on each oscillator.
+VOICE_MODES = ("Poly", "Mono", "Legato", "Unison")
+DEFAULTS.update({"voice_mode": 0.0, "unison_detune": 0.3, "glide_time": 0.0})
+DEFAULTS.update({f"osc{i}_pw": 0.0 for i in (1, 2, 3)})
+DEFAULTS.update({f"osc{i}_pwm": 0.0 for i in (1, 2, 3)})
+UNISON_COPIES = 4
+UNISON_CENTS = 30.0               # outer copies at full DETUNE
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -106,6 +116,7 @@ class Synth:
         self.last_note = 60
         self.fenv = {"level": 0.0, "time": 0.0, "gate": False, "from": 0.0}
         self.sustain = False            # sustain pedal (MIDI CC64)
+        self.held = []                  # keys held, in order (mono modes)
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -299,6 +310,23 @@ class Synth:
         with self.lock:
             if velocity <= 0:
                 return self.note_off(note)
+            mode = self.voice_mode
+            glide = 0.0
+            if self.params["glide_time"] > 0.001 and self.voices:
+                glide = self.sounding_pitch() - note
+            if mode:
+                if note in self.held:
+                    self.held.remove(note)
+                self.held.append(note)
+                current = max(self.voices.values(), key=lambda v: v["serial"], default=None)
+                if mode == 2 and current is not None and current["gate"]:
+                    # Legato: the sounding voice slides to the new note, no retrigger.
+                    self._move_voice(current, note, glide)
+                    self.last_note = note
+                    return
+                attack_from = current["level"] if current is not None else 0.0
+                phases = list(current["phases"]) if current is not None else None
+                self.voices.clear()
             if len(self.voices) >= self.max_voices and note not in self.voices:
                 victim = min(self.voices, key=lambda k: self.voices[k]["serial"])
                 del self.voices[victim]
@@ -316,15 +344,49 @@ class Synth:
             self.fenv.update(gate=True, time=0.0, start=self.fenv["level"])
             self.voices[note] = {
                 "perc": percussion,
-                "phases": [0.0] * (GRAND_SLOT + GRAND_PARTIALS), "age": 0.0,
+                "phases": [0.0] * PHASE_SLOTS, "age": 0.0,
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
                 "env_time": 0.0, "release_time": 0.0,
                 "release_start": 0.0, "mod_level": 0.0, "mod_release_start": 0.0,
+                "glide": glide, "attack_from": 0.0,
             }
+            if mode:
+                # Mono and Unison retrigger from the current level (no click).
+                self.voices[note]["attack_from"] = attack_from
+                if phases is not None:
+                    self.voices[note]["phases"] = phases
+
+    @property
+    def voice_mode(self):
+        return round(self.params["voice_mode"] * 3)
+
+    def sounding_pitch(self):
+        """Pitch (note number) of the newest voice, including any glide left."""
+        note, voice = max(self.voices.items(), key=lambda item: item[1]["serial"])
+        return note + voice.get("glide", 0.0)
+
+    def _move_voice(self, voice, note, glide):
+        for key in [k for k, v in self.voices.items() if v is voice]:
+            del self.voices[key]
+        voice["glide"] = glide if self.params["glide_time"] > 0.001 else 0.0
+        self.voice_serial += 1
+        voice["serial"] = self.voice_serial
+        self.voices[note] = voice
 
     def note_off(self, note):
         with self.lock:
+            note = int(note)
+            if self.voice_mode:
+                if note in self.held:
+                    self.held.remove(note)
+                voice = self.voices.get(note)
+                if voice is not None and voice["gate"] and self.held and not self.sustain:
+                    # Last-note priority: fall back to the previous held key.
+                    back = self.held[-1]
+                    self._move_voice(voice, back, note + voice.get("glide", 0.0) - back)
+                    self.last_note = back
+                    return
             if int(note) in self.voices:
                 voice = self.voices[int(note)]
                 if self.sustain:
@@ -351,6 +413,7 @@ class Synth:
     def panic(self):
         with self.lock:
             self.voices.clear()
+            self.held = []
             self.sustain = False
             self.lowpass = 0.0
             self.filter_states = [0.0, 0.0, 0.0, 0.0]
@@ -379,7 +442,7 @@ class Synth:
             ph = start + step * t
             end = start + step * len(t)
         else:
-            step = step * bend_curve[None, :]
+            step = step * bend_curve
             run = np.cumsum(step, axis=1)
             ph = start + run - step
             end = start + run[:, -1:]
@@ -424,7 +487,7 @@ class Synth:
                 ph = start + step * t
                 end = start + step * len(t)
             else:
-                step = step * bend_curve[None, :]
+                step = step * bend_curve
                 run = np.cumsum(step, axis=1)
                 ph = start + run - step
                 end = start + run[:, -1:]
@@ -452,9 +515,10 @@ class Synth:
         return 0.002 + attack ** 2 * 3.0, 0.01 + decay ** 2 * 2.0, 0.01 + release ** 2 * 4.0
 
     @staticmethod
-    def _adsr(gate, held, gone, start_level, attack, decay, sustain, release):
-        """Sample-accurate ADSR; the release starts from the current level."""
-        up = np.clip(held / max(0.002, attack), 0.0, 1.0)
+    def _adsr(gate, held, gone, start_level, attack, decay, sustain, release, attack_from=0.0):
+        """Sample-accurate ADSR; the release starts from the current level and
+        the attack from ``attack_from`` (mono retrigger)."""
+        up = attack_from + (1.0 - attack_from) * np.clip(held / max(0.002, attack), 0.0, 1.0)
         down = sustain + (1.0 - sustain) * np.clip(
             1.0 - (held - attack) / max(0.005, decay), 0.0, 1.0)
         return np.where(gate, np.where(held < attack, up, down),
@@ -468,14 +532,71 @@ class Synth:
         return np.where(phase < step, x + x - x*x - 1.0,
                         np.where(phase > 1.0 - step, y*y + y + y + 1.0, 0.0))
 
-    def _wave(self, phase, which, step):
+    def _analog(self, voices, freq, t, bend_curve, mod_env, fm_on, lfo, base):
+        """The three oscillators and the sub of every voice, (voice, sample).
+        ``base`` offsets the phase slots (unison copies keep their own)."""
+        p, sr, frames = self.params, self.sample_rate, len(t)
+        sound = np.zeros((len(voices), frames))
+        widths = {osc: (np.clip(0.5 - 0.45 * p[f"osc{osc}_pw"] - 0.4 * p[f"osc{osc}_pwm"] * lfo,
+                                0.05, 0.95)
+                        if p[f"osc{osc}_pw"] > 0 or p[f"osc{osc}_pwm"] > 0 else 0.5)
+                  for osc in (1, 2, 3)}
+        # OSC3 first: it can modulate OSC2, which can modulate OSC1.
+        oscillators = [(base + osc - 1, p[f"osc{osc}_level"],
+                        freq * 2 ** (self.detune(osc) / 12), osc)
+                       for osc in (3, 2, 1)]
+        oscillators.append((base + 3, p["sub_level"], freq * 0.5, None))
+        modulator = None
+        for slot, level, hz, osc in oscillators:
+            feeds = osc in (2, 3) and fm_on[osc - 2]   # next oscillator's FM is on
+            if level < 0.0001 and not feeds:
+                modulator = None
+                continue
+            step = (hz / sr)[:, None]
+            start = np.array([voice["phases"][slot] for voice in voices])[:, None]
+            if bend_curve is None:
+                ph = (start + step * t) % 1.0
+                end = start + step * frames
+            else:               # vibrato: integrate the per-sample frequency
+                step = step * bend_curve
+                run = np.cumsum(step, axis=1)
+                ph = (start + run - step) % 1.0
+                end = start + run[:, -1:]
+            if osc is None:     # sub oscillator: band-limited saw an octave down
+                sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
+            else:
+                if fm_on[osc - 1]:
+                    index = FM_MAX_INDEX * p[f"osc{osc}_fm"] ** 2 * mod_env / (2 * np.pi)
+                    if osc == 3:    # self-feedback, unrolled twice
+                        out = self._wave(ph, osc, step, widths[osc])
+                        for _ in range(2):
+                            out = self._wave((ph + index * out) % 1.0, osc, step, widths[osc])
+                    elif modulator is not None:
+                        out = self._wave((ph + index * modulator) % 1.0, osc, step, widths[osc])
+                    else:
+                        out = self._wave(ph, osc, step, widths[osc])
+                else:
+                    out = self._wave(ph, osc, step, widths[osc])
+                modulator = out
+                if level >= 0.0001:
+                    sound += level * out
+            for voice, phase in zip(voices, (end % 1.0)[:, 0]):
+                voice["phases"][slot] = float(phase)
+        return sound
+
+    def _wave(self, phase, which, step, width=0.5):
         # Saw and pulse are band-limited with PolyBLEP so high notes do not
         # alias; triangle and sine are left as is (little or no aliasing).
         idx = min(3, round(self.params[f"osc{which}_wave"] * 3))
         step = np.minimum(step, 0.5)
         if idx == 1:
-            square = np.where(phase < 0.5, 1.0, -1.0)
-            return square + self._blep(phase, step) - self._blep((phase + 0.5) % 1.0, step)
+            if np.ndim(width) == 0 and width == 0.5:
+                square = np.where(phase < 0.5, 1.0, -1.0)
+                return square + self._blep(phase, step) - self._blep((phase + 0.5) % 1.0, step)
+            # Variable width: two band-limited edges, DC removed.
+            pulse = np.where(phase < width, 1.0, -1.0)
+            pulse = pulse + self._blep(phase, step) - self._blep((phase + 1.0 - width) % 1.0, step)
+            return pulse - (2.0 * width - 1.0)
         if idx == 2:
             return 1.0 - 4.0 * np.abs(phase - 0.5)
         if idx == 3:
@@ -502,8 +623,12 @@ class Synth:
             bend_curve = None
             if vibrato > 1e-6:
                 wave = self._lfo_wave(1, self.lfo2_phase + vib_rate * t, p["lfo2_wave"])
-                bend_curve = 2 ** (vibrato * wave * self._fade(p["lfo2_fade"], t) / 12)
+                bend_curve = 2 ** (vibrato * wave * self._fade(p["lfo2_fade"], t) / 12)[None, :]
             self.lfo2_phase = (self.lfo2_phase + frames * vib_rate) % 1.0
+            # LFO 1 (tremolo and PWM), evaluated per sample so it has no steps.
+            rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
+            lfo = self._lfo_wave(0, self.lfo_phase + rate * t, p["lfo_wave"])
+            self.lfo_phase = (self.lfo_phase + frames * rate) % 1.0
             # Organ and electric piano have no synth filter: they are mixed
             # after the ladder, like the real instruments.
             keys_mono = np.zeros(frames, dtype=np.float64)
@@ -513,6 +638,16 @@ class Synth:
                 voices = [voice for _, voice in playing]
                 freq = 440.0 * 2 ** ((np.array([note for note, _ in playing], dtype=np.float64)
                                       - 69 + bend) / 12)
+                # Glide: each voice starts off-pitch by "glide" semitones and
+                # settles exponentially; it multiplies into the pitch curve.
+                glides = np.array([voice.get("glide", 0.0) for voice in voices])
+                if np.any(glides):
+                    tau = (0.01 + p["glide_time"] ** 2 * 1.5) * sr
+                    offset = glides[:, None] * np.exp(-(t + 1)[None, :] / tau)
+                    glide_curve = 2 ** (offset / 12)
+                    bend_curve = glide_curve if bend_curve is None else glide_curve * bend_curve
+                    for voice, left in zip(voices, offset[:, -1]):
+                        voice["glide"] = float(left) if abs(left) > 0.005 else 0.0
                 sound = np.zeros((len(voices), frames), dtype=np.float64)
                 gate = np.array([voice["gate"] for voice in voices])[:, None]
                 held = np.array([voice["env_time"] for voice in voices])[:, None] + t / sr
@@ -530,47 +665,15 @@ class Synth:
                     for voice, level in zip(voices, mod_env[:, -1]):
                         voice["mod_level"] = float(level)
                     mod_env = mod_env * (0.5 + 0.5 * velocity)
-                # OSC3 first: it can modulate OSC2, which can modulate OSC1.
-                oscillators = [(osc - 1, p[f"osc{osc}_level"],
-                                freq * 2 ** (self.detune(osc) / 12), osc)
-                               for osc in (3, 2, 1)]
-                oscillators.append((3, p["sub_level"], freq * 0.5, None))
-                modulator = None
-                for slot, level, hz, osc in oscillators:
-                    feeds = osc in (2, 3) and fm_on[osc - 2]   # next oscillator's FM is on
-                    if level < 0.0001 and not feeds:
-                        modulator = None
-                        continue
-                    step = (hz / sr)[:, None]
-                    start = np.array([voice["phases"][slot] for voice in voices])[:, None]
-                    if bend_curve is None:
-                        ph = (start + step * t) % 1.0
-                        end = start + step * frames
-                    else:               # vibrato: integrate the per-sample frequency
-                        step = step * bend_curve[None, :]
-                        run = np.cumsum(step, axis=1)
-                        ph = (start + run - step) % 1.0
-                        end = start + run[:, -1:]
-                    if osc is None:     # sub oscillator: band-limited saw an octave down
-                        sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
-                    else:
-                        if fm_on[osc - 1]:
-                            index = FM_MAX_INDEX * p[f"osc{osc}_fm"] ** 2 * mod_env / (2 * np.pi)
-                            if osc == 3:    # self-feedback, unrolled twice
-                                out = self._wave(ph, osc, step)
-                                for _ in range(2):
-                                    out = self._wave((ph + index * out) % 1.0, osc, step)
-                            elif modulator is not None:
-                                out = self._wave((ph + index * modulator) % 1.0, osc, step)
-                            else:
-                                out = self._wave(ph, osc, step)
-                        else:
-                            out = self._wave(ph, osc, step)
-                        modulator = out
-                        if level >= 0.0001:
-                            sound += level * out
-                    for voice, phase in zip(voices, (end % 1.0)[:, 0]):
-                        voice["phases"][slot] = float(phase)
+                if self.voice_mode == 3:
+                    # Unison: four detuned copies of the oscillators per voice.
+                    spread = p["unison_detune"] * UNISON_CENTS / 1200
+                    for copy in range(UNISON_COPIES):
+                        cents = spread * (2 * copy / (UNISON_COPIES - 1) - 1)
+                        sound += 0.5 * self._analog(voices, freq * 2 ** cents, t, bend_curve,
+                                                    mod_env, fm_on, lfo, UNISON_SLOT + 4 * copy)
+                else:
+                    sound += self._analog(voices, freq, t, bend_curve, mod_env, fm_on, lfo, 0)
                 organ = np.zeros_like(sound)
                 perc_bar, perc_amp = None, 0.0
                 if p["organ_perc"] >= 0.5:
@@ -599,7 +702,7 @@ class Synth:
                         ph = start + step * t
                         end = start + step * frames
                     else:
-                        step = step * bend_curve[None, :]
+                        step = step * bend_curve
                         run = np.cumsum(step, axis=1)
                         ph = start + run - step
                         end = start + run[:, -1:]
@@ -625,7 +728,9 @@ class Synth:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5
                 # Sample-accurate ADSR with release from current amplitude.
                 start_level = np.array([voice["release_start"] for voice in voices])[:, None]
-                env = self._adsr(gate, held, gone, start_level, attack, decay, sustain, release)
+                attack_from = np.array([voice.get("attack_from", 0.0) for voice in voices])[:, None]
+                env = self._adsr(gate, held, gone, start_level, attack, decay, sustain, release,
+                                 attack_from)
                 mono += (sound * env * velocity).sum(axis=0)
                 keys_mono += (keys * env).sum(axis=0)
                 organ_mono += (organ * env).sum(axis=0)
@@ -692,10 +797,6 @@ class Synth:
                 mono = self._tube(mono, p["tube_drive"])
                 if side is not None:
                     side = side * (1.0 + 2.0 * p["tube_drive"]) ** -0.3
-            # LFO evaluated per sample so the tremolo has no block steps.
-            rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
-            lfo = self._lfo_wave(0, self.lfo_phase + rate * t, p["lfo_wave"])
-            self.lfo_phase = (self.lfo_phase + frames * rate) % 1.0
             depth = p["lfo_depth"] * self._fade(p["lfo_fade"], t)
             tremolo = (1.0 - depth * 0.5) + depth * 0.5 * (1.0 + lfo)
             self.lfo_age += frames / sr

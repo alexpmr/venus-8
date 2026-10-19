@@ -466,6 +466,94 @@ class TestReverbAndWidth(unittest.TestCase):
         self.assertGreater(side(1.0), 1.5 * side(0.5))
 
 
+class TestPerformanceModes(unittest.TestCase):
+    SINE = {"osc1_wave": 1.0, "osc2_level": 0.0, "osc3_level": 0.0, "sub_level": 0.0,
+            "cutoff": 1.0, "resonance": 0.0, "attack": 0.0, "sustain": 1.0}
+
+    @staticmethod
+    def pitch(audio, sr=44100):
+        spectrum = np.abs(np.fft.rfft(audio * np.hanning(len(audio))))
+        return np.argmax(spectrum) * sr / len(audio)
+
+    def synth(self, **params):
+        s = Synth()
+        s.load_params(dict(self.SINE, **params))
+        return s
+
+    def test_mono_plays_one_voice_with_last_note_priority(self):
+        s = self.synth(voice_mode=1 / 3)
+        s.note_on(57)
+        s.render(2048)
+        s.note_on(69)
+        self.assertEqual(list(s.voices), [69])
+        self.assertAlmostEqual(self.pitch(s.render(16384)[:, 0]), 440, delta=3)
+        s.note_off(69)                          # back to the key still held
+        self.assertEqual(list(s.voices), [57])
+        self.assertTrue(s.voices[57]["gate"])
+        self.assertAlmostEqual(self.pitch(s.render(16384)[:, 0]), 220, delta=3)
+        s.note_off(57)
+        self.assertFalse(s.voices[57]["gate"])
+
+    def test_legato_slides_without_retriggering(self):
+        s = self.synth(voice_mode=2 / 3, attack=0.5)
+        s.note_on(57)
+        s.render(22050)
+        level = s.voices[57]["level"]
+        s.note_on(60)
+        s.render(64)
+        self.assertEqual(list(s.voices), [60])
+        self.assertGreaterEqual(s.voices[60]["level"], level)    # no restart from zero
+        mono = self.synth(voice_mode=1 / 3, attack=0.5)
+        mono.note_on(57)
+        mono.render(22050)
+        mono.note_on(60)
+        self.assertEqual(mono.voices[60]["env_time"], 0.0)       # mono retriggers
+
+    def test_glide_moves_the_pitch_gradually(self):
+        s = self.synth(glide_time=0.4)
+        s.note_on(57)
+        s.render(4096)
+        s.note_off(57)
+        s.note_on(69)
+        self.assertAlmostEqual(s.voices[69]["glide"], -12.0)
+        s.render(4410)
+        self.assertTrue(-12.0 < s.voices[69]["glide"] < -1.0)
+        s.render(44100 * 2)
+        self.assertEqual(s.voices[69]["glide"], 0.0)
+        plain = self.synth()
+        plain.note_on(57)
+        plain.note_on(69)
+        self.assertEqual(plain.voices[69]["glide"], 0.0)
+
+    def test_unison_stacks_detuned_copies(self):
+        s = self.synth(voice_mode=1.0, unison_detune=0.8, osc1_wave=0.0)
+        s.note_on(57)
+        s.note_on(60)
+        self.assertEqual(len(s.voices), 1)
+        wide = np.concatenate([s.render(512) for _ in range(40)])[:, 0]
+        narrow_synth = self.synth(voice_mode=1.0, unison_detune=0.0, osc1_wave=0.0)
+        narrow_synth.note_on(60)
+        narrow = np.concatenate([narrow_synth.render(512) for _ in range(40)])[:, 0]
+        self.assertTrue(np.isfinite(wide).all())
+        self.assertGreater(np.abs(wide - narrow).max(), 0.05)
+
+    def test_pulse_width_and_pwm(self):
+        def tone(**params):
+            s = self.synth(osc1_wave=1 / 3, **params)
+            s.note_on(57)
+            return np.concatenate([s.render(512) for _ in range(60)])[:, 0]
+        square, narrow = tone(), tone(osc1_pw=0.9)
+        spectrum = lambda a: np.abs(np.fft.rfft(a[:16384] * np.hanning(16384)))
+        bin_ = round(220 * 16384 / 44100)
+        second = lambda a: spectrum(a)[2 * bin_ - 2:2 * bin_ + 3].max() / spectrum(a)[bin_ - 2:bin_ + 3].max()
+        self.assertLess(second(square), 0.05)            # square: no even harmonics
+        self.assertGreater(second(narrow), 0.3)
+        self.assertLess(abs(float(narrow.mean())), 0.02)  # DC removed
+        moving = tone(osc1_pwm=0.8, lfo_rate=0.4)
+        self.assertGreater(np.abs(moving - square).max(), 0.05)
+        self.assertTrue(np.isfinite(moving).all())
+
+
 class TestElectricPiano(unittest.TestCase):
     def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
         s = Synth()

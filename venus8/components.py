@@ -34,7 +34,15 @@ KNOB_GEOMETRY = {
     "reverb_size": (1226, 661, 18), "reverb_damp": (1273, 661, 18),
     "reverb_mix": (1324, 661, 18),
     "width": (1407, 650, 26),
+    "osc1_pw": (88, 254, 21), "osc1_pwm": (223, 254, 21),
+    "osc2_pw": (303, 254, 21), "osc2_pwm": (437, 254, 21),
+    "osc3_pw": (518, 253, 21), "osc3_pwm": (653, 253, 21),
+    "unison_detune": (339, 769, 19), "glide_time": (475, 770, 17),
 }
+# Voice mode buttons (POLY, MONO, LEGATO, UNISON).
+VOICE_MODE_BOXES = ((51, 760, 100, 791), (114, 760, 162, 791),
+                    (176, 760, 225, 791), (238, 760, 287, 791))
+VOICE_MODE_LABELS = ("POLY", "MONO", "LEGATO", "UNISON")
 # Effect on/off LEDs (painted lit; unlit until switched on) and the chorus
 # title, which reads CHORUS or FLANGER and switches between them on a click.
 FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635),
@@ -68,12 +76,9 @@ DETENT_START, DETENT_SWEEP, DETENT_POSITIONS = 180.0, 180.0, 5
 # Painted knobs with no function yet: (cx, cy, radius incl. LED ring/scale).
 # They are greyed out so working and future controls are easy to tell apart.
 INACTIVE_KNOBS = {
-    "osc1_pw": (90, 251, 28), "osc1_pwm": (224, 251, 28),
-    "osc2_pw": (304, 252, 28), "osc2_pwm": (438, 251, 28),
-    "osc3_pw": (519, 251, 28), "osc3_pwm": (654, 252, 28),
     "arp_rate": (82, 648, 23), "arp_gate": (140, 647, 23), "arp_oct": (190, 644, 21),
     "seq_gate": (433, 601, 22), "seq_swing": (488, 600, 22),
-    "detune": (341, 767, 24), "spread": (405, 767, 24), "glide_time": (476, 768, 22),
+    "spread": (405, 767, 24),
     "global_volume": (1254, 773, 28), "global_balance": (1321, 773, 28),
     "global_tune": (1429, 770, 22),
 }
@@ -120,7 +125,7 @@ INACTIVE_AREAS = {
     "osc3_sync": (482, 296, 557, 322), "osc3_noise": (611, 296, 680, 322),
     "arpeggiator": (48, 568, 262, 684), "sequencer": (270, 568, 756, 684),
     "performance_tabs": (45, 697, 590, 731),
-    "voice_mode": (48, 737, 292, 797), "glide_mode": (506, 760, 554, 792),
+"glide_mode": (506, 760, 554, 792),
     "transpose": (566, 737, 670, 802), "octave": (672, 737, 770, 802),
     "arp_hold": (780, 758, 900, 794), "layer_split": (916, 737, 1207, 810),
     "bend_range": (203, 813, 260, 887), "voices": (1488, 737, 1554, 802),
@@ -353,6 +358,8 @@ def inactive_mask(size):
         draw.rectangle((x1 - 2, y1 - 2, x2 + 2, y2 + 2), fill=255)
     for box in LFO_WAVE_BOXES.values():
         draw.rectangle(box, fill=255)
+    for x1, y1, x2, y2 in VOICE_MODE_BOXES:
+        draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))
 
 
@@ -563,6 +570,27 @@ def render_tube(glow, scale):
 
 
 LFO_LABELS = ("SINE", "TRI", "SAW", "S&H")
+
+
+def render_mode_button(label, lit, size, scale):
+    """Performance button: amber when selected, dark otherwise, RGBA."""
+    k = 4
+    w, h = size[0] * k, size[1] * k
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    if lit:
+        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(glow).rounded_rectangle((2 * k, 2 * k, w - 2 * k, h - 2 * k), radius=4 * k,
+                                               fill=(255, 120, 30, 200))
+        image = Image.alpha_composite(image, glow.filter(ImageFilter.GaussianBlur(2 * k)))
+    draw = ImageDraw.Draw(image)
+    face = ((250, 170, 70, 255), (232, 128, 36, 255)) if lit else ((44, 45, 49, 255), (26, 27, 30, 255))
+    draw.rounded_rectangle((2 * k, 2 * k, w - 3 * k, h - 3 * k), radius=3 * k, fill=face[1],
+                           outline=(12, 12, 12, 255), width=k)
+    draw.rounded_rectangle((3 * k, 3 * k, w - 4 * k, h // 2), radius=3 * k, fill=face[0])
+    draw.text((w / 2, h / 2), label, font=label_font(7 * k), anchor="mm",
+              fill=(40, 20, 6, 255) if lit else (200, 198, 194, 255))
+    return image.resize((max(1, round(size[0] * scale)), max(1, round(size[1] * scale))),
+                        Image.Resampling.LANCZOS)
 
 
 def render_lfo_button(index, lit, size, scale):

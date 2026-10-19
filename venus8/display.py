@@ -60,6 +60,9 @@ PARAM_LABELS = {
     "lfo_fade": "Fade LFO 1", "lfo2_fade": "Fade LFO 2", "lfo_sync": "Sync LFO 1",
     "lfo2_sync": "Sync LFO 2", "reverb_on": "Reverb", "reverb_size": "Reverb Size",
     "reverb_damp": "Reverb Damp", "reverb_mix": "Reverb Mix", "width": "Width",
+    "voice_mode": "Modo de voz", "unison_detune": "Detune (unison)", "glide_time": "Glide",
+    **{f"osc{i}_pw": f"PW OSC{i}" for i in (1, 2, 3)},
+    **{f"osc{i}_pwm": f"PWM OSC{i}" for i in (1, 2, 3)},
 }
 # Classic instrument each engine is modelled on, shown in the display.
 ANALOG_STYLE = {"Bass": "Minimoog Model D", "Lead": "Minimoog Model D", "Pad": "Prophet-5",
@@ -97,6 +100,9 @@ def format_value(param, value):
     if param == "filter_type":
         from .synth import FILTER_TYPES
         return FILTER_TYPES[round(value * 3)]
+    if param == "voice_mode":
+        from .synth import VOICE_MODES
+        return VOICE_MODES[round(value * 3)]
     if param in ("lfo_wave", "lfo2_wave"):
         from .synth import LFO_WAVES
         return LFO_WAVES[round(value * 3)]
