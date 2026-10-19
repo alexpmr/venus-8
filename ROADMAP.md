@@ -50,8 +50,10 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ LFO 2 como vibrato (Rate e Depth ativos) e Mod Wheel controlando o vibrato.
 - ✅ Pedal de sustain (MIDI CC64).
 - ✅ MIDI Program Change seleciona timbres, com a confirmação no display se houver alterações.
-- ✅ Biblioteca Factory: 50 timbres em 12 categorias (novas: Strings, Pluck, Bells, Organ, E.Piano, Ambient).
+- ✅ Biblioteca Factory: 52 timbres em 12 categorias (novas: Strings, Pluck, Bells, Organ, E.Piano, Ambient).
 - ✅ Display estilo LCD com matriz de pixels e modos Colorido, Âmbar, Verde e Azul (SETTINGS).
+- ✅ **Drawbars de órgão** no lugar da Modulation Matrix pintada: 9 drawbars reais (16' a 1'), 0–8 em passos, com som de tonewheels e foldback; 7 timbres de órgão com registrações clássicas. A Mod Matrix futura irá para a aba MOD MATRIX do display.
+- ✅ Blocos EFFECTS e MASTER alinhados na mesma altura.
 - ✅ Testes de sustain, vibrato, Mod Wheel, Program Change, estados do UPD, LCD e de todos os timbres.
 - [ ] Homologar no Windows real.
 
@@ -214,7 +216,7 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 
 Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Keys, FX). Meta: uma biblioteca grande, organizada e original.
 
-- [ ] Ampliar para **128 timbres ou mais**, em vários bancos (ex.: Analog Classics, Modern, Cinematic, Performance). Parcial: 50 timbres em 12 categorias na v0.2.16.
+- [ ] Ampliar para **128 timbres ou mais**, em vários bancos (ex.: Analog Classics, Modern, Cinematic, Performance). Parcial: 52 timbres em 12 categorias na v0.2.16.
 - ✅ Novas categorias Strings, Pluck, Bells, Organ, E.Piano e Ambient (v0.2.16).
 - [ ] Demais categorias: Sequence/Arp, Synth Brass, Choir/Vox, Chords, Sweeps/Risers, Percussion e Sound FX.
 - [ ] Timbres que aproveitem cada recurso novo à medida que for implementado (envelope de filtro, LFO 2, unison/detune, glide, efeitos, órgão, piano elétrico e válvula).
@@ -382,15 +384,17 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - ✅ Pedal de sustain (MIDI CC64) (v0.2.16).
 
 **Órgão (drawbars)**
-- [ ] 9 drawbars reais (16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'), posições 0–8, com mouse, touch e MIDI CC.
-- [ ] Motor aditivo de tonewheels, com foldback nas oitavas extremas e leve vazamento entre rodas.
+- ✅ 9 drawbars reais (16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'), posições 0–8, com mouse e roda do mouse (v0.2.16).
+- [ ] Drawbars por touch e MIDI CC.
+- ✅ Motor aditivo de tonewheels com foldback nos agudos (v0.2.16).
+- [ ] Leve vazamento entre rodas (crosstalk).
 - [ ] Percussão: On/Off, 2º/3º harmônico, Fast/Slow, Soft/Normal.
 - [ ] Vibrato/Chorus: V1, V2, V3, C1, C2, C3.
 - [ ] Key click ajustável.
 - [ ] Simulação de caixa rotativa (Leslie): Slow/Fast/Stop com aceleração, horn e drum separados.
 - [ ] Overdrive valvulado do órgão.
 - [ ] Velocidade da caixa rotativa pela Mod Wheel ou pedal.
-- [ ] Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real.
+- ✅ Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real (v0.2.16).
 
 **Piano elétrico**
 - [ ] Modelo de tine/tonebar (estilo Rhodes) e de palheta (estilo Wurlitzer).
@@ -416,7 +420,7 @@ Inspirada na válvula visível de pianos de palco como o Korg SV-1: uma válvula
 - [ ] Brilho do filamento animado: acende ao ligar, pulsa levemente com o nível do som e fica mais intenso com o Drive.
 - [ ] Saturação valvulada modelada (triodo): harmônicos pares, assimetria e compressão suave, com oversampling para evitar aliasing.
 - [ ] Controles: Tube On/Off, Drive e Level de saída; opcional caráter (Clean / Warm / Crunch).
-- [ ] Posição na cadeia de áudio após o amplificador e antes dos efeitos.
+- [ ] Posição na cadeia de áudio após o amplificador e antes dos efeitos, valendo para todos os motores: sintetizador, órgão (Hammond), piano elétrico (Rhodes/Wurlitzer) etc.
 - [ ] Parâmetros salvos por patch e controláveis por MIDI CC.
 - [ ] Testes de harmônicos, nível de saída, aliasing e desempenho com 16 vozes.
 - [ ] Homologar no Windows real.

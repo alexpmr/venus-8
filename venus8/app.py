@@ -542,6 +542,8 @@ class App:
                 self.drag=(ident,style,y,self.synth.get_param(ident))
                 if style=="slider":
                     self.apply_slide(ident,y)
+                elif style=="drawbar":
+                    self.apply_drawbar(ident,y)
                 return
 
     def mouse_move(self,event):
@@ -558,12 +560,19 @@ class App:
             ident,style,original_y,start=self.drag
             if style=="slider":
                 self.apply_slide(ident,y)
+            elif style=="drawbar":
+                self.apply_drawbar(ident,y)
             else:
                 self.change(ident,start+(original_y-y)/160)
 
     def apply_slide(self,ident,y):
         x,y1,y2=self.knob_targets[ident]
         self.change(ident,(y2-y)/max(1,y2-y1))
+
+    def apply_drawbar(self,ident,y):
+        """Drawbars are pulled down: the cap follows the mouse, 0..8 in steps."""
+        x,top,step,cap=self.knob_targets[ident]
+        self.change(ident,max(0,min(8,round((y-top-cap/2)/step)))/8)
 
     def mouse_up(self,event):
         if self.current_mouse_note is not None:
@@ -578,7 +587,8 @@ class App:
         x,y=self.coords(event)
         for ident,(style,x1,y1,x2,y2) in self.controls.items():
             if self.inside(x,y,(x1,y1,x2,y2)):
-                self.change(ident,self.synth.get_param(ident)+ (0.02 if event.delta>0 else -0.02))
+                amount=0.125 if style=="drawbar" else 0.02
+                self.change(ident,self.synth.get_param(ident)+(amount if event.delta>0 else -amount))
                 return
 
     def mouse_right(self,event):
@@ -595,6 +605,8 @@ class App:
     def change(self,ident,value):
         if ident.endswith("_octave"):
             value=round(max(0.0,min(1.0,value))*4)/4      # five detented positions
+        elif ident.startswith("drawbar"):
+            value=round(max(0.0,min(1.0,value))*8)/8      # drawbar positions 0..8
         self.synth.set_param(ident,value)
         ident=ident.split("@")[0]
         self.last_param=ident

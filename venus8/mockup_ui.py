@@ -11,7 +11,9 @@ import sys
 
 from PIL import Image, ImageTk
 
-from .components import (DETENT_KNOBS, KNOB_GEOMETRY, METER_ROWS, PAINTED_CAPS, CAP_REACH,
+from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP,
+                         DRAWBAR_TOP, DRAWBAR_WIDTH, DRAWBAR_X, KNOB_GEOMETRY,
+                         drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
                          render_knob, wave_box)
@@ -183,6 +185,18 @@ class MockupRenderer:
             self.meter_items[key] = canvas.create_image(box[0], box[1], image=photo,
                                                         anchor="nw", state="hidden")
         self.meter_lit = {key: False for key in self.meter_items}
+        # Drawbar organ: one object per drawbar, pulled down 0..8.
+        self.drawbar_items, self.drawbar_frames = {}, {}
+        hx1, hy1, hx2, hy2 = DRAWBAR_HEADER
+        canvas.create_text(*app.bounds((hx1+hx2)/2, (hy1+hy2)/2, 0, 0)[:2], text="DRAWBARS",
+                           fill="#241208", font=("Segoe UI", max(6, round(12*scale)), "bold"))
+        for index, x in enumerate(DRAWBAR_X):
+            ident = f"drawbar{index + 1}"
+            app.controls[ident] = ("drawbar", x - DRAWBAR_WIDTH/2 - 2, DRAWBAR_TOP,
+                                   x + DRAWBAR_WIDTH/2 + 2, DRAWBAR_TOP + drawbar_length(8) + 6)
+            app.knob_targets[ident] = (x, DRAWBAR_TOP, DRAWBAR_STEP, DRAWBAR_CAP)
+            sx, sy = app.bounds(x - DRAWBAR_WIDTH/2, DRAWBAR_TOP, 0, 0)[:2]
+            self.drawbar_items[ident] = [canvas.create_image(round(sx), round(sy), anchor="nw"), None]
         app.buttons.update(BUTTONS)
         self.display = LiveDisplay(app)
         self.display.build(chassis)
@@ -219,6 +233,14 @@ class MockupRenderer:
             x, y1, y2 = SLIDERS[key]
             y = y2 - (y2 - y1) * app.synth.get_param(key)
             canvas.coords(item, *app.bounds(x - 11, y, x + 11, y))
+        for ident, entry in self.drawbar_items.items():
+            position = round(app.synth.get_param(ident) * 8)
+            if position != entry[1]:
+                if (ident, position) not in self.drawbar_frames:
+                    self.drawbar_frames[(ident, position)] = self.photo(
+                        render_drawbar(int(ident[7:]) - 1, position, app.scale))
+                canvas.itemconfigure(entry[0], image=self.drawbar_frames[(ident, position)])
+                entry[1] = position
         for (osc, index), item in self.wave_items.items():
             selected = round(app.synth.get_param(f"osc{osc}_wave") * 3) == index
             canvas.itemconfigure(item, state="normal" if selected else "hidden")

@@ -18,6 +18,11 @@ DEFAULTS = {
     "delay_mix": 0.0, "delay_time": 0.28, "delay_feedback": 0.25,
     "volume": 0.36, "pitch_bend": 0.5, "modwheel": 0.0,
 }
+# Tonewheel organ drawbars: footage and harmonic of the 8' fundamental.
+DRAWBARS = (("16'", 0.5), ("5⅓'", 1.5), ("8'", 1.0), ("4'", 2.0), ("2⅔'", 3.0),
+            ("2'", 4.0), ("1⅗'", 5.0), ("1⅓'", 6.0), ("1'", 8.0))
+TONEWHEEL_TOP = 5900.0     # highest tonewheel; partials above fold back an octave
+DEFAULTS.update({f"drawbar{i}": 0.0 for i in range(1, len(DRAWBARS) + 1)})
 
 class Synth:
     def __init__(self, sample_rate=44100, max_voices=16):
@@ -106,7 +111,7 @@ class Synth:
                 del self.voices[victim]
             self.voice_serial += 1
             self.voices[note] = {
-                "phases": [0.0, 0.0, 0.0, 0.0],
+                "phases": [0.0] * (4 + len(DRAWBARS)),
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
                 "env_time": 0.0, "release_time": 0.0,
@@ -224,6 +229,29 @@ class Synth:
                         sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
                     else:
                         sound += level * self._wave(ph, osc, step)
+                    for voice, phase in zip(voices, (end % 1.0)[:, 0]):
+                        voice["phases"][slot] = float(phase)
+                # Drawbar organ: one sine per drawbar, 0..8 in ~3 dB steps.
+                for index, (_, ratio) in enumerate(DRAWBARS):
+                    position = round(p[f"drawbar{index + 1}"] * 8)
+                    if position == 0:
+                        continue
+                    level = 0.22 * 10 ** (-(8 - position) * 3 / 20)
+                    hz = freq * ratio
+                    for _ in range(4):
+                        hz = np.where(hz > TONEWHEEL_TOP, hz / 2, hz)
+                    step = (hz / sr)[:, None]
+                    slot = 4 + index
+                    start = np.array([voice["phases"][slot] for voice in voices])[:, None]
+                    if bend_curve is None:
+                        ph = start + step * t
+                        end = start + step * frames
+                    else:
+                        step = step * bend_curve[None, :]
+                        run = np.cumsum(step, axis=1)
+                        ph = start + run - step
+                        end = start + run[:, -1:]
+                    sound += level * np.sin(2 * np.pi * ph)
                     for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
                 if p["noise_level"] > 0:

@@ -130,6 +130,16 @@ PROGRAMS = (
 # ---- Expanded library (v0.2.16): built only from parameters the engine has.
 # octave 0.25/0.75/1.0 = -1/+1/+2; tune 0.5 + semitones/24; fine 0.5 ± cents/100.
 FIFTH = 0.5 + 7 / 24
+
+
+def drawbars(registration):
+    """Classic registration string ("888000000") with the oscillators silenced."""
+    values = {f"drawbar{i + 1}": int(digit) / 8 for i, digit in enumerate(registration)}
+    values.update(osc1_level=0.0, osc2_level=0.0, osc3_level=0.0, sub_level=0.0,
+                  noise_level=0.0, cutoff=1.0, resonance=0.0)
+    return values
+
+
 MORE_PROGRAMS = (
     # Strings
     ("Velvet Ensemble", "Strings", "Cordas de serras desafinadas, ataque lento e vibrato.", {
@@ -223,41 +233,28 @@ MORE_PROGRAMS = (
         "decay": 0.6, "sustain": 0.0, "release": 0.55, "lfo_rate": 0.45,
         "lfo_depth": 0.35, "volume": 0.46,
     }),
-    # Organ (drawbar-like registrations with sine oscillators)
-    ("Full Drawbars", "Organ", "Órgão cheio: 16', 8', 4' e 2' em senoides.", {
-        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc3_wave": 1.0,
-        "osc2_octave": 0.75, "osc3_octave": 1.0, "osc1_level": 0.7, "osc2_level": 0.55,
-        "osc3_level": 0.4, "sub_level": 0.35, "cutoff": 0.9, "drive": 0.15,
-        "attack": 0.001, "decay": 0.3, "sustain": 1.0, "release": 0.06,
-        "lfo_rate": 0.62, "lfo_depth": 0.12, "volume": 0.34,
-    }),
-    ("Jazz Organ", "Organ", "Registro de jazz com quinta e tremolo.", {
-        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc3_wave": 1.0,
-        "osc2_octave": 0.75, "osc2_tune": FIFTH, "osc1_level": 0.75, "osc2_level": 0.35,
-        "osc3_level": 0.0, "sub_level": 0.4, "cutoff": 0.85, "drive": 0.1,
-        "attack": 0.001, "decay": 0.3, "sustain": 1.0, "release": 0.05,
-        "lfo_rate": 0.55, "lfo_depth": 0.18, "volume": 0.40,
-    }),
-    ("Rock Organ", "Organ", "Órgão saturado para rock.", {
-        "osc1_wave": 1.0, "osc2_wave": 0.66, "osc3_wave": 1.0,
-        "osc2_octave": 0.75, "osc3_octave": 1.0, "osc1_level": 0.7, "osc2_level": 0.5,
-        "osc3_level": 0.35, "sub_level": 0.3, "cutoff": 0.8, "drive": 0.62,
-        "attack": 0.001, "decay": 0.3, "sustain": 1.0, "release": 0.05,
-        "lfo_rate": 0.75, "lfo_depth": 0.2, "volume": 0.30,
-    }),
-    ("Church Organ", "Organ", "Órgão de tubos com ataque suave e cauda.", {
-        "osc1_wave": 0.33, "osc2_wave": 1.0, "osc3_wave": 1.0,
-        "osc2_octave": 0.75, "osc3_octave": 1.0, "osc1_level": 0.45, "osc2_level": 0.5,
-        "osc3_level": 0.35, "sub_level": 0.45, "cutoff": 0.62, "attack": 0.12,
-        "decay": 0.4, "sustain": 1.0, "release": 0.45, "delay_mix": 0.3,
-        "delay_time": 0.7, "delay_feedback": 0.5, "volume": 0.34,
-    }),
-    ("Soft Combo", "Organ", "Órgão combo suave, flautado.", {
-        "osc1_wave": 1.0, "osc2_wave": 0.66, "osc2_octave": 0.75, "osc1_level": 0.7,
-        "osc2_level": 0.25, "osc3_level": 0.0, "cutoff": 0.7, "attack": 0.003,
-        "decay": 0.3, "sustain": 1.0, "release": 0.07, "lfo_rate": 0.5,
-        "lfo_depth": 0.1, "volume": 0.44,
-    }),
+    # Organ: real drawbar registrations (16' 5⅓' 8' 4' 2⅔' 2' 1⅗' 1⅓' 1')
+    ("Full Drawbars", "Organ", "Órgão cheio, todos os drawbars em 8 (888888888).", dict(
+        drawbars("888888888"), drive=0.18, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.06, lfo_rate=0.62, lfo_depth=0.12, volume=0.24)),
+    ("Jazz Organ", "Organ", "Registro clássico de jazz (888000000) com tremolo.", dict(
+        drawbars("888000000"), drive=0.1, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.05, lfo_rate=0.55, lfo_depth=0.18, volume=0.42)),
+    ("Rock Organ", "Organ", "Órgão saturado para rock (888800000).", dict(
+        drawbars("888800000"), drive=0.62, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.05, lfo_rate=0.75, lfo_depth=0.2, volume=0.30)),
+    ("Church Organ", "Organ", "Órgão de igreja amplo (876556678) com cauda.", dict(
+        drawbars("876556678"), attack=0.12, decay=0.4, sustain=1.0, release=0.45,
+        delay_mix=0.3, delay_time=0.7, delay_feedback=0.5, volume=0.26)),
+    ("Soft Combo", "Organ", "Órgão combo suave, flautado (008800000).", dict(
+        drawbars("008800000"), attack=0.003, decay=0.3, sustain=1.0, release=0.07,
+        lfo_rate=0.5, lfo_depth=0.1, volume=0.5)),
+    ("Ballad Organ", "Organ", "Balada gospel (838000000) com vibrato.", dict(
+        drawbars("838000000"), attack=0.0, decay=0.3, sustain=1.0, release=0.08,
+        lfo2_rate=0.45, lfo2_depth=0.12, volume=0.44)),
+    ("Blues Bar", "Organ", "Registro de blues (886000000), quente.", dict(
+        drawbars("886000000"), drive=0.3, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.05, lfo_rate=0.6, lfo_depth=0.15, volume=0.40)),
     # E.Piano
     ("Tine Piano", "E.Piano", "Piano elétrico de tines, com ataque de sino.", {
         "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_octave": 1.0, "osc2_fine": 0.52,

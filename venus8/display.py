@@ -39,12 +39,16 @@ PARAM_LABELS = {
     "modwheel": "Mod Wheel",
     "osc1_octave": "Oitava OSC1", "osc2_octave": "Oitava OSC2", "osc3_octave": "Oitava OSC3",
     "lfo2_rate": "Vibrato Rate", "lfo2_depth": "Vibrato",
+    **{f"drawbar{i + 1}": f"Drawbar {f}" for i, f in enumerate(
+        ("16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'"))},
     "osc1_fine": "Fine OSC1", "osc2_fine": "Fine OSC2", "osc3_fine": "Fine OSC3",
 }
 
 
 def format_value(param, value):
     """Readout in the control's own unit."""
+    if param.startswith("drawbar"):
+        return str(round(value * 8))
     if param.endswith("_octave"):
         return f"{round((value - 0.5) * 4):+d}"
     if param.endswith("_fine"):

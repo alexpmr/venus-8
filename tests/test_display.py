@@ -168,6 +168,22 @@ class ReadoutTests(unittest.TestCase):
         self.assertEqual(app.synth.get_param("cutoff"), 0.3)
 
 
+class DrawbarControlTests(unittest.TestCase):
+    def test_pulling_and_wheel_snap_to_positions(self):
+        from venus8.components import DRAWBAR_CAP, DRAWBAR_STEP, DRAWBAR_TOP
+        app = bare_app()
+        app.knob_targets = {"drawbar3": (1235, DRAWBAR_TOP, DRAWBAR_STEP, DRAWBAR_CAP)}
+        app.apply_drawbar("drawbar3", DRAWBAR_TOP + DRAWBAR_CAP / 2 + 5 * DRAWBAR_STEP + 3)
+        self.assertEqual(app.synth.get_param("drawbar3"), 5 / 8)
+        app.apply_drawbar("drawbar3", DRAWBAR_TOP - 40)
+        self.assertEqual(app.synth.get_param("drawbar3"), 0.0)
+        app.change("drawbar3", 0.3)
+        self.assertEqual(app.synth.get_param("drawbar3"), 2 / 8)
+        self.assertTrue(app.patch_dirty)
+        from venus8.display import format_value
+        self.assertEqual(format_value("drawbar3", 0.75), "6")
+
+
 class UnsavedPromptTests(unittest.TestCase):
     def test_clean_patch_switches_without_asking(self):
         app = bare_app()

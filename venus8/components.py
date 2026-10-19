@@ -7,7 +7,7 @@ it can move, rotate or light up on its own. No Tk calls are made here.
 import math
 
 import numpy as np
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 # Knob LED-ring geometry measured on the 1600 x 959 artwork: (cx, cy, ring radius).
 KNOB_GEOMETRY = {
@@ -19,7 +19,7 @@ KNOB_GEOMETRY = {
     "lfo2_rate": (315, 459, 23), "lfo2_depth": (376, 459, 23),
     "delay_time": (1060, 660, 18), "delay_feedback": (1115, 660, 18),
     "delay_mix": (1165, 659, 18),
-    "volume": (1477, 640, 26),
+    "volume": (1477, 646, 26),
     "osc1_octave": (88, 193, 19), "osc2_octave": (304, 194, 19), "osc3_octave": (518, 193, 19),
     "osc1_fine": (224, 193, 21), "osc2_fine": (438, 194, 21), "osc3_fine": (653, 193, 21),
     "volume@header": (1517, 44, 26),
@@ -45,16 +45,32 @@ INACTIVE_KNOBS = {
     "phaser_depth": (930, 661, 22), "phaser_rate": (993, 662, 22),
     "reverb_size": (1226, 661, 22), "reverb_damp": (1273, 661, 22),
     "reverb_mix": (1324, 661, 22),
-    "width": (1407, 644, 29),
+    "width": (1407, 650, 29),
     "detune": (341, 767, 24), "spread": (405, 767, 24), "glide_time": (476, 768, 22),
     "global_volume": (1254, 773, 28), "global_balance": (1321, 773, 28),
     "global_tune": (1429, 770, 22),
 }
+# Drawbar organ panel, in place of the painted modulation matrix.
+DRAWBAR_PANEL = (1104, 368, 1552, 543)
+DRAWBAR_HEADER = (1112, 348, 1546, 367)
+DRAWBAR_X = tuple(round(1137 + i * 49) for i in range(9))
+DRAWBAR_TOP, DRAWBAR_STEP, DRAWBAR_CAP, DRAWBAR_WIDTH = 386, 15, 24, 28
+DRAWBAR_COLORS = ("brown", "brown", "white", "white", "black", "white", "black", "black", "white")
+DRAWBAR_FOOTAGES = ("16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'")
+_DRAWBAR_PAINT = {"brown": ((112, 58, 30), (150, 86, 48), (240, 220, 200)),
+                  "white": ((222, 214, 198), (246, 240, 228), (40, 34, 30)),
+                  "black": ((30, 30, 32), (64, 64, 68), (230, 224, 214))}
+
 # Oscillator waveform buttons: left edge of SAW per oscillator, 46 px pitch.
 WAVE_LEFT = {1: 61, 2: 277, 3: 489}
 WAVE_STEP = 46
 # Master level meter: two LED columns of 12 segments, top (red) first.
-METER_BOX = (1520, 600, 1545, 687)
+# The MASTER panel is lowered to line up with EFFECTS (see align_master):
+# its knobs move down by MASTER_CONTENT_SHIFT and the meter by METER_SHIFT.
+MASTER_PANEL = (1361, 1557)              # x range of the panel
+MASTER_SHIFT, MASTER_CONTENT_SHIFT, METER_SHIFT = 24, 6, 14
+METER_SOURCE_BOX = (1520, 600, 1545, 687)
+METER_BOX = (1520, 600 + METER_SHIFT, 1545, 687 + METER_SHIFT)
 METER_COLUMNS = ((1522, 1531), (1533, 1542))
 METER_ROWS = (605, 611.5, 618, 625, 632, 639, 646, 652.5, 659.5, 666.5, 673.5, 681)
 # Top bar status area between the MIDI and VOL separators.
@@ -69,7 +85,6 @@ INACTIVE_AREAS = {
     "arpeggiator": (48, 568, 262, 684), "sequencer": (270, 568, 756, 684),
     "chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635),
     "reverb_on": (1318, 613, 1342, 635),
-    "mod_matrix": (1103, 368, 1552, 542),
     "filter_type": (953, 113, 1114, 142), "filter_env_button": (1095, 260, 1119, 300),
     "performance_tabs": (45, 697, 590, 731),
     "voice_mode": (48, 737, 292, 797), "glide_mode": (506, 760, 554, 792),
@@ -182,8 +197,27 @@ def _cap_box(ident):
     return (x - half, line - CAP_REACH, x + half + 1, line + CAP_REACH + 1)
 
 
+def align_master(art):
+    """Lower the MASTER panel so its top lines up with the EFFECTS panel."""
+    image = art.copy()
+    x1, x2 = MASTER_PANEL
+    median = lambda box: tuple(int(v) for v in np.median(
+        np.asarray(image.crop(box)).reshape(-1, 3), axis=0))
+    gap = median((x1, 550, x2, 558))
+    panel = median((1372, 600, 1392, 700))
+    meter = image.crop(METER_SOURCE_BOX)
+    mx1, my1, mx2, my2 = METER_SOURCE_BOX
+    image.paste(panel, (mx1 - 2, my1 - 2, mx2 + 2, my2 + 2))
+    image.paste(image.crop((x1, 590, x2, 694)), (x1, 590 + MASTER_CONTENT_SHIFT))
+    image.paste(gap, (x1, 554, x2, 560 + MASTER_SHIFT))
+    image.paste(art.crop((x1, 560, x2, 590)), (x1, 560 + MASTER_SHIFT))
+    image.paste(meter, METER_BOX[:2])
+    return image
+
+
 def clean_artwork(art):
     """Chassis without painted knobs, caps or keys, plus the real fader cap sprites."""
+    art = align_master(art)
     clean = art.copy()
     grey = np.asarray(art.convert("L"), dtype=np.float32)
     for ident, (x, line) in PAINTED_CAPS.items():
@@ -230,6 +264,7 @@ def clean_artwork(art):
         mask = mask.filter(ImageFilter.GaussianBlur(2))
         clean.paste(fill, (0, 0) + clean.size, mask)
     grey_out(clean, inactive_mask(clean.size))
+    drawbar_panel(clean)
     clear_display(clean)
     # SAW is painted lit on every oscillator: show all wave buttons unlit;
     # the app lights the selected one.
@@ -293,14 +328,77 @@ def clear_display(clean):
     grey_out(clean, mask)
 
 
+def drawbar_panel(clean):
+    """Blank the painted modulation matrix into a drawbar panel with a rail."""
+    x1, y1, x2, y2 = DRAWBAR_PANEL
+    draw = ImageDraw.Draw(clean)
+    draw.rectangle(DRAWBAR_PANEL, fill=(22, 23, 26))
+    header = np.asarray(clean.crop(DRAWBAR_HEADER)).reshape(-1, 3)
+    draw.rectangle(DRAWBAR_HEADER, fill=tuple(int(v) for v in np.median(header, axis=0)))
+    # Metal rail the drawbars slide out of, and a dark slot for each.
+    draw.rectangle((x1 + 8, DRAWBAR_TOP - 10, x2 - 8, DRAWBAR_TOP), fill=(70, 72, 76))
+    draw.line((x1 + 8, DRAWBAR_TOP - 10, x2 - 8, DRAWBAR_TOP - 10), fill=(120, 122, 126))
+    draw.line((x1 + 8, DRAWBAR_TOP, x2 - 8, DRAWBAR_TOP), fill=(12, 12, 14), width=2)
+    for x in DRAWBAR_X:
+        half = DRAWBAR_WIDTH // 2 + 2
+        draw.rectangle((x - half, DRAWBAR_TOP - 8, x + half, DRAWBAR_TOP), fill=(8, 8, 10))
+
+
+def label_font(size):
+    """Bold font with fraction glyphs (⅓ ⅔ ⅗): Segoe UI on Windows, else DejaVu."""
+    for name in ("segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf"):
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def drawbar_length(position):
+    return position * DRAWBAR_STEP + DRAWBAR_CAP
+
+
+def render_drawbar(index, position, scale):
+    """Visible part of a pulled drawbar (rod with 1..8 marks and its cap), RGBA."""
+    k = 4
+    width = DRAWBAR_WIDTH * k
+    height = drawbar_length(position) * k
+    rod, cap, ink = _DRAWBAR_PAINT[DRAWBAR_COLORS[index]]
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    inset = 4 * k
+    rod_end = position * DRAWBAR_STEP * k
+    if rod_end:
+        draw.rectangle((inset, 0, width - inset, rod_end + 2 * k), fill=rod + (255,))
+        draw.line((inset + k, 0, inset + k, rod_end), fill=tuple(min(255, c + 40) for c in rod) + (255,),
+                  width=k)
+        font = label_font(7 * k)
+        for number in range(1, position + 1):
+            y = number * DRAWBAR_STEP * k - DRAWBAR_STEP * k // 2
+            draw.text((width // 2, y), str(number), fill=ink + (255,), font=font, anchor="mm")
+            draw.line((inset, number * DRAWBAR_STEP * k, width - inset, number * DRAWBAR_STEP * k),
+                      fill=tuple(max(0, c - 40) for c in rod) + (255,), width=k)
+    top = rod_end
+    draw.rounded_rectangle((0, top, width - 1, top + DRAWBAR_CAP * k - 1), radius=4 * k,
+                           fill=cap + (255,), outline=(10, 10, 10, 255), width=k)
+    draw.rectangle((2 * k, top + 2 * k, width - 3 * k, top + 5 * k),
+                   fill=tuple(min(255, c + 35) for c in cap) + (255,))
+    font = label_font(8 * k)
+    draw.text((width // 2, top + DRAWBAR_CAP * k // 2 + k), DRAWBAR_FOOTAGES[index],
+              fill=ink + (255,), font=font, anchor="mm")
+    size = (max(1, round(DRAWBAR_WIDTH * scale)), max(1, round(drawbar_length(position) * scale)))
+    return image.resize(size, Image.Resampling.LANCZOS)
+
+
 def wave_box(osc, index):
     x = WAVE_LEFT[osc] + index * WAVE_STEP
     return (x, 110, x + WAVE_STEP - 1, 157)
 
 
-def meter_box(column, row):
+def meter_box(column, row, source=False):
+    """LED box on the panel, or in the original artwork when ``source``."""
     x1, x2 = METER_COLUMNS[column]
-    y = METER_ROWS[row]
+    y = METER_ROWS[row] + (0 if source else METER_SHIFT)
     return (x1, round(y - 3), x2, round(y + 3))
 
 
@@ -324,7 +422,7 @@ def panel_sprites(art, clean):
             underline = ImageDraw.Draw(lit)
             underline.line((3, 29, face.width - 4, 29), fill=(255, 150, 60, 230), width=2)
             waves[(osc, index)] = lit
-    meter = {(column, row): art.crop(meter_box(column, row))
+    meter = {(column, row): art.crop(meter_box(column, row, source=True))
              for column in range(2) for row in range(len(METER_ROWS))}
     return {"waves": waves, "meter": meter}
 

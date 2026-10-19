@@ -102,6 +102,28 @@ class TestOscillatorTuning(unittest.TestCase):
         self.assertEqual(s.get_param("volume@header"), 0.25)
 
 
+class TestDrawbarOrgan(unittest.TestCase):
+    def organ_pitch(self, drawbar, note=57):
+        silent = {"osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0}
+        return pitch_of(dict(silent, **{f"drawbar{drawbar}": 1.0}), note)
+
+    def test_footages_follow_the_tonewheel_harmonics(self):
+        self.assertAlmostEqual(self.organ_pitch(3), 220.0, delta=1.5)        # 8'
+        self.assertAlmostEqual(self.organ_pitch(1), 110.0, delta=1.5)        # 16'
+        self.assertAlmostEqual(self.organ_pitch(2), 330.0, delta=1.5)        # 5 1/3'
+        self.assertAlmostEqual(self.organ_pitch(9), 1760.0, delta=3)         # 1'
+
+    def test_top_partials_fold_back_below_the_last_tonewheel(self):
+        self.assertLess(self.organ_pitch(9, note=105), 5900)
+
+    def test_drawbars_silent_by_default(self):
+        s = Synth()
+        s.load_params({"osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                       "sub_level": 0.0, "noise_level": 0.0})
+        s.note_on(60)
+        self.assertEqual(float(np.max(np.abs(s.render(2048)))), 0.0)
+
+
 class TestPerformanceControls(unittest.TestCase):
     def test_sustain_pedal_holds_released_notes(self):
         s = Synth()
