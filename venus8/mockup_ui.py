@@ -37,7 +37,7 @@ BUTTONS = {
     "browse": (822, 26, 881, 61),
     "prev_patch": (528, 22, 559, 66),
     "next_patch": (778, 22, 813, 66),
-    "settings": (1064, 14, 1204, 69),
+    "settings": (592, 695, 728, 738),
     "check_update": (1394, 17, 1450, 65),
 }
 # Four selectable waves on each of the 3 oscillators (keeps waveform order).
@@ -49,7 +49,8 @@ for osc, left, step in ((1, 61, 45), (2, 277, 45), (3, 489, 45)):
 
 def reference_image_path():
     candidates = []
-    user_dir = Path.home() / "AppData" / "Roaming" / "Venus-8" / "assets"
+    import os
+    user_dir = Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming")) / "Venus-8" / "assets"
     candidates.extend((user_dir / "venus-8-mockup.png", user_dir / "venus-8-mockup.jpg"))
     root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
     candidates.extend((root / "docs" / "venus-8-mockup.png",
@@ -108,8 +109,6 @@ class MockupRenderer:
             app.knob_targets[key]=(x,y1,y2)
             self.fader_marker(key,x,y1,y2)
         app.buttons.update(BUTTONS)
-        # Panic is a useful added command, in space under the update status.
-        app.buttons["panic"]=(1490,45,1555,76)
 
         # Mask fictional patch metadata, show actual patch name and status.
         app.rect(566,18,777,67,"#080d17")
