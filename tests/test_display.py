@@ -48,6 +48,95 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue(np.all(scope_trace([]) == 0))
 
 
+class LcdTests(unittest.TestCase):
+    def test_modes_tint_the_display_and_keep_its_size(self):
+        from PIL import Image
+        from venus8.display import PALETTES, lcd_screen
+        source = Image.new("RGB", (90, 60), (200, 120, 60))
+        for mode, palette in PALETTES.items():
+            out = lcd_screen(source, mode)
+            self.assertEqual(out.size, source.size)
+            r, g, b = out.getpixel((0, 0))
+            if palette["tint"]:
+                tint = palette["tint"]
+                self.assertEqual(max(range(3), key=lambda i: (r, g, b)[i]),
+                                 max(range(3), key=lambda i: tint[i]), mode)
+        self.assertNotEqual(lcd_screen(source, "color").getpixel((2, 0)),
+                            lcd_screen(source, "color").getpixel((0, 0)))   # pixel grid
+
+
+class MidiPerformanceTests(unittest.TestCase):
+    def test_sustain_pedal_and_program_change(self):
+        app = bare_app()
+        app.patch_dir = mock.Mock()
+        app.patch_dir.glob.return_value = []
+        app.midi_message(mock.Mock(type="control_change", control=64, value=127))
+        self.assertTrue(app.synth.sustain)
+        self.assertFalse(app.patch_dirty)
+        app.midi_message(mock.Mock(type="control_change", control=64, value=0))
+        self.assertFalse(app.synth.sustain)
+        app.midi_message(mock.Mock(type="program_change", program=3))
+        self.assertEqual(app.patch_name, factory_entry(3)["name"])
+        app.change("cutoff", 0.2)
+        app.midi_message(mock.Mock(type="program_change", program=5))
+        self.assertEqual(app.pending["kind"], "patch")
+        self.assertEqual(app.patch_name, factory_entry(3)["name"])
+
+
+class UpdateButtonTests(unittest.TestCase):
+    def setUp(self):
+        self.app = bare_app()
+        self.app.updating = False
+        self.app.release = None
+        self.app.update_state = "idle"
+        self.app.update_label = ""
+        self.app.check_update = mock.Mock()
+        self.app.install_update = mock.Mock()
+
+    def test_click_checks_when_nothing_is_pending(self):
+        for state in ("idle", "current", "error"):
+            self.app.update_state = state
+            self.app.action("check_update")
+        self.assertEqual(self.app.check_update.call_count, 3)
+        self.app.install_update.assert_not_called()
+
+    def test_click_installs_when_a_new_version_is_available(self):
+        self.app.release = {"tag_name": "v9.9.9"}
+        self.app.update_state = "available"
+        self.app.action("check_update")
+        self.app.install_update.assert_called_once()
+        self.app.update_state = "downloading"
+        self.app.action("check_update")
+        self.app.install_update.assert_called_once()
+        self.app.check_update.assert_not_called()
+
+
+class UpdateResultTests(unittest.TestCase):
+    def poll(self, *event):
+        import queue
+        from venus8 import updater
+        app = bare_app()
+        app.events = queue.Queue()
+        app.release, app.updating, app.update_state = None, False, "checking"
+        app.events.put(event)
+        with mock.patch.object(updater, "is_portable", return_value=False):
+            app.poll()
+        return app
+
+    def test_results_drive_the_button_without_message_boxes(self):
+        from venus8 import app as app_module
+        with mock.patch.object(app_module, "messagebox") as boxes:
+            self.assertEqual(self.poll("update_check", None, None, True).update_state, "current")
+            self.assertEqual(self.poll("update_check", None, "offline", True).update_state, "error")
+            newer = {"tag_name": "v99.0.0",
+                     "assets": [{"name": "Venus-8-v99.0.0-Windows-Setup.exe"}]}
+            app = self.poll("update_check", newer, None, False)
+            self.assertEqual(app.update_state, "available")
+            self.assertEqual(app.release, newer)
+            self.assertEqual(self.poll("update_failed", "hash").update_state, "error")
+        self.assertFalse(boxes.method_calls)
+
+
 class ReadoutTests(unittest.TestCase):
     def test_controls_show_their_own_units(self):
         from venus8.display import format_value
@@ -77,6 +166,22 @@ class ReadoutTests(unittest.TestCase):
             app.open_patch(path)
         self.assertEqual(app.synth.get_param("osc1_octave"), 0.5)
         self.assertEqual(app.synth.get_param("cutoff"), 0.3)
+
+
+class DrawbarControlTests(unittest.TestCase):
+    def test_pulling_and_wheel_snap_to_positions(self):
+        from venus8.components import DRAWBAR_CAP, DRAWBAR_STEP, DRAWBAR_TOP
+        app = bare_app()
+        app.knob_targets = {"drawbar3": (1235, DRAWBAR_TOP, DRAWBAR_STEP, DRAWBAR_CAP)}
+        app.apply_drawbar("drawbar3", DRAWBAR_TOP + DRAWBAR_CAP / 2 + 5 * DRAWBAR_STEP + 3)
+        self.assertEqual(app.synth.get_param("drawbar3"), 5 / 8)
+        app.apply_drawbar("drawbar3", DRAWBAR_TOP - 40)
+        self.assertEqual(app.synth.get_param("drawbar3"), 0.0)
+        app.change("drawbar3", 0.3)
+        self.assertEqual(app.synth.get_param("drawbar3"), 2 / 8)
+        self.assertTrue(app.patch_dirty)
+        from venus8.display import format_value
+        self.assertEqual(format_value("drawbar3", 0.75), "6")
 
 
 class UnsavedPromptTests(unittest.TestCase):

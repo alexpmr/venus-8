@@ -18,6 +18,11 @@ DEFAULTS = {
     "delay_mix": 0.0, "delay_time": 0.28, "delay_feedback": 0.25,
     "volume": 0.36, "pitch_bend": 0.5, "modwheel": 0.0,
 }
+# Tonewheel organ drawbars: footage and harmonic of the 8' fundamental.
+DRAWBARS = (("16'", 0.5), ("5⅓'", 1.5), ("8'", 1.0), ("4'", 2.0), ("2⅔'", 3.0),
+            ("2'", 4.0), ("1⅗'", 5.0), ("1⅓'", 6.0), ("1'", 8.0))
+TONEWHEEL_TOP = 5900.0     # highest tonewheel; partials above fold back an octave
+DEFAULTS.update({f"drawbar{i}": 0.0 for i in range(1, len(DRAWBARS) + 1)})
 
 class Synth:
     def __init__(self, sample_rate=44100, max_voices=16):
@@ -30,6 +35,8 @@ class Synth:
         self.lowpass = 0.0
         self.filter_states = [0.0, 0.0, 0.0, 0.0]
         self.lfo_phase = 0.0
+        self.lfo2_phase = 0.0
+        self.sustain = False            # sustain pedal (MIDI CC64)
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -104,7 +111,7 @@ class Synth:
                 del self.voices[victim]
             self.voice_serial += 1
             self.voices[note] = {
-                "phases": [0.0, 0.0, 0.0, 0.0],
+                "phases": [0.0] * (4 + len(DRAWBARS)),
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
                 "env_time": 0.0, "release_time": 0.0,
@@ -115,14 +122,30 @@ class Synth:
         with self.lock:
             if int(note) in self.voices:
                 voice = self.voices[int(note)]
-                if voice["gate"]:
-                    voice["release_start"] = voice["level"]
-                    voice["release_time"] = 0.0
-                    voice["gate"] = False
+                if self.sustain:
+                    voice["sustained"] = True       # released when the pedal lifts
+                elif voice["gate"]:
+                    self._release(voice)
+
+    @staticmethod
+    def _release(voice):
+        voice["release_start"] = voice["level"]
+        voice["release_time"] = 0.0
+        voice["gate"] = False
+        voice["sustained"] = False
+
+    def set_sustain(self, down):
+        with self.lock:
+            self.sustain = bool(down)
+            if not self.sustain:
+                for voice in self.voices.values():
+                    if voice.get("sustained") and voice["gate"]:
+                        self._release(voice)
 
     def panic(self):
         with self.lock:
             self.voices.clear()
+            self.sustain = False
             self.lowpass = 0.0
             self.filter_states = [0.0, 0.0, 0.0, 0.0]
             self.delay_buffer.fill(0)
@@ -172,6 +195,13 @@ class Synth:
             bend = (p["pitch_bend"] - 0.5) * 4.0
             # All voices are rendered together as (voice, sample) arrays; a
             # per-voice loop of small numpy calls costs more than the maths.
+            # LFO 2 is a vibrato, deepened by the mod wheel (up to ±0.6 semitone).
+            vibrato = min(1.0, p["lfo2_depth"] + p["modwheel"]) * 0.6
+            vib_rate = (0.1 + 9.9 * p["lfo2_rate"] ** 2) / sr
+            bend_curve = None
+            if vibrato > 1e-6:
+                bend_curve = 2 ** (vibrato * np.sin((self.lfo2_phase + vib_rate * t) * 2 * math.pi) / 12)
+            self.lfo2_phase = (self.lfo2_phase + frames * vib_rate) % 1.0
             playing = list(self.voices.items())
             if playing:
                 voices = [voice for _, voice in playing]
@@ -187,12 +217,42 @@ class Synth:
                         continue
                     step = (hz / sr)[:, None]
                     start = np.array([voice["phases"][slot] for voice in voices])[:, None]
-                    ph = (start + step * t) % 1.0
+                    if bend_curve is None:
+                        ph = (start + step * t) % 1.0
+                        end = start + step * frames
+                    else:               # vibrato: integrate the per-sample frequency
+                        step = step * bend_curve[None, :]
+                        run = np.cumsum(step, axis=1)
+                        ph = (start + run - step) % 1.0
+                        end = start + run[:, -1:]
                     if osc is None:     # sub oscillator: band-limited saw an octave down
                         sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
                     else:
                         sound += level * self._wave(ph, osc, step)
-                    for voice, phase in zip(voices, ((start + step * frames) % 1.0)[:, 0]):
+                    for voice, phase in zip(voices, (end % 1.0)[:, 0]):
+                        voice["phases"][slot] = float(phase)
+                # Drawbar organ: one sine per drawbar, 0..8 in ~3 dB steps.
+                for index, (_, ratio) in enumerate(DRAWBARS):
+                    position = round(p[f"drawbar{index + 1}"] * 8)
+                    if position == 0:
+                        continue
+                    level = 0.22 * 10 ** (-(8 - position) * 3 / 20)
+                    hz = freq * ratio
+                    for _ in range(4):
+                        hz = np.where(hz > TONEWHEEL_TOP, hz / 2, hz)
+                    step = (hz / sr)[:, None]
+                    slot = 4 + index
+                    start = np.array([voice["phases"][slot] for voice in voices])[:, None]
+                    if bend_curve is None:
+                        ph = start + step * t
+                        end = start + step * frames
+                    else:
+                        step = step * bend_curve[None, :]
+                        run = np.cumsum(step, axis=1)
+                        ph = start + run - step
+                        end = start + run[:, -1:]
+                    sound += level * np.sin(2 * np.pi * ph)
+                    for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5

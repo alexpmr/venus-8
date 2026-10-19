@@ -44,6 +44,19 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.16 — Performance, biblioteca e LCD
+
+- ✅ Botão UPD: verde quando atualizado, laranja piscando com versão nova, um clique inicia a atualização com progresso no botão, erros sem caixas de mensagem.
+- ✅ LFO 2 como vibrato (Rate e Depth ativos) e Mod Wheel controlando o vibrato.
+- ✅ Pedal de sustain (MIDI CC64).
+- ✅ MIDI Program Change seleciona timbres, com a confirmação no display se houver alterações.
+- ✅ Biblioteca Factory: 52 timbres em 12 categorias (novas: Strings, Pluck, Bells, Organ, E.Piano, Ambient).
+- ✅ Display estilo LCD com matriz de pixels e modos Colorido, Âmbar, Verde e Azul (SETTINGS).
+- ✅ **Drawbars de órgão** no lugar da Modulation Matrix pintada: 9 drawbars reais (16' a 1'), 0–8 em passos, com som de tonewheels e foldback; 7 timbres de órgão com registrações clássicas. A Mod Matrix futura irá para a aba MOD MATRIX do display.
+- ✅ Blocos EFFECTS e MASTER alinhados na mesma altura.
+- ✅ Testes de sustain, vibrato, Mod Wheel, Program Change, estados do UPD, LCD e de todos os timbres.
+- [ ] Homologar no Windows real.
+
 ## v0.2.15 — Barra superior legível
 
 - ✅ CPU e RAM em coluna alinhada (rótulo à esquerda, valor à direita), versão acima do botão UPD.
@@ -192,10 +205,10 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 
 ## Botão de atualização (UPD) mais claro (backlog)
 
-- [ ] Sem versão nova: ao clicar, o botão verifica e mostra a versão atual em **verde** (ex.: "v0.2.15 ✓"), sem abrir caixa de mensagem.
-- [ ] Com versão nova: o botão fica **laranja piscando** com o número da nova versão.
-- [ ] Com versão nova: ao clicar, **inicia a atualização** diretamente, com o progresso no próprio botão/display.
-- [ ] Durante a verificação, indicação discreta (ex.: "…") no botão; em caso de falha de rede, o botão indica o erro sem bloquear o uso.
+- ✅ Sem versão nova: ao clicar, o botão verifica e mostra a versão atual em **verde** ("✓ OK"), sem abrir caixa de mensagem (v0.2.16).
+- ✅ Com versão nova: o botão fica **laranja piscando** com o número da nova versão (v0.2.16).
+- ✅ Com versão nova: ao clicar, **inicia a atualização** diretamente, com o progresso no próprio botão (v0.2.16).
+- ✅ Durante a verificação, "…" no botão; em falha de rede ou de download, o botão mostra "ERRO" sem bloquear o uso (v0.2.16).
 - [ ] Se necessário, alargar a área de status da barra superior (reorganizando busca/MIDI/VOL) para que CPU, RAM, versão e UPD caibam com folga e boa leitura em qualquer tamanho de janela.
 - [ ] Homologar no Windows real (instalador e portátil).
 
@@ -203,21 +216,23 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 
 Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Keys, FX). Meta: uma biblioteca grande, organizada e original.
 
-- [ ] Ampliar para **128 timbres ou mais**, em vários bancos (ex.: Analog Classics, Modern, Cinematic, Performance).
-- [ ] Novas categorias: **Strings, Pluck, Sequence/Arp, Bells, Organ, E.Piano, Synth Brass, Choir/Vox, Chords, Ambient/Drone, Sweeps/Risers, Percussion e Sound FX**, além das atuais.
+- [ ] Ampliar para **128 timbres ou mais**, em vários bancos (ex.: Analog Classics, Modern, Cinematic, Performance). Parcial: 52 timbres em 12 categorias na v0.2.16.
+- ✅ Novas categorias Strings, Pluck, Bells, Organ, E.Piano e Ambient (v0.2.16).
+- [ ] Demais categorias: Sequence/Arp, Synth Brass, Choir/Vox, Chords, Sweeps/Risers, Percussion e Sound FX.
 - [ ] Timbres que aproveitem cada recurso novo à medida que for implementado (envelope de filtro, LFO 2, unison/detune, glide, efeitos, órgão, piano elétrico e válvula).
 - [ ] Descrição, autor e tags em cada timbre; filtros por categoria, banco e tag no browser.
 - [ ] Favoritos e pré-escuta (tocar uma nota de exemplo ao selecionar no browser).
-- [ ] Testes: todos os timbres geram som, sem clipping, nomes únicos e categorias válidas.
+- ✅ Testes: todos os timbres geram som, sem clipping, nomes únicos e categorias válidas (v0.2.16).
 - [ ] Homologar a biblioteca com controlador MIDI no Windows real.
 
 ## Display LCD com pixels (backlog)
 
-- [ ] Display central com aparência de LCD real: matriz de pixels visível, leve brilho e reflexo de vidro.
-- [ ] Modo **monocromático** (ex.: âmbar, verde ou azul clássico) e modo **colorido**, alternáveis pelo usuário.
-- [ ] Textos, osciloscópio e confirmações desenhados na grade de pixels, com fonte estilo LCD.
+- ✅ Display central com aparência de LCD: matriz de pixels visível (v0.2.16).
+- [ ] Leve brilho e reflexo de vidro.
+- ✅ Modos **Colorido**, **Âmbar**, **Verde** e **Azul**, escolhidos em SETTINGS (v0.2.16).
+- ✅ Textos, osciloscópio e confirmações na cor do modo, com fonte estilo LCD nos modos monocromáticos (v0.2.16).
 - [ ] Ajuste de brilho/contraste do display.
-- [ ] Preferência salva nas configurações do app.
+- ✅ Preferência salva nas configurações do app (v0.2.16).
 - [ ] Homologar no Windows real.
 
 ## v0.2 — Síntese analógica
@@ -286,7 +301,7 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - [ ] Avisos para alterações não salvas e proteção Factory:
   - ✅ Indicar no display central que o timbre foi modificado (`*` e "MODIFICADO"), ao mexer em parâmetros por mouse ou MIDI CC; o sinal some ao salvar ou recarregar o timbre (v0.2.13).
   - ✅ Ao trocar de timbre com alterações pendentes (setas, browser, abrir JSON ou INIT), confirmação no display central com **Salvar**, **Sair sem salvar** e **Manter como está** (v0.2.13).
-  - [ ] Mesma confirmação para MIDI Program Change (quando for suportado).
+  - ✅ Mesma confirmação para MIDI Program Change (v0.2.16).
   - ✅ Em timbre Factory, **Salvar** abre "Salvar como" no banco User, preservando o Factory original.
   - ✅ Confirmação também ao fechar o app com alterações pendentes (v0.2.13).
   - ✅ Caixa de diálogo Sim/Não do Windows substituída pela confirmação no display (v0.2.13).
@@ -366,18 +381,20 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - [ ] Seletor de motor por patch: Analog, Organ e E.Piano.
 - [ ] Painel muda as seções exibidas conforme o motor, mantendo teclado, master, efeitos e MIDI.
 - [ ] Patches salvam o motor e os parâmetros; patches antigos continuam abrindo como Analog.
-- [ ] Pedal de sustain (MIDI CC64) para todos os motores.
+- ✅ Pedal de sustain (MIDI CC64) (v0.2.16).
 
 **Órgão (drawbars)**
-- [ ] 9 drawbars reais (16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'), posições 0–8, com mouse, touch e MIDI CC.
-- [ ] Motor aditivo de tonewheels, com foldback nas oitavas extremas e leve vazamento entre rodas.
+- ✅ 9 drawbars reais (16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'), posições 0–8, com mouse e roda do mouse (v0.2.16).
+- [ ] Drawbars por touch e MIDI CC.
+- ✅ Motor aditivo de tonewheels com foldback nos agudos (v0.2.16).
+- [ ] Leve vazamento entre rodas (crosstalk).
 - [ ] Percussão: On/Off, 2º/3º harmônico, Fast/Slow, Soft/Normal.
 - [ ] Vibrato/Chorus: V1, V2, V3, C1, C2, C3.
 - [ ] Key click ajustável.
 - [ ] Simulação de caixa rotativa (Leslie): Slow/Fast/Stop com aceleração, horn e drum separados.
 - [ ] Overdrive valvulado do órgão.
 - [ ] Velocidade da caixa rotativa pela Mod Wheel ou pedal.
-- [ ] Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real.
+- ✅ Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real (v0.2.16).
 
 **Piano elétrico**
 - [ ] Modelo de tine/tonebar (estilo Rhodes) e de palheta (estilo Wurlitzer).
@@ -403,7 +420,7 @@ Inspirada na válvula visível de pianos de palco como o Korg SV-1: uma válvula
 - [ ] Brilho do filamento animado: acende ao ligar, pulsa levemente com o nível do som e fica mais intenso com o Drive.
 - [ ] Saturação valvulada modelada (triodo): harmônicos pares, assimetria e compressão suave, com oversampling para evitar aliasing.
 - [ ] Controles: Tube On/Off, Drive e Level de saída; opcional caráter (Clean / Warm / Crunch).
-- [ ] Posição na cadeia de áudio após o amplificador e antes dos efeitos.
+- [ ] Posição na cadeia de áudio após o amplificador e antes dos efeitos, valendo para todos os motores: sintetizador, órgão (Hammond), piano elétrico (Rhodes/Wurlitzer) etc.
 - [ ] Parâmetros salvos por patch e controláveis por MIDI CC.
 - [ ] Testes de harmônicos, nível de saída, aliasing e desempenho com 16 vozes.
 - [ ] Homologar no Windows real.

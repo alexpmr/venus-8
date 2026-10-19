@@ -6,11 +6,14 @@ updates itself in place when its value or state changes.
 """
 from pathlib import Path
 import math
+import time
 import sys
 
 from PIL import Image, ImageTk
 
-from .components import (DETENT_KNOBS, KNOB_GEOMETRY, METER_ROWS, PAINTED_CAPS, CAP_REACH,
+from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP,
+                         DRAWBAR_TOP, DRAWBAR_WIDTH, DRAWBAR_X, KNOB_GEOMETRY,
+                         drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
                          render_knob, wave_box)
@@ -182,9 +185,21 @@ class MockupRenderer:
             self.meter_items[key] = canvas.create_image(box[0], box[1], image=photo,
                                                         anchor="nw", state="hidden")
         self.meter_lit = {key: False for key in self.meter_items}
+        # Drawbar organ: one object per drawbar, pulled down 0..8.
+        self.drawbar_items, self.drawbar_frames = {}, {}
+        hx1, hy1, hx2, hy2 = DRAWBAR_HEADER
+        canvas.create_text(*app.bounds((hx1+hx2)/2, (hy1+hy2)/2, 0, 0)[:2], text="DRAWBARS",
+                           fill="#241208", font=("Segoe UI", max(6, round(12*scale)), "bold"))
+        for index, x in enumerate(DRAWBAR_X):
+            ident = f"drawbar{index + 1}"
+            app.controls[ident] = ("drawbar", x - DRAWBAR_WIDTH/2 - 2, DRAWBAR_TOP,
+                                   x + DRAWBAR_WIDTH/2 + 2, DRAWBAR_TOP + drawbar_length(8) + 6)
+            app.knob_targets[ident] = (x, DRAWBAR_TOP, DRAWBAR_STEP, DRAWBAR_CAP)
+            sx, sy = app.bounds(x - DRAWBAR_WIDTH/2, DRAWBAR_TOP, 0, 0)[:2]
+            self.drawbar_items[ident] = [canvas.create_image(round(sx), round(sy), anchor="nw"), None]
         app.buttons.update(BUTTONS)
         self.display = LiveDisplay(app)
-        self.display.build()
+        self.display.build(chassis)
         self.built_size = size
 
     def knob_image(self, ident, value):
@@ -218,6 +233,14 @@ class MockupRenderer:
             x, y1, y2 = SLIDERS[key]
             y = y2 - (y2 - y1) * app.synth.get_param(key)
             canvas.coords(item, *app.bounds(x - 11, y, x + 11, y))
+        for ident, entry in self.drawbar_items.items():
+            position = round(app.synth.get_param(ident) * 8)
+            if position != entry[1]:
+                if (ident, position) not in self.drawbar_frames:
+                    self.drawbar_frames[(ident, position)] = self.photo(
+                        render_drawbar(int(ident[7:]) - 1, position, app.scale))
+                canvas.itemconfigure(entry[0], image=self.drawbar_frames[(ident, position)])
+                entry[1] = position
         for (osc, index), item in self.wave_items.items():
             selected = round(app.synth.get_param(f"osc{osc}_wave") * 3) == index
             canvas.itemconfigure(item, state="normal" if selected else "hidden")
@@ -231,6 +254,11 @@ class MockupRenderer:
         if self.built_size:
             self.display.tick()
             self.tick_meter()
+            if getattr(self.app, "update_state", "") == "available":
+                blink = int(time.time() * 2) % 2
+                if blink != getattr(self, "blink", None):
+                    self.blink = blink
+                    self.draw_status()
         self.app.root.after(50, self.tick)
 
     def tick_meter(self):
@@ -272,13 +300,25 @@ class MockupRenderer:
             app.text(x1+5,y,label,6,"#8f9bb0","w",True,minimum=4)
             app.text(split-5,y,value,8,"#44dfe7","e",True,minimum=4)
         app.line(split,y1+6,split,y2-6,fill="#2c3038",width=1)
-        app.text((split+x2)/2,y1+13,f"v{__version__()}",7,"#e8e2d9",bold=True,minimum=4)
+        state = getattr(app, "update_state", "idle")
+        app.text((split+x2)/2,y1+13,f"v{__version__()}",7,
+                 "#59d98e" if state == "current" else "#e8e2d9",bold=True,minimum=4)
+        # UPD: green check when current, blinking orange when a new version
+        # exists (a click starts the update), progress while downloading.
+        blink_on = int(time.time() * 2) % 2 == 0
+        face = {
+            "checking": ("#1b1f26", "#4a5060", "…", "#b3b5ba"),
+            "current": ("#10251a", "#3fae6c", "✓ OK", "#59d98e"),
+            "downloading": ("#2b1a0c", "#fca34e", f"{getattr(app, 'update_progress', 0)}%", "#fca34e"),
+            "error": ("#2a1212", "#e0574a", "ERRO", "#ff8a7a"),
+        }.get(state, ("#1b1f26", "#4a5060", "UPD", "#b3b5ba"))
+        if state == "available" and app.release:
+            tag = "↑" + app.release["tag_name"].lstrip("v")
+            face = (("#3a2008", "#ffb05e", tag, "#ffd08b") if blink_on
+                    else ("#1b1f26", "#6a4a2a", tag, "#a4703c"))
         bx1, by1, bx2, by2 = UPDATE_BUTTON
-        app.rect(bx1,by1,bx2,by2,"#2b1a0c" if app.release else "#1b1f26",
-                 "#fca34e" if app.release else "#4a5060")
-        status = f"↑{app.release['tag_name'].lstrip('v')}" if app.release else "UPD"
-        app.text((bx1+bx2)/2,(by1+by2)/2,status,7,"#fca34e" if app.release else "#b3b5ba",
-                 bold=True,minimum=4)
+        app.rect(bx1,by1,bx2,by2,face[0],face[1])
+        app.text((bx1+bx2)/2,(by1+by2)/2,face[2],7,face[3],bold=True,minimum=4)
         # MIDI: red when no controller is open, green when connected, cyan while playing.
         connected = getattr(app, "port", None) is not None
         app.text(1290,46, "●" if connected else "○", 11,

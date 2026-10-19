@@ -102,6 +102,60 @@ class TestOscillatorTuning(unittest.TestCase):
         self.assertEqual(s.get_param("volume@header"), 0.25)
 
 
+class TestDrawbarOrgan(unittest.TestCase):
+    def organ_pitch(self, drawbar, note=57):
+        silent = {"osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0}
+        return pitch_of(dict(silent, **{f"drawbar{drawbar}": 1.0}), note)
+
+    def test_footages_follow_the_tonewheel_harmonics(self):
+        self.assertAlmostEqual(self.organ_pitch(3), 220.0, delta=1.5)        # 8'
+        self.assertAlmostEqual(self.organ_pitch(1), 110.0, delta=1.5)        # 16'
+        self.assertAlmostEqual(self.organ_pitch(2), 330.0, delta=1.5)        # 5 1/3'
+        self.assertAlmostEqual(self.organ_pitch(9), 1760.0, delta=3)         # 1'
+
+    def test_top_partials_fold_back_below_the_last_tonewheel(self):
+        self.assertLess(self.organ_pitch(9, note=105), 5900)
+
+    def test_drawbars_silent_by_default(self):
+        s = Synth()
+        s.load_params({"osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                       "sub_level": 0.0, "noise_level": 0.0})
+        s.note_on(60)
+        self.assertEqual(float(np.max(np.abs(s.render(2048)))), 0.0)
+
+
+class TestPerformanceControls(unittest.TestCase):
+    def test_sustain_pedal_holds_released_notes(self):
+        s = Synth()
+        s.note_on(60)
+        s.render(512)
+        s.set_sustain(True)
+        s.note_off(60)
+        s.render(512)
+        self.assertTrue(s.voices[60]["gate"])
+        s.set_sustain(False)
+        self.assertFalse(s.voices[60]["gate"])
+        s.note_on(62)
+        s.note_off(62)
+        self.assertFalse(s.voices[62]["gate"])     # pedal up: normal release
+
+    def test_vibrato_from_lfo2_and_mod_wheel(self):
+        def spread(params):
+            s = Synth()
+            s.load_params(dict({"osc1_wave": 1.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                                "sub_level": 0.0, "cutoff": 1.0, "drive": 0.0,
+                                "lfo2_rate": 0.5}, **params))
+            s.note_on(69)
+            audio = np.concatenate([s.render(512) for _ in range(64)])[:, 0]
+            crossings = np.flatnonzero((audio[:-1] < 0) & (audio[1:] >= 0))
+            periods = np.diff(crossings[5:])
+            return periods.std()
+        steady = spread({})
+        self.assertLess(steady, 0.6)
+        self.assertGreater(spread({"lfo2_depth": 1.0}), steady + 0.5)
+        self.assertGreater(spread({"modwheel": 1.0}), steady + 0.5)
+
+
 class TestSynthQuality(unittest.TestCase):
     def test_polyblep_reduces_aliasing(self):
         sr, f = 44100, 3001.0

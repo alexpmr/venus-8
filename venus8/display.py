@@ -5,6 +5,7 @@ blanks them and this module draws real state as persistent canvas items.
 Items are created once per window size and then only reconfigured.
 """
 import numpy as np
+from PIL import Image, ImageDraw
 
 from .components import DISPLAY_NAME_BOX, DISPLAY_ROWS, DISPLAY_SCREEN, DISPLAY_TABLE
 
@@ -37,12 +38,17 @@ PARAM_LABELS = {
     "delay_feedback": "Delay Feedback", "volume": "Volume", "pitch_bend": "Pitch Bend",
     "modwheel": "Mod Wheel",
     "osc1_octave": "Oitava OSC1", "osc2_octave": "Oitava OSC2", "osc3_octave": "Oitava OSC3",
+    "lfo2_rate": "Vibrato Rate", "lfo2_depth": "Vibrato",
+    **{f"drawbar{i + 1}": f"Drawbar {f}" for i, f in enumerate(
+        ("16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'"))},
     "osc1_fine": "Fine OSC1", "osc2_fine": "Fine OSC2", "osc3_fine": "Fine OSC3",
 }
 
 
 def format_value(param, value):
     """Readout in the control's own unit."""
+    if param.startswith("drawbar"):
+        return str(round(value * 8))
     if param.endswith("_octave"):
         return f"{round((value - 0.5) * 4):+d}"
     if param.endswith("_fine"):
@@ -50,10 +56,43 @@ def format_value(param, value):
     if param.endswith("_tune"):
         return f"{(value - 0.5) * 24:+.1f} st"
     return f"{round(value * 100)}%"
-INK = "#e9e2d6"
-DIM = "#8f9bb0"
-AMBER = "#ffb05e"
-ALERT = "#e0574a"
+
+# Display looks: the original colours, or a monochrome LCD tint.
+LCD_AREA = (DISPLAY_SCREEN[0], DISPLAY_TABLE[1], DISPLAY_TABLE[2], DISPLAY_TABLE[3])
+DISPLAY_MODES = {"color": "Colorido", "amber": "Âmbar", "green": "Verde", "blue": "Azul"}
+PALETTES = {
+    "color": {"ink": "#e9e2d6", "dim": "#8f9bb0", "accent": "#ffb05e", "alert": "#e0574a",
+              "glow": "#7a3d10", "grid": "#2b3442", "panel": "#090c12", "button": "#151b25",
+              "edge": "#4a5566", "primary": "#3a2410", "font": "Segoe UI", "tint": None},
+    "amber": {"ink": "#ffb347", "dim": "#a8661f", "accent": "#ffe0a8", "alert": "#ff6a2a",
+              "glow": "#5a2c04", "grid": "#3a2006", "panel": "#140a02", "button": "#211104",
+              "edge": "#7a4a14", "primary": "#4a2606", "font": "Consolas", "tint": (255, 170, 60)},
+    "green": {"ink": "#7dff8a", "dim": "#3f9a4a", "accent": "#d8ffc8", "alert": "#f0ff60",
+              "glow": "#0e4a16", "grid": "#123a18", "panel": "#03120a", "button": "#071c0e",
+              "edge": "#2c6a36", "primary": "#0e3a18", "font": "Consolas", "tint": (110, 255, 130)},
+    "blue": {"ink": "#7fd4ff", "dim": "#3f7fa8", "accent": "#e0f6ff", "alert": "#ff8a7a",
+             "glow": "#0c3550", "grid": "#12304a", "panel": "#020c16", "button": "#061828",
+             "edge": "#2a5a80", "primary": "#0a2e4a", "font": "Consolas", "tint": (110, 200, 255)},
+}
+
+
+def lcd_screen(image, mode):
+    """LCD look for the display area: dot-matrix grid, mono tint when asked."""
+    tint = PALETTES[mode]["tint"]
+    if tint:
+        lum = image.convert("L").point(lambda v: min(255, round(v * 1.6)))
+        image = Image.merge("RGB", [lum.point(lambda v, c=c: round(c * v / 255) + 3) for c in tint])
+    else:
+        image = image.convert("RGB")
+    # Pixel matrix: a darker line every third pixel in both directions.
+    grid = Image.new("L", image.size, 255)
+    draw = ImageDraw.Draw(grid)
+    for x in range(2, image.width, 3):
+        draw.line((x, 0, x, image.height), fill=170)
+    for y in range(2, image.height, 3):
+        draw.line((0, y, image.width, y), fill=170)
+    dark = Image.new("RGB", image.size, (0, 0, 0))
+    return Image.composite(image, dark, grid.point(lambda v: v))
 
 
 def scope_trace(samples, points=SCOPE_POINTS):
@@ -77,38 +116,49 @@ def short(text, length):
 class LiveDisplay:
     def __init__(self, app):
         self.app = app
+        mode = getattr(app, "settings", {}).get("display_mode", "color")
+        self.mode = mode if mode in PALETTES else "color"
+        self.pal = PALETTES[self.mode]
         self.items = {}
         self.shown = {}
 
     # -- construction ------------------------------------------------------
     def font(self, size, bold=False):
-        return ("Segoe UI", max(6, round(size * self.app.scale)), "bold" if bold else "normal")
+        return (self.pal["font"], max(6, round(size * self.app.scale)), "bold" if bold else "normal")
 
     def text(self, key, x, y, size, color, anchor="center", bold=False):
         sx, sy = self.app.bounds(x, y, x, y)[:2]
         self.items[key] = self.app.canvas.create_text(
             sx, sy, text="", fill=color, font=self.font(size, bold), anchor=anchor)
 
-    def build(self):
+    def build(self, chassis=None):
         app, canvas = self.app, self.app.canvas
         self.shown = {}
+        if chassis is not None:
+            # LCD glass over the display, cut from the already scaled chassis.
+            x1, y1, x2, y2 = (round(v * app.scale) for v in LCD_AREA)
+            from PIL import ImageTk
+            self.lcd_photo = ImageTk.PhotoImage(lcd_screen(chassis.crop((x1, y1, x2, y2)), self.mode),
+                                                master=app.root)
+            ox, oy = app.offset
+            canvas.create_image(ox + x1, oy + y1, image=self.lcd_photo, anchor="nw")
         x1, y1, x2, y2 = SCOPE_AREA
         mid = (y1 + y2) / 2
-        canvas.create_line(*app.bounds(x1, mid, x2, mid), fill="#2b3442",
+        canvas.create_line(*app.bounds(x1, mid, x2, mid), fill=self.pal["grid"],
                            width=max(1, app.scale))
         flat = [c for x in np.linspace(x1, x2, SCOPE_POINTS) for c in app.bounds(x, mid, x, mid)[:2]]
-        self.items["scope_glow"] = canvas.create_line(*flat, fill="#7a3d10",
+        self.items["scope_glow"] = canvas.create_line(*flat, fill=self.pal["glow"],
                                                       width=max(2, 5 * app.scale), smooth=True)
-        self.items["scope"] = canvas.create_line(*flat, fill=AMBER,
+        self.items["scope"] = canvas.create_line(*flat, fill=self.pal["accent"],
                                                  width=max(1, 1.6 * app.scale), smooth=True)
 
         nx1, ny1, nx2, ny2 = DISPLAY_NAME_BOX
         cx = (nx1 + nx2) / 2
-        self.text("name", cx, ny1 + 24, 17, INK, bold=True)
-        self.text("description", cx, ny1 + 51, 10, DIM)
-        self.text("modified", nx2 - 8, ny1 + 9, 8, AMBER, anchor="e", bold=True)
-        self.text("prev", nx1 + 15, ny1 + 37, 15, INK)
-        self.text("next", nx2 - 15, ny1 + 37, 15, INK)
+        self.text("name", cx, ny1 + 24, 17, self.pal["ink"], bold=True)
+        self.text("description", cx, ny1 + 51, 10, self.pal["dim"])
+        self.text("modified", nx2 - 8, ny1 + 9, 8, self.pal["accent"], anchor="e", bold=True)
+        self.text("prev", nx1 + 15, ny1 + 37, 15, self.pal["ink"])
+        self.text("next", nx2 - 15, ny1 + 37, 15, self.pal["ink"])
         canvas.itemconfigure(self.items["prev"], text="◀")
         canvas.itemconfigure(self.items["next"], text="▶")
 
@@ -116,26 +166,26 @@ class LiveDisplay:
         step = (ty2 - ty1) / DISPLAY_ROWS
         for row in range(DISPLAY_ROWS):
             y = ty1 + step * (row + 0.5)
-            self.text(f"label{row}", tx1 + 8, y, 8.5, DIM, anchor="w", bold=True)
-            self.text(f"value{row}", tx1 + 82, y, 9, INK, anchor="w")
+            self.text(f"label{row}", tx1 + 8, y, 8.5, self.pal["dim"], anchor="w", bold=True)
+            self.text(f"value{row}", tx1 + 82, y, 9, self.pal["ink"], anchor="w")
 
         # Unsaved-changes prompt, hidden until needed.
-        prompt = [canvas.create_rectangle(*app.bounds(*PROMPT_BOX), fill="#090c12",
-                                          outline=AMBER, width=max(1, 1.5 * app.scale))]
+        prompt = [canvas.create_rectangle(*app.bounds(*PROMPT_BOX), fill=self.pal["panel"],
+                                          outline=self.pal["accent"], width=max(1, 1.5 * app.scale))]
         px1, py1, px2, py2 = PROMPT_BOX
         pcx = (px1 + px2) / 2
-        self.text("prompt_title", pcx, py1 + 28, 15, AMBER, bold=True)
-        self.text("prompt_body", pcx, py1 + 62, 10.5, INK)
-        self.text("prompt_target", pcx, py1 + 88, 10, DIM)
+        self.text("prompt_title", pcx, py1 + 28, 15, self.pal["accent"], bold=True)
+        self.text("prompt_body", pcx, py1 + 62, 10.5, self.pal["ink"])
+        self.text("prompt_target", pcx, py1 + 88, 10, self.pal["dim"])
         prompt += [self.items[k] for k in ("prompt_title", "prompt_body", "prompt_target")]
         for key, box in PROMPT_BUTTONS.items():
             primary = key == "prompt_save"
             prompt.append(canvas.create_rectangle(
-                *app.bounds(*box), fill="#3a2410" if primary else "#151b25",
-                outline=AMBER if primary else "#4a5566", width=max(1, app.scale)))
+                *app.bounds(*box), fill=self.pal["primary"] if primary else self.pal["button"],
+                outline=self.pal["accent"] if primary else self.pal["edge"], width=max(1, app.scale)))
             bx1, by1, bx2, by2 = box
             sx, sy = app.bounds((bx1 + bx2) / 2, (by1 + by2) / 2, 0, 0)[:2]
-            prompt.append(canvas.create_text(sx, sy, text=PROMPT_LABELS[key], fill=INK,
+            prompt.append(canvas.create_text(sx, sy, text=PROMPT_LABELS[key], fill=self.pal["ink"],
                                              font=self.font(9.5, True)))
         self.prompt_items = prompt
         for item in prompt:
@@ -161,20 +211,20 @@ class LiveDisplay:
                  if last else "—")
         load = getattr(app, "dsp_load", 0.0) * 100
         return [
-            ("CATEGORIA", short(app.patch_category, 20), INK),
-            ("BANCO", app.patch_bank, INK),
-            ("VOZES", f"{len(app.synth.voices)} / {app.synth.max_voices}", INK),
-            ("MIDI", midi, INK if port is not None else ALERT),
-            ("ÁUDIO", short(f"{audio} · {rate:.1f} kHz", 20), INK),
-            ("CARGA DSP", f"{load:.0f}%", ALERT if load > 70 else INK),
-            ("AJUSTE", short(tweak, 20), AMBER if last else DIM),
+            ("CATEGORIA", short(app.patch_category, 20), self.pal["ink"]),
+            ("BANCO", app.patch_bank, self.pal["ink"]),
+            ("VOZES", f"{len(app.synth.voices)} / {app.synth.max_voices}", self.pal["ink"]),
+            ("MIDI", midi, self.pal["ink"] if port is not None else self.pal["alert"]),
+            ("ÁUDIO", short(f"{audio} · {rate:.1f} kHz", 20), self.pal["ink"]),
+            ("CARGA DSP", f"{load:.0f}%", self.pal["alert"] if load > 70 else self.pal["ink"]),
+            ("AJUSTE", short(tweak, 20), self.pal["accent"] if last else self.pal["dim"]),
         ]
 
     def update(self):
         app = self.app
         dirty = getattr(app, "patch_dirty", False)
         self.set("name", text=short(app.patch_name, 24) + (" *" if dirty else ""),
-                 fill=AMBER if dirty else INK)
+                 fill=self.pal["accent"] if dirty else self.pal["ink"])
         self.set("description", text=short(app.patch_description, 38))
         self.set("modified", text="MODIFICADO" if dirty else "")
         for row, (label, value, color) in enumerate(self.rows()):

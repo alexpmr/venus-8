@@ -104,6 +104,20 @@ class CleanArtworkTests(unittest.TestCase):
         self.assertGreater(lum(sprites["meter"][(0, 11)]), 150)
 
 
+    def test_master_and_effects_headers_line_up(self):
+        def orange(p):
+            return p[0] > 150 and 60 < p[1] < 140 and p[2] < 90
+        for y in range(592, 606):
+            self.assertTrue(orange(self.clean.getpixel((800, y))), y)
+            self.assertTrue(orange(self.clean.getpixel((1390, y))), y)
+        self.assertFalse(orange(self.clean.getpixel((1390, 575))))
+
+    def test_modulation_matrix_became_the_drawbar_panel(self):
+        from venus8.components import DRAWBAR_PANEL
+        self.assertGreater(sum(amber(p) for p in self.art.crop(DRAWBAR_PANEL).getdata()), 0)
+        self.assertEqual(sum(amber(p) for p in self.clean.crop(DRAWBAR_PANEL).getdata()), 0)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)
@@ -120,6 +134,13 @@ class SpriteTests(unittest.TestCase):
         self.assertEqual(len({p.tobytes() for p in positions}), 5)
         sweep = render_knob(19, 1.0, 2.0)
         self.assertLess(lit(positions[4]), lit(sweep))
+
+    def test_drawbar_grows_with_its_position(self):
+        from venus8.components import render_drawbar
+        sizes = [render_drawbar(2, position, 1.0).size for position in range(9)]
+        self.assertEqual(len({w for w, h in sizes}), 1)
+        self.assertEqual([h for w, h in sizes], sorted(h for w, h in sizes))
+        self.assertLess(sizes[0][1], sizes[8][1])
 
     def test_keys_have_idle_and_lit_faces(self):
         with Image.open("docs/venus-8-mockup.png") as image:

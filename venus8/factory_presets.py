@@ -127,6 +127,249 @@ PROGRAMS = (
 )
 
 
+# ---- Expanded library (v0.2.16): built only from parameters the engine has.
+# octave 0.25/0.75/1.0 = -1/+1/+2; tune 0.5 + semitones/24; fine 0.5 ± cents/100.
+FIFTH = 0.5 + 7 / 24
+
+
+def drawbars(registration):
+    """Classic registration string ("888000000") with the oscillators silenced."""
+    values = {f"drawbar{i + 1}": int(digit) / 8 for i, digit in enumerate(registration)}
+    values.update(osc1_level=0.0, osc2_level=0.0, osc3_level=0.0, sub_level=0.0,
+                  noise_level=0.0, cutoff=1.0, resonance=0.0)
+    return values
+
+
+MORE_PROGRAMS = (
+    # Strings
+    ("Velvet Ensemble", "Strings", "Cordas de serras desafinadas, ataque lento e vibrato.", {
+        "osc1_level": 0.62, "osc2_level": 0.58, "osc3_level": 0.40,
+        "osc2_fine": 0.42, "osc3_fine": 0.58, "osc3_octave": 0.75,
+        "cutoff": 0.55, "resonance": 0.08, "drive": 0.05,
+        "attack": 0.45, "decay": 0.60, "sustain": 0.92, "release": 0.62,
+        "lfo2_rate": 0.42, "lfo2_depth": 0.12, "delay_mix": 0.18, "delay_time": 0.42,
+        "delay_feedback": 0.30, "volume": 0.36,
+    }),
+    ("Chamber Strings", "Strings", "Seção pequena, mais escura e íntima.", {
+        "osc1_level": 0.66, "osc2_level": 0.52, "osc3_level": 0.0,
+        "osc2_fine": 0.45, "cutoff": 0.42, "drive": 0.04,
+        "attack": 0.34, "decay": 0.55, "sustain": 0.90, "release": 0.50,
+        "lfo2_rate": 0.40, "lfo2_depth": 0.10, "volume": 0.40,
+    }),
+    ("Octave Strings", "Strings", "Cordas em oitavas, largas e brilhantes.", {
+        "osc1_level": 0.58, "osc2_level": 0.50, "osc3_level": 0.44,
+        "osc2_octave": 0.75, "osc3_octave": 0.25, "osc2_fine": 0.46, "osc3_fine": 0.54,
+        "cutoff": 0.62, "attack": 0.38, "decay": 0.6, "sustain": 0.94, "release": 0.66,
+        "lfo2_rate": 0.45, "lfo2_depth": 0.10, "delay_mix": 0.22, "delay_time": 0.5,
+        "delay_feedback": 0.35, "volume": 0.34,
+    }),
+    ("Pizzicato", "Strings", "Cordas pinçadas curtas.", {
+        "osc1_level": 0.70, "osc2_level": 0.40, "osc3_level": 0.0, "osc2_fine": 0.46,
+        "cutoff": 0.48, "resonance": 0.18, "attack": 0.002, "decay": 0.16,
+        "sustain": 0.0, "release": 0.14, "delay_mix": 0.12, "volume": 0.50,
+    }),
+    ("Solina Dream", "Strings", "Ensemble de cordas vintage com tremolo.", {
+        "osc1_wave": 0.33, "osc2_wave": 0.0, "osc1_level": 0.55, "osc2_level": 0.55,
+        "osc3_level": 0.35, "osc3_octave": 0.75, "osc2_fine": 0.40, "osc3_fine": 0.60,
+        "cutoff": 0.58, "attack": 0.30, "decay": 0.5, "sustain": 0.95, "release": 0.70,
+        "lfo_rate": 0.42, "lfo_depth": 0.16, "lfo2_rate": 0.55, "lfo2_depth": 0.14,
+        "delay_mix": 0.20, "delay_time": 0.36, "delay_feedback": 0.32, "volume": 0.36,
+    }),
+    # Pluck
+    ("Glass Pluck", "Pluck", "Pluck cristalino em oitava alta.", {
+        "osc1_wave": 0.33, "osc2_wave": 1.0, "osc2_octave": 0.75,
+        "osc1_level": 0.6, "osc2_level": 0.45, "osc3_level": 0.0,
+        "cutoff": 0.66, "resonance": 0.32, "attack": 0.002, "decay": 0.12,
+        "sustain": 0.0, "release": 0.22, "delay_mix": 0.26, "delay_time": 0.30,
+        "delay_feedback": 0.34, "volume": 0.46,
+    }),
+    ("Muted Pluck", "Pluck", "Pluck abafado e percussivo.", {
+        "osc1_level": 0.72, "osc2_level": 0.30, "osc3_level": 0.0, "osc2_fine": 0.47,
+        "cutoff": 0.34, "resonance": 0.40, "drive": 0.15, "attack": 0.001,
+        "decay": 0.09, "sustain": 0.0, "release": 0.08, "volume": 0.52,
+    }),
+    ("Kalimba Pluck", "Pluck", "Pluck de seno e triângulo, delicado.", {
+        "osc1_wave": 1.0, "osc2_wave": 0.66, "osc2_octave": 0.75, "osc3_wave": 1.0,
+        "osc3_octave": 1.0, "osc1_level": 0.7, "osc2_level": 0.3, "osc3_level": 0.12,
+        "cutoff": 0.8, "attack": 0.001, "decay": 0.22, "sustain": 0.0,
+        "release": 0.25, "delay_mix": 0.15, "volume": 0.50,
+    }),
+    ("Fifth Pluck", "Pluck", "Pluck em quinta, ótimo para riffs.", {
+        "osc2_tune": FIFTH, "osc1_level": 0.7, "osc2_level": 0.5, "osc3_level": 0.0,
+        "cutoff": 0.55, "resonance": 0.28, "drive": 0.2, "attack": 0.002,
+        "decay": 0.14, "sustain": 0.05, "release": 0.15, "delay_mix": 0.2,
+        "delay_time": 0.25, "volume": 0.44,
+    }),
+    ("Harp Glide", "Pluck", "Pluck longo, como harpa sintetizada.", {
+        "osc1_wave": 0.66, "osc2_wave": 1.0, "osc2_octave": 0.75, "osc1_level": 0.7,
+        "osc2_level": 0.35, "osc3_level": 0.0, "cutoff": 0.7, "attack": 0.002,
+        "decay": 0.42, "sustain": 0.0, "release": 0.45, "delay_mix": 0.2,
+        "delay_time": 0.38, "delay_feedback": 0.25, "volume": 0.48,
+    }),
+    # Bells
+    ("Crystal Bell", "Bells", "Sino brilhante com parciais em oitava e quinta.", {
+        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc3_wave": 0.66,
+        "osc2_octave": 1.0, "osc2_fine": 0.53, "osc3_octave": 0.75, "osc3_tune": FIFTH,
+        "osc1_level": 0.6, "osc2_level": 0.4, "osc3_level": 0.25,
+        "cutoff": 0.85, "attack": 0.001, "decay": 0.7, "sustain": 0.0, "release": 0.7,
+        "delay_mix": 0.25, "delay_time": 0.5, "delay_feedback": 0.4, "volume": 0.42,
+    }),
+    ("Music Box", "Bells", "Caixinha de música, curta e doce.", {
+        "osc1_wave": 1.0, "osc2_wave": 0.66, "osc1_octave": 0.75, "osc2_octave": 1.0,
+        "osc1_level": 0.6, "osc2_level": 0.3, "osc3_level": 0.0, "cutoff": 0.9,
+        "attack": 0.001, "decay": 0.35, "sustain": 0.0, "release": 0.4,
+        "delay_mix": 0.18, "volume": 0.46,
+    }),
+    ("Temple Bell", "Bells", "Sino grave e longo, com batimento.", {
+        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc3_wave": 1.0, "osc2_fine": 0.56,
+        "osc3_octave": 0.75, "osc3_tune": FIFTH, "osc1_level": 0.6, "osc2_level": 0.55,
+        "osc3_level": 0.2, "cutoff": 0.7, "attack": 0.002, "decay": 0.9,
+        "sustain": 0.0, "release": 0.9, "delay_mix": 0.3, "delay_time": 0.62,
+        "delay_feedback": 0.45, "volume": 0.40,
+    }),
+    ("Vibraphone", "Bells", "Vibrafone com tremolo suave.", {
+        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_octave": 1.0, "osc1_level": 0.7,
+        "osc2_level": 0.18, "osc3_level": 0.0, "cutoff": 0.8, "attack": 0.001,
+        "decay": 0.6, "sustain": 0.0, "release": 0.55, "lfo_rate": 0.45,
+        "lfo_depth": 0.35, "volume": 0.46,
+    }),
+    # Organ: real drawbar registrations (16' 5⅓' 8' 4' 2⅔' 2' 1⅗' 1⅓' 1')
+    ("Full Drawbars", "Organ", "Órgão cheio, todos os drawbars em 8 (888888888).", dict(
+        drawbars("888888888"), drive=0.18, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.06, lfo_rate=0.62, lfo_depth=0.12, volume=0.24)),
+    ("Jazz Organ", "Organ", "Registro clássico de jazz (888000000) com tremolo.", dict(
+        drawbars("888000000"), drive=0.1, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.05, lfo_rate=0.55, lfo_depth=0.18, volume=0.42)),
+    ("Rock Organ", "Organ", "Órgão saturado para rock (888800000).", dict(
+        drawbars("888800000"), drive=0.62, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.05, lfo_rate=0.75, lfo_depth=0.2, volume=0.30)),
+    ("Church Organ", "Organ", "Órgão de igreja amplo (876556678) com cauda.", dict(
+        drawbars("876556678"), attack=0.12, decay=0.4, sustain=1.0, release=0.45,
+        delay_mix=0.3, delay_time=0.7, delay_feedback=0.5, volume=0.26)),
+    ("Soft Combo", "Organ", "Órgão combo suave, flautado (008800000).", dict(
+        drawbars("008800000"), attack=0.003, decay=0.3, sustain=1.0, release=0.07,
+        lfo_rate=0.5, lfo_depth=0.1, volume=0.5)),
+    ("Ballad Organ", "Organ", "Balada gospel (838000000) com vibrato.", dict(
+        drawbars("838000000"), attack=0.0, decay=0.3, sustain=1.0, release=0.08,
+        lfo2_rate=0.45, lfo2_depth=0.12, volume=0.44)),
+    ("Blues Bar", "Organ", "Registro de blues (886000000), quente.", dict(
+        drawbars("886000000"), drive=0.3, attack=0.0, decay=0.3, sustain=1.0,
+        release=0.05, lfo_rate=0.6, lfo_depth=0.15, volume=0.40)),
+    # E.Piano
+    ("Tine Piano", "E.Piano", "Piano elétrico de tines, com ataque de sino.", {
+        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_octave": 1.0, "osc2_fine": 0.52,
+        "osc3_wave": 0.66, "osc1_level": 0.72, "osc2_level": 0.22, "osc3_level": 0.15,
+        "cutoff": 0.75, "drive": 0.18, "attack": 0.001, "decay": 0.55,
+        "sustain": 0.12, "release": 0.3, "volume": 0.48,
+    }),
+    ("Tremolo Keys", "E.Piano", "Piano elétrico com tremolo de amplificador.", {
+        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_octave": 1.0, "osc1_level": 0.72,
+        "osc2_level": 0.2, "osc3_level": 0.0, "cutoff": 0.7, "drive": 0.2,
+        "attack": 0.001, "decay": 0.5, "sustain": 0.15, "release": 0.3,
+        "lfo_rate": 0.48, "lfo_depth": 0.45, "volume": 0.48,
+    }),
+    ("Reed Piano", "E.Piano", "Piano de palheta, mais anasalado.", {
+        "osc1_wave": 0.66, "osc2_wave": 0.33, "osc2_octave": 0.75, "osc1_level": 0.7,
+        "osc2_level": 0.18, "osc3_level": 0.0, "cutoff": 0.58, "drive": 0.35,
+        "attack": 0.001, "decay": 0.42, "sustain": 0.2, "release": 0.22,
+        "volume": 0.46,
+    }),
+    ("Ballad Keys", "E.Piano", "Teclas suaves com chorus de desafinação e delay.", {
+        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_fine": 0.56, "osc3_wave": 1.0,
+        "osc3_octave": 1.0, "osc1_level": 0.6, "osc2_level": 0.45, "osc3_level": 0.12,
+        "cutoff": 0.7, "attack": 0.002, "decay": 0.65, "sustain": 0.2,
+        "release": 0.45, "delay_mix": 0.22, "delay_time": 0.42, "delay_feedback": 0.3,
+        "volume": 0.44,
+    }),
+    # Ambient
+    ("Deep Space", "Ambient", "Drone escuro com ruído e ecos longos.", {
+        "osc1_wave": 1.0, "osc2_wave": 0.66, "osc2_octave": 0.25, "osc2_fine": 0.53,
+        "osc1_level": 0.5, "osc2_level": 0.5, "osc3_level": 0.0, "noise_level": 0.12,
+        "cutoff": 0.35, "resonance": 0.35, "attack": 0.8, "decay": 0.8,
+        "sustain": 0.9, "release": 0.95, "lfo_rate": 0.1, "lfo_depth": 0.3,
+        "delay_mix": 0.45, "delay_time": 0.9, "delay_feedback": 0.65, "volume": 0.38,
+    }),
+    ("Aurora", "Ambient", "Pad luminoso que respira.", {
+        "osc1_wave": 0.66, "osc2_wave": 0.0, "osc2_octave": 0.75, "osc2_fine": 0.55,
+        "osc3_wave": 1.0, "osc3_octave": 1.0, "osc1_level": 0.55, "osc2_level": 0.35,
+        "osc3_level": 0.25, "cutoff": 0.5, "resonance": 0.25, "attack": 0.7,
+        "decay": 0.7, "sustain": 0.9, "release": 0.9, "lfo_rate": 0.12,
+        "lfo_depth": 0.35, "lfo2_rate": 0.3, "lfo2_depth": 0.08, "delay_mix": 0.4,
+        "delay_time": 0.75, "delay_feedback": 0.55, "volume": 0.36,
+    }),
+    ("Ocean Wind", "Ambient", "Vento e ondas de ruído filtrado.", {
+        "osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0, "noise_level": 0.9,
+        "cutoff": 0.55, "resonance": 0.55, "attack": 0.7, "decay": 0.8,
+        "sustain": 0.8, "release": 0.95, "lfo_rate": 0.08, "lfo_depth": 0.6,
+        "delay_mix": 0.3, "delay_time": 0.8, "delay_feedback": 0.5, "volume": 0.6,
+    }),
+    ("Frozen Choir", "Ambient", "Coro sintético etéreo com vibrato.", {
+        "osc1_wave": 0.66, "osc2_wave": 0.66, "osc2_fine": 0.44, "osc3_wave": 1.0,
+        "osc3_octave": 0.75, "osc1_level": 0.55, "osc2_level": 0.55, "osc3_level": 0.2,
+        "cutoff": 0.45, "resonance": 0.3, "attack": 0.55, "decay": 0.6,
+        "sustain": 0.9, "release": 0.8, "lfo2_rate": 0.4, "lfo2_depth": 0.14,
+        "delay_mix": 0.35, "delay_time": 0.6, "delay_feedback": 0.45, "volume": 0.38,
+    }),
+    # More Bass
+    ("Reese Bass", "Bass", "Baixo de duas serras com batimento lento.", {
+        "osc1_level": 0.8, "osc2_level": 0.8, "osc3_level": 0.0, "osc2_fine": 0.62,
+        "sub_level": 0.4, "cutoff": 0.38, "resonance": 0.15, "drive": 0.4,
+        "attack": 0.004, "decay": 0.4, "sustain": 0.9, "release": 0.12, "volume": 0.40,
+    }),
+    ("Octave Bass", "Bass", "Baixo em oitavas, firme e cheio.", {
+        "osc1_wave": 0.33, "osc2_wave": 0.0, "osc2_octave": 0.25, "osc1_level": 0.7,
+        "osc2_level": 0.7, "osc3_level": 0.0, "cutoff": 0.33, "resonance": 0.22,
+        "drive": 0.3, "attack": 0.003, "decay": 0.22, "sustain": 0.7,
+        "release": 0.1, "volume": 0.44,
+    }),
+    ("Sine Sub", "Bass", "Subgrave puro de senoide.", {
+        "osc1_wave": 1.0, "osc1_level": 0.9, "osc2_level": 0.0, "osc3_level": 0.0,
+        "sub_level": 0.0, "cutoff": 0.6, "drive": 0.1, "attack": 0.004,
+        "decay": 0.3, "sustain": 1.0, "release": 0.1, "volume": 0.52,
+    }),
+    # More Lead
+    ("Square Lead", "Lead", "Lead de onda quadrada com vibrato.", {
+        "osc1_wave": 0.33, "osc2_wave": 0.33, "osc2_octave": 0.75, "osc1_level": 0.7,
+        "osc2_level": 0.35, "osc3_level": 0.0, "cutoff": 0.7, "drive": 0.25,
+        "attack": 0.005, "decay": 0.2, "sustain": 0.9, "release": 0.2,
+        "lfo2_rate": 0.5, "lfo2_depth": 0.18, "delay_mix": 0.15, "volume": 0.38,
+    }),
+    ("Fifth Lead", "Lead", "Lead em quintas, grande e agressivo.", {
+        "osc2_tune": FIFTH, "osc3_octave": 0.25, "osc1_level": 0.7, "osc2_level": 0.55,
+        "osc3_level": 0.3, "cutoff": 0.65, "resonance": 0.2, "drive": 0.5,
+        "attack": 0.004, "decay": 0.2, "sustain": 0.9, "release": 0.18,
+        "lfo2_rate": 0.48, "lfo2_depth": 0.1, "volume": 0.34,
+    }),
+    ("Whistle", "Lead", "Assobio de senoide aguda com vibrato.", {
+        "osc1_wave": 1.0, "osc1_octave": 0.75, "osc1_level": 0.75, "osc2_level": 0.0,
+        "osc3_level": 0.0, "noise_level": 0.03, "cutoff": 0.85, "attack": 0.05,
+        "decay": 0.3, "sustain": 0.9, "release": 0.25, "lfo2_rate": 0.55,
+        "lfo2_depth": 0.25, "delay_mix": 0.2, "volume": 0.42,
+    }),
+    # More Brass and FX
+    ("Synth Horns", "Brass", "Metais largos com ataque lento.", {
+        "osc1_level": 0.7, "osc2_level": 0.65, "osc3_level": 0.3, "osc2_fine": 0.44,
+        "osc3_fine": 0.56, "osc3_octave": 0.25, "cutoff": 0.52, "resonance": 0.15,
+        "drive": 0.3, "attack": 0.14, "decay": 0.35, "sustain": 0.8,
+        "release": 0.28, "lfo2_rate": 0.4, "lfo2_depth": 0.06, "volume": 0.36,
+    }),
+    ("Rising Storm", "FX", "Ruído e ressonância em tempestade.", {
+        "osc1_wave": 0.33, "osc1_level": 0.4, "osc2_level": 0.0, "osc3_level": 0.0,
+        "noise_level": 0.5, "cutoff": 0.6, "resonance": 0.7, "drive": 0.4,
+        "attack": 0.9, "decay": 0.8, "sustain": 0.7, "release": 0.9,
+        "lfo_rate": 0.85, "lfo_depth": 0.55, "delay_mix": 0.4, "delay_time": 0.55,
+        "delay_feedback": 0.6, "volume": 0.30,
+    }),
+    ("Robot Voice", "FX", "Pulsos rápidos e graves, efeito robótico.", {
+        "osc1_wave": 0.33, "osc2_wave": 0.33, "osc2_octave": 0.25, "osc1_level": 0.6,
+        "osc2_level": 0.5, "osc3_level": 0.0, "cutoff": 0.4, "resonance": 0.6,
+        "drive": 0.5, "attack": 0.004, "decay": 0.3, "sustain": 0.8,
+        "release": 0.15, "lfo_rate": 0.95, "lfo_depth": 0.8, "volume": 0.34,
+    }),
+)
+PROGRAMS = PROGRAMS + MORE_PROGRAMS
+
+
 def factory_programs():
     """Return separate mutable patch data; never share DEFAULTS with callers."""
     result = []
