@@ -1,6 +1,7 @@
 """VENUS-8 graphical workbench. Control surfaces are shown even when DSP is pending."""
 import json
 import math
+import ctypes
 import os
 from pathlib import Path
 import queue
@@ -18,6 +19,19 @@ from . import __version__
 from .synth import DEFAULTS, WAVES, Synth
 from . import updater
 from .mockup_ui import MockupRenderer
+
+def setup_windows_dpi():
+    """Prevent Windows from bitmap-upscaling and blurring the UI."""
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+    except (OSError, AttributeError):
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except (OSError, AttributeError):
+            pass
+
 
 BASE_W, BASE_H = 1600, 980
 DARK = "#0b0e13"
@@ -55,7 +69,16 @@ SECTIONS = [
 
 class App:
     def __init__(self):
+        setup_windows_dpi()
         self.root = tk.Tk()
+        if sys.platform == "win32":
+            icon_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+            ico = icon_root / "assets" / "venus-8.ico"
+            if ico.is_file():
+                try:
+                    self.root.iconbitmap(default=str(ico))
+                except tk.TclError:
+                    pass
         self.root.title(f"VENUS-8 — Virtual Analog Synthesizer v{__version__}")
         self.root.geometry("1550x950")
         self.root.minsize(1050, 690)
