@@ -1,0 +1,36 @@
+name: Refresh Windows download counters
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '13 */6 * * *'
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Detect latest released version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=30" --jq '[.[] | select(.draft == false and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")))][0].tag_name')
+          test -n "$tag" && test "$tag" != null
+          echo "VENUS_TAG=$tag" >> "$GITHUB_ENV"
+      - name: Rewrite numerical counters from GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/update_release_table.py "$VENUS_TAG"
+      - name: Commit actual counts if changed
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: refresh numerical release download counts [skip ci]"
+            git push origin HEAD:main
+          fi
