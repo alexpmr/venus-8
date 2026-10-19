@@ -124,6 +124,66 @@ class TestDrawbarOrgan(unittest.TestCase):
         self.assertEqual(float(np.max(np.abs(s.render(2048)))), 0.0)
 
 
+class TestElectricPiano(unittest.TestCase):
+    def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
+        s = Synth()
+        s.load_params(dict({"ep_level": 1.0, "osc1_level": 0.0, "osc2_level": 0.0,
+                            "osc3_level": 0.0, "sub_level": 0.0, "cutoff": 1.0,
+                            "drive": 0.0, "attack": 0.0, "sustain": 1.0,
+                            "release": 0.12}, **params))
+        s.note_on(note, velocity)
+        blocks = []
+        for i in range(int(seconds * s.sample_rate / 512)):
+            if release_at is not None and i * 512 >= release_at * s.sample_rate:
+                s.note_off(note)
+                release_at = None
+            blocks.append(s.render(512)[:, 0])
+        return np.concatenate(blocks), s.sample_rate
+
+    @staticmethod
+    def brightness(audio, sr):
+        spectrum = np.abs(np.fft.rfft(audio[:8192] * np.hanning(8192)))
+        freqs = np.fft.rfftfreq(8192, 1 / sr)
+        return (spectrum * freqs).sum() / spectrum.sum()
+
+    def test_pitch_and_natural_decay(self):
+        audio, sr = self.play(note=57, seconds=3.0)
+        spectrum = np.abs(np.fft.rfft(audio[:16384] * np.hanning(16384)))
+        self.assertAlmostEqual(np.argmax(spectrum) * sr / 16384, 220.0, delta=3)
+        early = np.abs(audio[2000:6000]).max()
+        late = np.abs(audio[-6000:]).max()
+        self.assertLess(late, early * 0.85)
+        bass, _ = self.play(note=36, seconds=3.0)
+        treble, _ = self.play(note=84, seconds=3.0)
+        ratio = lambda a: np.abs(a[-6000:]).max() / np.abs(a[2000:6000]).max()
+        self.assertGreater(ratio(bass), ratio(treble))      # bass rings longer
+
+    def test_harder_is_brighter_and_louder(self):
+        soft, sr = self.play(velocity=35)
+        hard, _ = self.play(velocity=125)
+        self.assertGreater(self.brightness(hard, sr), self.brightness(soft, sr) * 1.4)
+        self.assertGreater(np.abs(hard).max(), np.abs(soft).max() * 1.4)
+
+    def test_damper_stops_the_note(self):
+        held, _ = self.play(seconds=1.0)
+        released, _ = self.play(seconds=1.0, release_at=0.3)
+        self.assertLess(np.abs(released[-4000:]).max(), np.abs(held[-4000:]).max() * 0.05)
+
+
+class TestKeysBypassTheFilter(unittest.TestCase):
+    def test_organ_and_piano_ignore_a_closed_filter(self):
+        for params in ({"drawbar3": 1.0}, {"ep_level": 1.0}):
+            levels = []
+            for cutoff in (0.0, 1.0):
+                s = Synth()
+                s.load_params(dict({"osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                                    "sub_level": 0.0, "cutoff": cutoff, "drive": 0.0},
+                                   **params))
+                s.note_on(72)
+                levels.append(np.abs(np.concatenate([s.render(512) for _ in range(8)])).max())
+            self.assertAlmostEqual(levels[0], levels[1], delta=levels[1] * 0.05, msg=params)
+
+
 class TestPerformanceControls(unittest.TestCase):
     def test_sustain_pedal_holds_released_notes(self):
         s = Synth()

@@ -140,6 +140,14 @@ def drawbars(registration):
     return values
 
 
+def electric_piano(tone, bark, decay):
+    """Tine electric piano layer with the analog oscillators and filter out."""
+    return dict(ep_level=1.0, ep_tone=tone, ep_bark=bark, ep_decay=decay,
+                osc1_level=0.0, osc2_level=0.0, osc3_level=0.0, sub_level=0.0,
+                noise_level=0.0, cutoff=1.0, resonance=0.0, drive=0.0,
+                attack=0.0, decay=0.3, sustain=1.0, release=0.12)
+
+
 MORE_PROGRAMS = (
     # Strings
     ("Velvet Ensemble", "Strings", "Cordas de serras desafinadas, ataque lento e vibrato.", {
@@ -255,32 +263,20 @@ MORE_PROGRAMS = (
     ("Blues Bar", "Organ", "Registro de blues (886000000), quente.", dict(
         drawbars("886000000"), drive=0.3, attack=0.0, decay=0.3, sustain=1.0,
         release=0.05, lfo_rate=0.6, lfo_depth=0.15, volume=0.40)),
-    # E.Piano
-    ("Tine Piano", "E.Piano", "Piano elétrico de tines, com ataque de sino.", {
-        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_octave": 1.0, "osc2_fine": 0.52,
-        "osc3_wave": 0.66, "osc1_level": 0.72, "osc2_level": 0.22, "osc3_level": 0.15,
-        "cutoff": 0.75, "drive": 0.18, "attack": 0.001, "decay": 0.55,
-        "sustain": 0.12, "release": 0.3, "volume": 0.48,
-    }),
-    ("Tremolo Keys", "E.Piano", "Piano elétrico com tremolo de amplificador.", {
-        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_octave": 1.0, "osc1_level": 0.72,
-        "osc2_level": 0.2, "osc3_level": 0.0, "cutoff": 0.7, "drive": 0.2,
-        "attack": 0.001, "decay": 0.5, "sustain": 0.15, "release": 0.3,
-        "lfo_rate": 0.48, "lfo_depth": 0.45, "volume": 0.48,
-    }),
-    ("Reed Piano", "E.Piano", "Piano de palheta, mais anasalado.", {
-        "osc1_wave": 0.66, "osc2_wave": 0.33, "osc2_octave": 0.75, "osc1_level": 0.7,
-        "osc2_level": 0.18, "osc3_level": 0.0, "cutoff": 0.58, "drive": 0.35,
-        "attack": 0.001, "decay": 0.42, "sustain": 0.2, "release": 0.22,
-        "volume": 0.46,
-    }),
-    ("Ballad Keys", "E.Piano", "Teclas suaves com chorus de desafinação e delay.", {
-        "osc1_wave": 1.0, "osc2_wave": 1.0, "osc2_fine": 0.56, "osc3_wave": 1.0,
-        "osc3_octave": 1.0, "osc1_level": 0.6, "osc2_level": 0.45, "osc3_level": 0.12,
-        "cutoff": 0.7, "attack": 0.002, "decay": 0.65, "sustain": 0.2,
-        "release": 0.45, "delay_mix": 0.22, "delay_time": 0.42, "delay_feedback": 0.3,
-        "volume": 0.44,
-    }),
+    # E.Piano: tine engine (ep_*), no synth oscillators or filter.
+    ("Suitcase Tine", "E.Piano", "Piano de tines clássico: redondo baixo, ataque de sino forte.", dict(
+        electric_piano(tone=0.5, bark=0.35, decay=0.6), lfo_rate=0.45, lfo_depth=0.0,
+        volume=0.62)),
+    ("Mellow Stage", "E.Piano", "Stage piano macio e escuro, ótimo para baladas.", dict(
+        electric_piano(tone=0.22, bark=0.15, decay=0.7), delay_mix=0.12,
+        delay_time=0.4, delay_feedback=0.25, volume=0.66)),
+    ("Funky Bark", "E.Piano", "Ataque agressivo que 'late' quando tocado forte.", dict(
+        electric_piano(tone=0.75, bark=0.85, decay=0.45), volume=0.52)),
+    ("Tremolo Ballad", "E.Piano", "Tines com tremolo estéreo de amplificador vintage.", dict(
+        electric_piano(tone=0.4, bark=0.3, decay=0.65), lfo_rate=0.42, lfo_depth=0.55,
+        delay_mix=0.15, delay_time=0.45, delay_feedback=0.3, volume=0.62)),
+    ("Reed Piano", "E.Piano", "Piano de palheta, mais anasalado e curto.", dict(
+        electric_piano(tone=0.85, bark=0.65, decay=0.3), drive=0.15, volume=0.55)),
     # Ambient
     ("Deep Space", "Ambient", "Drone escuro com ruído e ecos longos.", {
         "osc1_wave": 1.0, "osc2_wave": 0.66, "osc2_octave": 0.25, "osc2_fine": 0.53,

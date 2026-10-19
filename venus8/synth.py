@@ -23,6 +23,9 @@ DRAWBARS = (("16'", 0.5), ("5⅓'", 1.5), ("8'", 1.0), ("4'", 2.0), ("2⅔'", 3.
             ("2'", 4.0), ("1⅗'", 5.0), ("1⅓'", 6.0), ("1'", 8.0))
 TONEWHEEL_TOP = 5900.0     # highest tonewheel; partials above fold back an octave
 DEFAULTS.update({f"drawbar{i}": 0.0 for i in range(1, len(DRAWBARS) + 1)})
+# Electric piano layer (tine model): level, tone (bell/brightness), bark, decay.
+DEFAULTS.update({"ep_level": 0.0, "ep_tone": 0.5, "ep_bark": 0.3, "ep_decay": 0.5})
+EP_SLOT = 4 + len(DRAWBARS)
 
 class Synth:
     def __init__(self, sample_rate=44100, max_voices=16):
@@ -111,7 +114,7 @@ class Synth:
                 del self.voices[victim]
             self.voice_serial += 1
             self.voices[note] = {
-                "phases": [0.0] * (4 + len(DRAWBARS)),
+                "phases": [0.0] * (EP_SLOT + 1), "age": 0.0,
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
                 "env_time": 0.0, "release_time": 0.0,
@@ -156,6 +159,35 @@ class Synth:
         p = self.params
         octave = round((p[f"osc{osc}_octave"] - 0.5) * 4)
         return (p[f"osc{osc}_tune"] - 0.5) * 24 + octave * 12 + (p[f"osc{osc}_fine"] - 0.5)
+
+    def _electric_piano(self, voices, freq, t, bend_curve):
+        """Tine electric piano: 1:1 FM whose brightness fades, a short bell
+        'ping', pitch-dependent natural decay and a pickup that barks when
+        played hard. Velocity shapes tone and loudness, not only level."""
+        p, sr = self.params, self.sample_rate
+        age = np.array([voice.get("age", 0.0) for voice in voices])[:, None] + t / sr
+        velocity = np.array([voice["velocity"] for voice in voices])[:, None]
+        step = (freq / sr)[:, None]
+        start = np.array([voice["phases"][EP_SLOT] for voice in voices])[:, None]
+        if bend_curve is None:
+            ph = start + step * t
+            end = start + step * len(t)
+        else:
+            step = step * bend_curve[None, :]
+            run = np.cumsum(step, axis=1)
+            ph = start + run - step
+            end = start + run[:, -1:]
+        for voice, phase in zip(voices, (end % 1.0)[:, 0]):
+            voice["phases"][EP_SLOT] = float(phase)
+        angle = 2 * np.pi * ph
+        index = (0.3 + 2.4 * p["ep_tone"]) * (0.3 + 0.7 * velocity ** 1.5) * np.exp(-age / 0.5)
+        body = np.sin(angle + index * np.sin(angle))
+        bell = (0.08 + 0.4 * p["ep_tone"]) * velocity * np.exp(-age / 0.03) * np.sin(7 * angle)
+        decay = (0.8 + 5.0 * p["ep_decay"]) * np.sqrt(261.6 / freq)[:, None]
+        tone = (body + bell) * np.exp(-age / decay)
+        drive = 1.0 + p["ep_bark"] * 5.0 * velocity ** 2
+        tone = np.tanh(drive * (tone + 0.2 * p["ep_bark"] * tone * tone)) / np.tanh(drive)
+        return tone * (0.3 + 0.7 * velocity) * 1.1
 
     @staticmethod
     def _blep(phase, step):
@@ -202,6 +234,9 @@ class Synth:
             if vibrato > 1e-6:
                 bend_curve = 2 ** (vibrato * np.sin((self.lfo2_phase + vib_rate * t) * 2 * math.pi) / 12)
             self.lfo2_phase = (self.lfo2_phase + frames * vib_rate) % 1.0
+            # Organ and electric piano have no synth filter: they are mixed
+            # after the ladder, like the real instruments.
+            keys_mono = np.zeros(frames, dtype=np.float64)
             playing = list(self.voices.items())
             if playing:
                 voices = [voice for _, voice in playing]
@@ -231,12 +266,13 @@ class Synth:
                         sound += level * self._wave(ph, osc, step)
                     for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
+                keys = np.zeros_like(sound)
                 # Drawbar organ: one sine per drawbar, 0..8 in ~3 dB steps.
                 for index, (_, ratio) in enumerate(DRAWBARS):
                     position = round(p[f"drawbar{index + 1}"] * 8)
                     if position == 0:
                         continue
-                    level = 0.22 * 10 ** (-(8 - position) * 3 / 20)
+                    level = 0.32 * 10 ** (-(8 - position) * 3 / 20)
                     hz = freq * ratio
                     for _ in range(4):
                         hz = np.where(hz > TONEWHEEL_TOP, hz / 2, hz)
@@ -251,9 +287,11 @@ class Synth:
                         run = np.cumsum(step, axis=1)
                         ph = start + run - step
                         end = start + run[:, -1:]
-                    sound += level * np.sin(2 * np.pi * ph)
+                    keys += level * np.sin(2 * np.pi * ph)
                     for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
+                if p["ep_level"] > 0.0001:
+                    keys += p["ep_level"] * self._electric_piano(voices, freq, t, bend_curve)
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5
                 # Sample-accurate ADSR with release from current amplitude.
@@ -268,8 +306,10 @@ class Synth:
                                start_level * np.clip(1.0 - gone / max(0.005, release), 0.0, 1.0))
                 velocity = np.array([voice["velocity"] for voice in voices])[:, None]
                 mono += (sound * env * velocity).sum(axis=0)
+                keys_mono += (keys * env).sum(axis=0)
                 for (note, voice), level in zip(playing, env[:, -1]):
                     voice["level"] = float(level)
+                    voice["age"] = voice.get("age", 0.0) + frames / sr
                     if voice["gate"]:
                         voice["env_time"] += frames / sr
                     else:
@@ -278,6 +318,7 @@ class Synth:
                             del self.voices[note]
             active = max(1, len(self.voices))
             mono /= max(1.5, math.sqrt(active) * 1.5)
+            keys_mono /= max(1.5, math.sqrt(active) * 1.5)
             # Four-pole resonant subtractive filter, vintage-ladder inspired.
             # Soft nonlinear feedback is intentionally bounded to avoid runaway.
             hz = min(sr * 0.40, 55 * (2 ** (p["cutoff"] * 8.3)))
@@ -300,6 +341,7 @@ class Synth:
             self.filter_states = [s0, s1, s2, s3]
             mono = np.asarray(filtered) * (1.0 + p["resonance"] * 0.7)
             self.lowpass = s3
+            mono += keys_mono
             # LFO evaluated per sample so the tremolo has no block steps.
             rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
             lfo = np.sin((self.lfo_phase + rate * t) * 2 * math.pi)
