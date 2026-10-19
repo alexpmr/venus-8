@@ -1,11 +1,11 @@
 # VENUS-8 — Virtual Analog Synthesizer
 
-## Downloads — Venus-8 v0.2.8 (Windows)
+## Downloads — Venus-8 v0.2.9 (Windows)
 
 | Plataforma | Pacote | Download | Tamanho | Data | Downloads |
 |---|---|---|---|---|---|
-| Windows 10/11 x64 | Instalador | [`Venus-8-v0.2.8-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.8/Venus-8-v0.2.8-Windows-Setup.exe) | 25.1 MB | 2026-10-19 | 0 |
-| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.2.8-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.8/Venus-8-v0.2.8-Windows-Portable.exe) | 33.8 MB | 2026-10-19 | 0 |
+| Windows 10/11 x64 | Instalador | [`Venus-8-v0.2.9-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.9/Venus-8-v0.2.9-Windows-Setup.exe) | 25.1 MB | 2026-10-19 | 0 |
+| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.2.9-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.9/Venus-8-v0.2.9-Windows-Portable.exe) | 33.9 MB | 2026-10-19 | 0 |
 
 **Downloads:** quantidade de downloads por arquivo no GitHub Releases (não representa instalações ou usuários únicos). Atualização periódica da tabela. [Histórico de versões](https://github.com/alexpmr/venus-8/releases).
 
