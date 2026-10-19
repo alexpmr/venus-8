@@ -55,7 +55,17 @@ def reference_image_path():
     root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
     candidates.extend((root / "docs" / "venus-8-mockup.png",
                        root / "docs" / "venus-8-mockup.jpg"))
-    return next((p for p in candidates if p.exists()), None)
+    # Never enlarge a tiny preview: it looks blurry and degrades the whole UI.
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        try:
+            with Image.open(candidate) as artwork:
+                if artwork.width >= 1500 and artwork.height >= 850 and (1.55 <= artwork.width/artwork.height <= 1.80):
+                    return candidate
+        except (OSError, ValueError):
+            continue
+    return None
 
 
 class MockupRenderer:
