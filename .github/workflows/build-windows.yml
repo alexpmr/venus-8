@@ -15,7 +15,7 @@ permissions:
   contents: write
 concurrency:
   group: venus8-windows-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   windows:
     runs-on: windows-2022
@@ -90,7 +90,7 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             Write-Output "Release already exists. Skipping to prevent silent replacement."
           } else {
-            gh release create $env:VENUS_TAG "dist/Venus-8-$env:VENUS_TAG-Windows-Setup.exe" "dist/Venus-8-$env:VENUS_TAG-Windows-Portable.exe" dist/SHA256SUMS.txt --repo ${{ github.repository }} --target ${{ github.sha }} --title "Venus-8 $env:VENUS_TAG — Windows x64" --notes "Prévia funcional Windows 10/11 x64. Interface completa com controles futuros desativados; três osciladores, filtro passa-baixas, envelopes Attack/Release, LFO 1, delay, MIDI USB e patches. Atualização por GitHub Releases com SHA-256. Testes de hardware ainda dependem de validação do usuário." --prerelease
+            gh release create $env:VENUS_TAG "dist/Venus-8-$env:VENUS_TAG-Windows-Setup.exe" "dist/Venus-8-$env:VENUS_TAG-Windows-Portable.exe" dist/SHA256SUMS.txt --repo ${{ github.repository }} --target ${{ github.sha }} --title "Venus-8 $env:VENUS_TAG — Windows x64" --notes "Prévia Windows 10/11 x64. Inclui 14 timbres Factory originais inspirados em sintetizadores vintage, navegador por banco e categoria, três osciladores, filtro ressonante de quatro polos, envelope ADSR, MIDI USB, delay e atualização por GitHub Releases com SHA-256. Testes físicos no Windows ainda devem ser realizados." --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed' }
           }
       - name: Refresh README download table from GitHub release assets
