@@ -26,6 +26,7 @@ class Synth:
         self.voices = {}
         self.voice_serial = 0
         self.lowpass = 0.0
+        self.filter_states = np.zeros(4, dtype=np.float64)
         self.lfo_phase = 0.0
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -102,12 +103,18 @@ class Synth:
                 "phases": [0.0, 0.0, 0.0, 0.0],
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
+                "env_time": 0.0, "release_time": 0.0,
+                "release_start": 0.0,
             }
 
     def note_off(self, note):
         with self.lock:
             if int(note) in self.voices:
-                self.voices[int(note)]["gate"] = False
+                voice = self.voices[int(note)]
+                if voice["gate"]:
+                    voice["release_start"] = voice["level"]
+                    voice["release_time"] = 0.0
+                    voice["gate"] = False
 
     def panic(self):
         with self.lock:
@@ -141,8 +148,6 @@ class Synth:
             decay = 0.01 + p["decay"] ** 2 * 2.0
             sustain = p["sustain"]
             bend = (p["pitch_bend"] - 0.5) * 4.0
-            fade_a = min(1.0, 1.0 / (max(0.002, attack) * sr))
-            fade_r = min(1.0, 1.0 / (max(0.005, release) * sr))
             for note, voice in list(self.voices.items()):
                 freq = 440.0 * 2 ** ((note - 69 + bend) / 12)
                 sound = np.zeros(frames, dtype=np.float64)
@@ -161,27 +166,41 @@ class Synth:
                     voice["phases"][3] = (voice["phases"][3] + freq * 0.5 * frames / sr) % 1.0
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * np.random.default_rng().standard_normal(frames) * 0.5
-                # Linear per-buffer envelope, with gradual release after note-off.
-                start = voice["level"]
-                target = 1.0 if voice["gate"] else 0.0
-                step = fade_a if voice["gate"] else fade_r
-                end = start + (target - start) * min(1.0, step * frames)
-                env = np.linspace(start, end, frames, endpoint=True)
-                voice["level"] = end
-                # Decay/Sustain intentionally reserved for a later ADSR pass.
+                # Sample-accurate ADSR with release from current amplitude.
+                if voice["gate"]:
+                    clock = voice["env_time"] + t / sr
+                    up = np.clip(clock / max(0.002, attack), 0.0, 1.0)
+                    down = sustain + (1.0 - sustain) * np.clip(
+                        1.0 - (clock - attack) / max(0.005, decay), 0.0, 1.0
+                    )
+                    env = np.where(clock < attack, up, down)
+                    voice["env_time"] += frames / sr
+                else:
+                    clock = voice["release_time"] + t / sr
+                    env = voice["release_start"] * np.clip(
+                        1.0 - clock / max(0.005, release), 0.0, 1.0
+                    )
+                    voice["release_time"] += frames / sr
+                voice["level"] = float(env[-1])
                 mono += sound * env * voice["velocity"]
-                if not voice["gate"] and end < 0.0005:
+                if not voice["gate"] and voice["release_time"] > release:
                     del self.voices[note]
             active = max(1, len(self.voices))
             mono /= max(1.5, math.sqrt(active) * 1.5)
-            # One-pole low-pass applied after mixing. Resonance is not yet DSP-active.
-            hz = 65 * (2 ** (p["cutoff"] * 7.7))
-            alpha = 1.0 - math.exp(-2 * math.pi * hz / sr)
-            prev = self.lowpass
+            # Four-pole resonant subtractive filter, vintage-ladder inspired.
+            # Soft nonlinear feedback is intentionally bounded to avoid runaway.
+            hz = min(sr * 0.40, 55 * (2 ** (p["cutoff"] * 8.3)))
+            g = min(0.94, 1.0 - math.exp(-2.0 * math.pi * hz / sr))
+            feedback = p["resonance"] * 3.4
+            states = self.filter_states
             for i in range(frames):
-                prev += alpha * (mono[i] - prev)
-                mono[i] = prev
-            self.lowpass = prev
+                x = math.tanh(float(mono[i]) * (1 + p["drive"] * 1.5)
+                              - feedback * states[3])
+                for pole in range(4):
+                    states[pole] += g * (x - states[pole])
+                    x = states[pole]
+                mono[i] = states[3] * (1.0 + p["resonance"] * 0.7)
+            self.lowpass = float(states[3])
             self.lfo_phase = (self.lfo_phase + frames * (0.05 + 13 * p["lfo_rate"] ** 2) / sr) % 1.0
             lfo = math.sin(self.lfo_phase * 2 * math.pi)
             mono *= (1.0 - p["lfo_depth"] * 0.5) + p["lfo_depth"] * 0.5 * (1.0 + lfo)
