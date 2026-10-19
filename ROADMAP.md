@@ -50,7 +50,8 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Novo motor de piano elétrico (tine): brilho que decai, sino de ataque, decaimento natural por altura, bark por velocity e abafador.
 - ✅ Timbres E.Piano refeitos: Suitcase Tine, Mellow Stage, Funky Bark, Tremolo Ballad e Reed Piano.
 - ✅ Testes de afinação, decaimento, velocity, abafador e de órgão/piano independentes do filtro.
-- [ ] Homologar no Windows real.
+- [x] Homologado pelo usuário no Windows real: drawbars audíveis.
+- [ ] Homologar no Windows real: piano elétrico.
 
 ## v0.2.16 — Performance, biblioteca e LCD
 
