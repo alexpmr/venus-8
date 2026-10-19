@@ -346,6 +346,19 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - [ ] Testes de desempenho com 16 vozes nos novos motores.
 - [ ] Homologação sonora com controlador MIDI no Windows real.
 
+## v0.14 — Válvula de drive vintage (backlog)
+
+Inspirada na válvula visível de pianos de palco como o Korg SV-1: uma válvula real no painel que aquece e satura o som, com visual e comportamento vintage. Modelo e arte originais.
+
+- [ ] Válvula (estilo 12AX7) visível na parte superior do painel, atrás de uma janela, como objeto real e independente.
+- [ ] Brilho do filamento animado: acende ao ligar, pulsa levemente com o nível do som e fica mais intenso com o Drive.
+- [ ] Saturação valvulada modelada (triodo): harmônicos pares, assimetria e compressão suave, com oversampling para evitar aliasing.
+- [ ] Controles: Tube On/Off, Drive e Level de saída; opcional caráter (Clean / Warm / Crunch).
+- [ ] Posição na cadeia de áudio após o amplificador e antes dos efeitos.
+- [ ] Parâmetros salvos por patch e controláveis por MIDI CC.
+- [ ] Testes de harmônicos, nível de saída, aliasing e desempenho com 16 vozes.
+- [ ] Homologar no Windows real.
+
 ## v1.0 — Versão estável
 
 - [ ] Validar critérios de aceite de todos os marcos essenciais
