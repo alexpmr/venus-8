@@ -44,6 +44,12 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.20 — App reabre depois de atualizar
+
+- ✅ Correção: após clicar em UPD, o instalador baixava, fechava o app e não abria de novo. O instalador roda em modo silencioso e a etapa "Abrir Venus-8" estava marcada para ser pulada nesse modo; agora ela roda sempre (como usuário normal, sem privilégios de administrador).
+- ✅ Teste que impede o problema de voltar.
+- [ ] Homologar no Windows real: ao atualizar pelo UPD (já a partir da v0.2.19 → v0.2.20), o Venus-8 deve reabrir sozinho.
+
 ## v0.2.19 — Síntese FM e MIDI Learn
 
 - ✅ Síntese FM (modulação de fase, estilo DX) entre os 3 osciladores: OSC3 → OSC2 → OSC1, com o botão FM de cada oscilador; no OSC3 o FM é realimentação (feedback).

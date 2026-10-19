@@ -25,4 +25,6 @@ Name: "{autodesktop}\Venus-8"; Filename: "{app}\Venus-8.exe"; Tasks: desktopicon
 [Tasks]
 Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; GroupDescription: "Atalhos:"
 [Run]
-Filename: "{app}\Venus-8.exe"; Description: "Abrir Venus-8"; Flags: nowait postinstall skipifsilent
+; No skipifsilent: the in-app update runs Setup with /SILENT and must reopen
+; Venus-8 afterwards. postinstall entries run as the original (non-admin) user.
+Filename: "{app}\Venus-8.exe"; Description: "Abrir Venus-8"; Flags: nowait postinstall
