@@ -36,7 +36,20 @@ PARAM_LABELS = {
     "lfo_depth": "LFO Depth", "delay_mix": "Delay Mix", "delay_time": "Delay Time",
     "delay_feedback": "Delay Feedback", "volume": "Volume", "pitch_bend": "Pitch Bend",
     "modwheel": "Mod Wheel",
+    "osc1_octave": "Oitava OSC1", "osc2_octave": "Oitava OSC2", "osc3_octave": "Oitava OSC3",
+    "osc1_fine": "Fine OSC1", "osc2_fine": "Fine OSC2", "osc3_fine": "Fine OSC3",
 }
+
+
+def format_value(param, value):
+    """Readout in the control's own unit."""
+    if param.endswith("_octave"):
+        return f"{round((value - 0.5) * 4):+d}"
+    if param.endswith("_fine"):
+        return f"{round((value - 0.5) * 100):+d} cents"
+    if param.endswith("_tune"):
+        return f"{(value - 0.5) * 24:+.1f} st"
+    return f"{round(value * 100)}%"
 INK = "#e9e2d6"
 DIM = "#8f9bb0"
 AMBER = "#ffb05e"
@@ -144,7 +157,7 @@ class LiveDisplay:
         audio = getattr(app, "audio_name", "") or "—"
         rate = app.synth.sample_rate / 1000
         last = getattr(app, "last_param", None)
-        tweak = (f"{PARAM_LABELS.get(last, last)} {round(app.synth.get_param(last) * 100)}%"
+        tweak = (f"{PARAM_LABELS.get(last, last)} {format_value(last, app.synth.get_param(last))}"
                  if last else "—")
         load = getattr(app, "dsp_load", 0.0) * 100
         return [

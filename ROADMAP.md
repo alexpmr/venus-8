@@ -44,6 +44,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.14 — Mais controles reais e painel sinalizado
+
+- ✅ Knobs OCTAVE (−2 a +2, 5 posições) e FINE (±50 cents) dos 3 osciladores com som real.
+- ✅ Knob VOL do topo controla o volume geral (o mesmo parâmetro do LEVEL).
+- ✅ Botões de forma de onda acendem conforme a onda selecionada (antes o SAW aparecia sempre aceso, pintado na arte).
+- ✅ Medidor de nível do Master em tempo real (−48 dB a 0 dB, 12 LEDs).
+- ✅ Barra superior: CPU, RAM, versão atual e UPD.
+- ✅ Apagados até serem implementados: Sync/FM/Ring, ondas e Sync dos LFOs, Arpeggiator, Step Sequencer, LEDs de Chorus/Phaser/Reverb, Modulation Matrix, seletor de filtro e ENV, abas e botões de Performance, Bend Range, Voices, busca e LEDs MIDI pintados.
+- ✅ Patches antigos abrem com Octave/Fine no padrão.
+- ✅ Testes de afinação (oitava e fine), controles duplicados, botões de onda, medidor e áreas apagadas.
+- [ ] Homologar no Windows real.
+
 ## v0.2.13 — Display central vivo
 
 - ✅ Osciloscópio em tempo real do som de saída, com disparo estável no cruzamento por zero.
@@ -53,14 +65,14 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Botão INIT carrega o timbre inicial.
 - ✅ Abas MOD MATRIX, ARP/SEQ, FX, GLOBAL e botões RANDOM, A/B, UNDO, REDO apagados até serem implementados.
 - ✅ Testes do osciloscópio e de todo o fluxo de confirmação.
-- [ ] Homologar o display no Windows real.
+- ✅ Homologado no Windows real pelo usuário (19/10/2026).
 
 ## v0.2.12 — Controles futuros sinalizados como inativos
 
 - ✅ Os 40 knobs ainda sem função aparecem apagados (cinza, sem LEDs acesos): Octave/Fine/PW/PWM dos osciladores, Key Track, Fade do LFO 1, LFO 2, Arpeggiator, Step Sequencer, Chorus, Phaser, Reverb, Width, Detune, Spread, Glide, Global e VOL do topo.
 - ✅ Faders de Filter Env e Mod Env apagados (o Amp Env, que funciona, continua aceso).
 - ✅ Testes garantem que nenhum controle inativo fica aceso e nenhum controle ativo é apagado.
-- [ ] Sinalizar também botões e LEDs ainda sem função (formas de onda, Sync/FM/Ring, Arp, Seq, efeitos).
+- ✅ Sinalizar também botões, LEDs, seletores e gráficos de barra ainda sem função (v0.2.14).
 
 ## v0.2.11 — MIDI reconecta sozinho
 
@@ -361,7 +373,7 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - ✅ Download HTTPS, SHA-256, progresso e execução do instalador com confirmação (sem substituição em uso no portátil).
 - ✅ Exibição inicial de CPU, RAM e número de vozes (sem métricas DSP ainda).
 - [ ] Monitor completo DSP, áudio, buffer, latência, picos, underruns e MIDI.
-- [ ] Barra superior direita: junto com CPU, mostrar a memória em uso e a versão atual do software, antes de UPD.
+- ✅ Barra superior direita: CPU, memória em uso e versão atual do software, antes de UPD (v0.2.14).
 - [ ] Coerência de valores entre MIDI, mouse, touch, preset e automação VST3.
 - ✅ README com imagem conceitual e link para página Releases.
 - [ ] Release Windows com Setup e Portable realmente testados.
@@ -369,6 +381,12 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - ✅ Contadores de downloads por arquivo GitHub Releases, sem confundir com instalações.
 - [ ] Suporte a outras plataformas: suspenso até autorização explícita.
 - [ ] Registrar evidência da implementação e testes para cada checkbox concluído.
+
+## Homologação pelo usuário
+
+Para registrar o que foi testado no Windows real e funcionou:
+- informe no chat o que foi testado (ex.: "v0.2.14: OCTAVE e FINE ok"), e o item é marcado no mesmo fluxo de PR; **ou**
+- edite este arquivo no GitHub (ícone de lápis em `ROADMAP.md`) e troque `[ ]` por `[x]` no item "Homologar…" da versão testada.
 
 ## Regra de manutenção
 

@@ -582,12 +582,15 @@ class App:
                 menu=tk.Menu(self.root,tearoff=0)
                 menu.add_command(label=f"{ident}: {self.synth.get_param(ident):.3f}",state="disabled")
                 menu.add_command(label="MIDI Learn — próxima versão",state="disabled")
-                menu.add_command(label="Restaurar padrão",command=lambda n=ident:self.change(n,DEFAULTS[n]))
+                menu.add_command(label="Restaurar padrão",command=lambda n=ident:self.change(n,DEFAULTS[n.split("@")[0]]))
                 menu.tk_popup(event.x_root,event.y_root)
                 return
 
     def change(self,ident,value):
+        if ident.endswith("_octave"):
+            value=round(max(0.0,min(1.0,value))*4)/4      # five detented positions
         self.synth.set_param(ident,value)
+        ident=ident.split("@")[0]
         self.last_param=ident
         if ident not in ("pitch_bend","modwheel"):
             self.patch_dirty=True
@@ -841,7 +844,8 @@ class App:
             if data.get("wave") in WAVES:params["osc1_wave"]=WAVES.index(data["wave"])/3
         if not isinstance(params,dict):raise ValueError("Invalid patch parameters")
         self.synth.panic()
-        self.synth.load_params(params)
+        # Parameters added after the patch was saved start from their defaults.
+        self.synth.load_params({**DEFAULTS,**{k:v for k,v in params.items() if k in DEFAULTS}})
         self.patch_name=str(data.get("name") or Path(path).stem)[:40]
         self.patch_category=str(data.get("category") or "User")
         self.patch_bank="User"

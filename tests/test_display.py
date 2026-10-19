@@ -48,6 +48,37 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue(np.all(scope_trace([]) == 0))
 
 
+class ReadoutTests(unittest.TestCase):
+    def test_controls_show_their_own_units(self):
+        from venus8.display import format_value
+        self.assertEqual(format_value("osc1_octave", 0.75), "+1")
+        self.assertEqual(format_value("osc2_fine", 0.25), "-25 cents")
+        self.assertEqual(format_value("osc3_tune", 1.0), "+12.0 st")
+        self.assertEqual(format_value("cutoff", 0.42), "42%")
+
+    def test_octave_knob_snaps_to_detents(self):
+        app = bare_app()
+        app.change("osc1_octave", 0.81)
+        self.assertEqual(app.synth.get_param("osc1_octave"), 0.75)
+        self.assertEqual(app.last_param, "osc1_octave")
+        app.change("volume@header", 0.3)
+        self.assertEqual(app.synth.get_param("volume"), 0.3)
+        self.assertEqual(app.last_param, "volume")
+
+
+    def test_old_patch_files_reset_new_parameters(self):
+        import json, tempfile
+        from pathlib import Path
+        app = bare_app()
+        app.synth.set_param("osc1_octave", 1.0)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "Old.json"
+            path.write_text(json.dumps({"name": "Old", "params": {"cutoff": 0.3}}), encoding="utf-8")
+            app.open_patch(path)
+        self.assertEqual(app.synth.get_param("osc1_octave"), 0.5)
+        self.assertEqual(app.synth.get_param("cutoff"), 0.3)
+
+
 class UnsavedPromptTests(unittest.TestCase):
     def test_clean_patch_switches_without_asking(self):
         app = bare_app()

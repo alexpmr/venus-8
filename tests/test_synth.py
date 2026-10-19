@@ -72,6 +72,36 @@ class TestSynth(unittest.TestCase):
             self.assertTrue(np.isfinite(audio).all())
 
 
+def pitch_of(params, note=57):
+    s = Synth()
+    s.load_params(dict({"osc1_wave": 1.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                        "sub_level": 0.0, "noise_level": 0.0, "cutoff": 1.0,
+                        "resonance": 0.0, "drive": 0.0, "lfo_depth": 0.0,
+                        "delay_mix": 0.0, "attack": 0.0}, **params))
+    s.note_on(note)
+    s.render(2048)
+    audio = s.render(32768)[:, 0]
+    spectrum = np.abs(np.fft.rfft(audio * np.hanning(len(audio))))
+    return np.argmax(spectrum) * s.sample_rate / len(audio)
+
+
+class TestOscillatorTuning(unittest.TestCase):
+    def test_octave_switch_and_fine_tune(self):
+        base = pitch_of({})
+        self.assertAlmostEqual(base, 220.0, delta=1.5)
+        self.assertAlmostEqual(pitch_of({"osc1_octave": 0.75}), 440.0, delta=2)
+        self.assertAlmostEqual(pitch_of({"osc1_octave": 0.0}), 55.0, delta=1.5)
+        self.assertAlmostEqual(pitch_of({"osc1_fine": 1.0}), 220.0 * 2 ** (0.5 / 12), delta=1.5)
+        # Between detents the octave rounds to the nearest position.
+        self.assertAlmostEqual(pitch_of({"osc1_octave": 0.7}), 440.0, delta=2)
+
+    def test_second_control_for_the_same_parameter(self):
+        s = Synth()
+        s.set_param("volume@header", 0.25)
+        self.assertEqual(s.get_param("volume"), 0.25)
+        self.assertEqual(s.get_param("volume@header"), 0.25)
+
+
 class TestSynthQuality(unittest.TestCase):
     def test_polyblep_reduces_aliasing(self):
         sr, f = 44100, 3001.0

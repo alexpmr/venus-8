@@ -5,13 +5,16 @@ The canvas is rebuilt only when the window is resized; afterwards each control
 updates itself in place when its value or state changes.
 """
 from pathlib import Path
+import math
 import sys
 
 from PIL import Image, ImageTk
 
-from .components import (KNOB_GEOMETRY, PAINTED_CAPS, CAP_REACH, KeySprites,
-                         cap_half_width, clean_artwork, keyboard_layout, render_knob)
-from .display import LiveDisplay
+from .components import (DETENT_KNOBS, KNOB_GEOMETRY, METER_ROWS, PAINTED_CAPS, CAP_REACH,
+                         STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
+                         clean_artwork, keyboard_layout, meter_box, panel_sprites,
+                         render_knob, wave_box)
+from .display import LiveDisplay, format_value
 
 ART_W, ART_H = 1600, 959
 
@@ -38,7 +41,7 @@ BUTTONS = {
     "prev_patch": (528, 22, 559, 66),
     "next_patch": (778, 22, 813, 66),
     "settings": (592, 695, 728, 738),
-    "check_update": (1394, 17, 1450, 65),
+    "check_update": (1382, 44, 1431, 64),
 }
 # Four selectable waves on each of the 3 oscillators (keeps waveform order).
 for osc, left, step in ((1, 61, 45), (2, 277, 45), (3, 489, 45)):
@@ -88,6 +91,8 @@ class MockupRenderer:
                     art = source.convert("RGB")
                 self.original, self.caps = clean_artwork(art)
                 self.key_sprites = KeySprites(art)
+                self.sprites = panel_sprites(art, self.original)
+                self.meter_level = 0.0
             except Exception:
                 self.original = None
 
@@ -157,6 +162,25 @@ class MockupRenderer:
             else:
                 self.wheel_items[key] = canvas.create_line(0, 0, 0, 0, fill="#ffad63",
                                                            width=max(1, 2*scale))
+        # Waveform buttons light up for the selected wave; level meter LEDs.
+        self.wave_items = {}
+        for key, face in self.sprites["waves"].items():
+            photo = self.photo(face.resize((max(1, round(face.width*scale)),
+                                            max(1, round(face.height*scale))),
+                                           Image.Resampling.LANCZOS))
+            self.photos[("wave",) + key] = photo
+            x, y = app.bounds(*wave_box(*key))[:2]
+            self.wave_items[key] = canvas.create_image(x, y, image=photo, anchor="nw",
+                                                       state="hidden")
+        self.meter_items = {}
+        for key, face in self.sprites["meter"].items():
+            box = app.bounds(*meter_box(*key))
+            size_px = (max(1, round(box[2] - box[0])), max(1, round(box[3] - box[1])))
+            photo = self.photo(face.resize(size_px, Image.Resampling.LANCZOS))
+            self.photos[("meter",) + key] = photo
+            self.meter_items[key] = canvas.create_image(box[0], box[1], image=photo,
+                                                        anchor="nw", state="hidden")
+        self.meter_lit = {key: False for key in self.meter_items}
         app.buttons.update(BUTTONS)
         self.display = LiveDisplay(app)
         self.display.build()
@@ -166,7 +190,8 @@ class MockupRenderer:
         frame = (ident, round(value * 100))
         if frame not in self.knob_frames:
             _, _, r = KNOBS[ident]
-            self.knob_frames[frame] = self.photo(render_knob(r, frame[1] / 100, self.app.scale))
+            self.knob_frames[frame] = self.photo(render_knob(
+                r, frame[1] / 100, self.app.scale, detents=ident in DETENT_KNOBS))
         return self.knob_frames[frame]
 
     def update(self):
@@ -192,6 +217,9 @@ class MockupRenderer:
             x, y1, y2 = SLIDERS[key]
             y = y2 - (y2 - y1) * app.synth.get_param(key)
             canvas.coords(item, *app.bounds(x - 11, y, x + 11, y))
+        for (osc, index), item in self.wave_items.items():
+            selected = round(app.synth.get_param(f"osc{osc}_wave") * 3) == index
+            canvas.itemconfigure(item, state="normal" if selected else "hidden")
         self.display.update()
         self.draw_status()
 
@@ -201,7 +229,20 @@ class MockupRenderer:
             return
         if self.built_size:
             self.display.tick()
+            self.tick_meter()
         self.app.root.after(50, self.tick)
+
+    def tick_meter(self):
+        """Peak meter: −48 dB..0 dB over 12 LEDs, fast attack, slow fall."""
+        peak = float(getattr(self.app.synth, "peak", 0.0))
+        level = 0.0 if peak <= 0.004 else min(1.0, (20 * math.log10(peak) + 48) / 48)
+        self.meter_level = max(level, self.meter_level * 0.86)
+        lit_rows = round(self.meter_level * len(METER_ROWS))
+        for (column, row), item in self.meter_items.items():
+            lit = len(METER_ROWS) - row <= lit_rows
+            if lit != self.meter_lit[(column, row)]:
+                self.app.canvas.itemconfigure(item, state="normal" if lit else "hidden")
+                self.meter_lit[(column, row)] = lit
 
     def draw_status(self):
         """Patch, update, MIDI and value readouts: small texts redrawn each update."""
@@ -221,19 +262,26 @@ class MockupRenderer:
         app.rect(1082,29,1199,59,"#10151c","#434850")
         app.text(1128,43,app.patch_category[:12],11,"#f0e0c9")
         app.text(1186,43,"▾",10,"#d8d5cc")
-        app.rect(1370,43,1450,74,"#10151b")
-        status = f"↑ {app.release['tag_name']}" if app.release else "UPD"
-        app.text(1411,56,status,10,"#fca34e" if app.release else "#b3b5ba",bold=True)
+        # Top bar: CPU and RAM, then the running version and the update button.
+        x1, y1, x2, y2 = STATUS_BOX
+        app.text(x1+6,y1+12,"CPU",8,"#8f9bb0","w",True)
+        app.text(x1+29,y1+12,app.cpu_text,9,"#44dfe7","w",True)
+        app.text(x1+62,y1+12,"RAM",8,"#8f9bb0","w",True)
+        app.text(x1+86,y1+12,app.ram_text.replace(" MB","M"),9,"#44dfe7","w",True)
+        app.text(x1+6,y1+32,f"v{__version__()}",9,"#e8e2d9","w",True)
+        app.rect(1382,44,1431,64,"#2b1a0c" if app.release else "#1b1f26",
+                 "#fca34e" if app.release else "#4a5060")
+        status = f"↑ {app.release['tag_name'].lstrip('v')}" if app.release else "UPD"
+        app.text(1406,54,status,9,"#fca34e" if app.release else "#b3b5ba",bold=True)
         # MIDI: red when no controller is open, green when connected, cyan while playing.
         connected = getattr(app, "port", None) is not None
         app.text(1290,46, "●" if connected else "○", 11,
                  "#37cbff" if app.midi_held else "#4fd08a" if connected else "#e0574a")
-        app.text(1356,67,f"{app.cpu_text}",10,"#44dfe7",bold=True)
         # Numerical value appears only while a control is being dragged.
         if app.drag and app.drag[0] in KNOBS:
             x, y, r = KNOBS[app.drag[0]]
             app.rect(x-33,y+r+9,x+33,y+r+28,"#10151b")
-            app.text(x,y+r+18,f"{round(app.synth.get_param(app.drag[0])*100)}%",11,"#ffb16d",bold=True)
+            app.text(x,y+r+18,format_value(app.drag[0].split("@")[0],app.synth.get_param(app.drag[0])),11,"#ffb16d",bold=True)
         elif app.drag and app.drag[0] in SLIDERS:
             x, y1, y2 = SLIDERS[app.drag[0]]
             y = y2 - (y2 - y1) * app.synth.get_param(app.drag[0])
