@@ -32,6 +32,20 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.6 — Arte oficial HD e identidade do Windows
+
+- ✅ Mockup original **1600 × 959 PNG sem perda**, armazenado no GitHub como `docs/venus-8-mockup.png`.
+- ✅ README e ROADMAP usam o mesmo PNG em largura total.
+- ✅ Instalador e portátil incluem o PNG original no executável; miniaturas são rejeitadas.
+- ✅ Interface interativa posicionada sobre a arte oficial, mantendo o layout aprovado.
+- ✅ Ícone personalizado de sintetizador vintage com teclado, knobs e LEDs, em múltiplas resoluções.
+- ✅ Ícone configurado para Windows EXE, instalador e janela/barra de tarefas.
+- ✅ Ajuste de DPI por monitor no Windows para reduzir perda de nitidez.
+- ✅ Teste automático para validar a resolução da imagem e a geração do ícone.
+- [ ] Testar no Windows 10/11 em monitor Full HD, 2K e 4K.
+- [ ] Aperfeiçoar elementos dinâmicos sobre a arte: ponteiros, faders e notas efetivamente pressionadas.
+- [ ] Validar produção sonora e atualizador na v0.2.6.
+
 ## v0.2.4 — Validação do layout definitivo Windows
 
 - ✅ Layout reestruturado segundo o mockup aprovado: 3 osciladores, mixer, filtro, 3 envelopes, 2 LFOs, display central, matriz, arp, sequenciador, efeitos e master.
