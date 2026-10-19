@@ -1,16 +1,7 @@
 name: Build & Release Windows
+# PAUSED at user's request: automatic builds disabled.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'venus8/**'
-      - 'tests/**'
-      - 'installer/**'
-      - 'scripts/update_release_table.py'
-      - 'requirements.txt'
-      - 'run.py'
-      - '.github/workflows/build-windows.yml'
 permissions:
   contents: write
 concurrency:
@@ -18,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   windows:
+    if: ${{ false }} # Paused: do not allocate a Windows runner
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
