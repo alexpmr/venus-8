@@ -72,6 +72,10 @@ DEFAULTS.update({f"osc{i}_pw": 0.0 for i in (1, 2, 3)})
 DEFAULTS.update({f"osc{i}_pwm": 0.0 for i in (1, 2, 3)})
 UNISON_COPIES = 4
 UNISON_CENTS = 30.0               # outer copies at full DETUNE
+# Arpeggiator: 1/16 steps at 40..240 BPM, gate 5..100 %, 1..4 octaves, hold.
+ARP_MODES = ("Up", "Down", "Up/Down", "Random", "As Played")
+DEFAULTS.update({"arp_on": 0.0, "arp_mode": 0.0, "arp_rate": 0.4, "arp_gate": 0.5,
+                 "arp_oct": 0.0, "arp_hold": 0.0})
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -117,6 +121,9 @@ class Synth:
         self.fenv = {"level": 0.0, "time": 0.0, "gate": False, "from": 0.0}
         self.sustain = False            # sustain pedal (MIDI CC64)
         self.held = []                  # keys held, in order (mono modes)
+        self.arp_keys, self.arp_pressed = [], set()
+        self.arp_note, self.arp_index, self.arp_clock = None, 0, 0
+        self.arp_gate_left, self.arp_velocity = 0, 100
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -287,6 +294,13 @@ class Synth:
         value = max(0.0, min(1.0, float(value)))
         with self.lock:
             self.params[name] = value
+            # Switching the arpeggiator (or HOLD with no key down) off lets go
+            # of the pattern, so no arpeggio note is left hanging.
+            if name == "arp_on" and value < 0.5:
+                self._arp_stop()
+                self.arp_pressed = set()
+            elif name == "arp_hold" and value < 0.5 and not self.arp_pressed:
+                self._arp_stop()
 
     def get_param(self, name):
         with self.lock:
@@ -303,6 +317,58 @@ class Synth:
             if name in DEFAULTS:
                 self.set_param(name, value)
 
+    # -- arpeggiator ----------------------------------------------------------
+    @property
+    def arp_active(self):
+        return self.params["arp_on"] >= 0.5
+
+    def arp_bpm(self):
+        return 40.0 + 200.0 * self.params["arp_rate"]
+
+    def arp_octaves(self):
+        return 1 + round(self.params["arp_oct"] * 3)
+
+    def arp_sequence(self):
+        """Notes of one arpeggio cycle for the keys being held (or latched)."""
+        keys = self.arp_keys
+        if not keys:
+            return []
+        mode = round(self.params["arp_mode"] * 4)
+        base = list(keys) if mode == 4 else sorted(keys)
+        up = [note + 12 * octave for octave in range(self.arp_octaves()) for note in base]
+        up = [note for note in up if note <= 127]
+        if mode == 1:
+            return up[::-1]
+        if mode == 2:
+            return up + up[-2:0:-1]
+        return up
+
+    def _arp_step(self):
+        """Start the next arpeggio note; returns its length in samples."""
+        sequence = self.arp_sequence()
+        step = max(1, round(self.sample_rate * 60.0 / (self.arp_bpm() * 4)))
+        if self.arp_note is not None:
+            self._note_off(self.arp_note)
+            self.arp_note = None
+        if sequence:
+            if round(self.params["arp_mode"] * 4) == 3:
+                note = sequence[int(self.rng.integers(len(sequence)))]
+            else:
+                note = sequence[self.arp_index % len(sequence)]
+            self.arp_index += 1
+            self._note_on(note, self.arp_velocity)
+            self.arp_note = note
+            self.arp_gate_left = max(1, round(step * (0.05 + 0.95 * self.params["arp_gate"])))
+        return step
+
+    def _arp_stop(self):
+        if self.arp_note is not None:
+            self._note_off(self.arp_note)
+        self.arp_note = None
+        self.arp_keys = []
+        self.arp_index = 0
+        self.arp_clock = 0
+
     def note_on(self, note, velocity=100):
         note = int(note)
         if not (0 <= note <= 127):
@@ -310,6 +376,33 @@ class Synth:
         with self.lock:
             if velocity <= 0:
                 return self.note_off(note)
+            if self.arp_active:
+                if not self.arp_pressed:          # a fresh chord replaces a held one
+                    self.arp_keys = []
+                    self.arp_index = 0
+                    self.arp_clock = 0            # first step right away
+                self.arp_pressed.add(note)
+                if note not in self.arp_keys:
+                    self.arp_keys.append(note)
+                self.arp_velocity = velocity
+                return
+            self._note_on(note, velocity)
+
+    def note_off(self, note):
+        with self.lock:
+            note = int(note)
+            if self.arp_active:
+                self.arp_pressed.discard(note)
+                if self.params["arp_hold"] < 0.5:
+                    if note in self.arp_keys:
+                        self.arp_keys.remove(note)
+                    if not self.arp_keys:
+                        self._arp_stop()
+                return
+            self._note_off(note)
+
+    def _note_on(self, note, velocity=100):
+        with self.lock:
             mode = self.voice_mode
             glide = 0.0
             if self.params["glide_time"] > 0.001 and self.voices:
@@ -374,7 +467,7 @@ class Synth:
         voice["serial"] = self.voice_serial
         self.voices[note] = voice
 
-    def note_off(self, note):
+    def _note_off(self, note):
         with self.lock:
             note = int(note)
             if self.voice_mode:
@@ -414,6 +507,8 @@ class Synth:
         with self.lock:
             self.voices.clear()
             self.held = []
+            self.arp_keys, self.arp_pressed = [], set()
+            self.arp_note, self.arp_index, self.arp_clock = None, 0, 0
             self.sustain = False
             self.lowpass = 0.0
             self.filter_states = [0.0, 0.0, 0.0, 0.0]
@@ -604,9 +699,37 @@ class Synth:
         return phase * 2.0 - 1.0 - self._blep(phase, step)
 
     def render(self, frames):
+        """Audio for ``frames`` samples. With the arpeggiator running, the block
+        is cut at each arpeggio step and gate end, so timing is sample exact."""
         frames = int(frames)
         if frames <= 0:
             return np.empty((0, 2), dtype=np.float32)
+        with self.lock:
+            if not (self.arp_active and (self.arp_keys or self.arp_note is not None)):
+                return self._render(frames)
+            parts, done = [], 0
+            while done < frames:
+                if self.arp_clock <= 0 and self.arp_keys:
+                    self.arp_clock = self._arp_step()
+                elif self.arp_clock <= 0:
+                    self.arp_clock = frames
+                if self.arp_note is not None and self.arp_gate_left <= 0:
+                    self._note_off(self.arp_note)
+                    self.arp_note = None
+                length = min(frames - done, self.arp_clock)
+                if self.arp_note is not None:
+                    length = min(length, self.arp_gate_left)
+                length = max(1, length)
+                parts.append(self._render(length))
+                done += length
+                self.arp_clock -= length
+                self.arp_gate_left -= length
+            peak = max(float(np.max(np.abs(part))) for part in parts)
+            out = np.concatenate(parts)
+            self.peak = peak
+            return out
+
+    def _render(self, frames):
         with self.lock:
             t = np.arange(frames, dtype=np.float64)
             mono = np.zeros(frames, dtype=np.float64)

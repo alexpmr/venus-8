@@ -18,7 +18,7 @@ import psutil
 import sounddevice as sd
 
 from . import __version__
-from .synth import DEFAULTS, FILTER_TYPES, WAVES, Synth
+from .synth import ARP_MODES, DEFAULTS, FILTER_TYPES, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
@@ -620,6 +620,8 @@ class App:
             return round(max(0.0,min(1.0,value))*4)/4      # five detented positions
         if ident.startswith("drawbar"):
             return round(max(0.0,min(1.0,value))*8)/8      # drawbar positions 0..8
+        if ident=="arp_oct":
+            return round(max(0.0,min(1.0,value))*3)/3      # 1..4 octaves
         return value
 
     def change(self,ident,value):
@@ -641,6 +643,11 @@ class App:
         elif ident.startswith("lfowave"):
             lfo,index=int(ident[7]),int(ident[9])
             self.change("lfo_wave" if lfo==1 else "lfo2_wave",index/3)
+        elif ident=="arp_mode":
+            menu=tk.Menu(self.root,tearoff=0)
+            for index,name in enumerate(ARP_MODES):
+                menu.add_command(label=name,command=lambda v=index/4:self.change("arp_mode",v))
+            menu.tk_popup(self.root.winfo_pointerx(),self.root.winfo_pointery())
         elif ident=="filter_type":
             menu=tk.Menu(self.root,tearoff=0)
             for index,name in enumerate(FILTER_TYPES):

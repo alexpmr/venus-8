@@ -554,6 +554,69 @@ class TestPerformanceModes(unittest.TestCase):
         self.assertTrue(np.isfinite(moving).all())
 
 
+class TestArpeggiator(unittest.TestCase):
+    def run_arp(self, keys=(60, 64, 67), steps=8, block=64, **params):
+        s = Synth()
+        s.load_params(dict({"arp_on": 1.0, "arp_rate": 1.0, "attack": 0.0, "sustain": 1.0,
+                            "release": 0.01}, **params))
+        for key in keys:
+            s.note_on(key)
+        played = []
+        for _ in range(4000):
+            s.render(block)
+            if s.arp_note is not None and (not played or played[-1][1] != s.arp_index):
+                played.append((s.arp_note, s.arp_index))
+            if len(played) >= steps:
+                break
+        return [note for note, _ in played], s
+
+    def test_modes_and_octaves(self):
+        self.assertEqual(self.run_arp()[0], [60, 64, 67] * 2 + [60, 64])
+        self.assertEqual(self.run_arp(arp_mode=0.25)[0][:3], [67, 64, 60])
+        self.assertEqual(self.run_arp(arp_mode=0.5)[0][:6], [60, 64, 67, 64, 60, 64])
+        self.assertEqual(self.run_arp(keys=(64, 60, 67), arp_mode=1.0)[0][:3], [64, 60, 67])
+        self.assertEqual(self.run_arp(arp_oct=1 / 3)[0][:6], [60, 64, 67, 72, 76, 79])
+        randoms = self.run_arp(arp_mode=0.75, steps=20)[0]
+        self.assertTrue(set(randoms) <= {60, 64, 67})
+
+    def test_timing_is_sample_exact_and_block_independent(self):
+        def onsets(block):
+            s = Synth()
+            s.load_params({"arp_on": 1.0, "arp_rate": 0.5, "arp_gate": 0.5})
+            s.note_on(60)
+            s.note_on(67)
+            audio = np.concatenate([s.render(block) for _ in range(44100 // block)])
+            return audio
+        np.testing.assert_allclose(onsets(441), onsets(4410), atol=1e-6)
+        s = Synth()
+        s.load_params({"arp_on": 1.0, "arp_rate": 0.5})           # 140 BPM, 1/16 notes
+        self.assertAlmostEqual(s.arp_bpm(), 140.0)
+
+    def test_gate_releases_before_the_next_step(self):
+        _, s = self.run_arp(steps=1, arp_gate=0.2, arp_rate=0.0)
+        step = round(44100 * 60 / (40 * 4))
+        s.render(int(step * 0.5))
+        self.assertIsNone(s.arp_note)
+
+    def test_release_stops_and_hold_latches(self):
+        _, s = self.run_arp(steps=2)
+        for key in (60, 64, 67):
+            s.note_off(key)
+        self.assertIsNone(s.arp_note)
+        self.assertFalse(s.arp_keys)
+        _, s = self.run_arp(steps=2, arp_hold=1.0)
+        for key in (60, 64, 67):
+            s.note_off(key)
+        s.render(20000)
+        self.assertIsNotNone(s.arp_note)               # still playing, latched
+        s.note_on(72)                                  # a new chord replaces it
+        self.assertEqual(s.arp_keys, [72])
+        s.set_param("arp_on", 0.0)
+        self.assertIsNone(s.arp_note)
+        s.render(4096)
+        self.assertTrue(all(not v["gate"] for v in s.voices.values()))
+
+
 class TestElectricPiano(unittest.TestCase):
     def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
         s = Synth()
