@@ -13,7 +13,7 @@ from PIL import Image, ImageTk
 
 from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP,
                          DRAWBAR_TOP, DRAWBAR_WIDTH, DRAWBAR_X, KNOB_GEOMETRY,
-                         ORGAN_LABEL_X, ORGAN_SWITCHES, render_switch,
+                         ORGAN_LABEL_X, ORGAN_SWITCHES, render_switch, FM_BUTTONS,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -34,6 +34,8 @@ SLIDERS = {
     "attack": (1156, 161, 269),
     "decay": (1186, 161, 269), "sustain": (1215, 161, 269),
     "release": (1245, 161, 269),
+    "mod_attack": (1442, 161, 269), "mod_decay": (1472, 161, 269),
+    "mod_sustain": (1501, 161, 269), "mod_release": (1532, 161, 269),
     "pitch_bend": (76, 846, 927),
     "modwheel": (166, 846, 927),
 }
@@ -177,6 +179,16 @@ class MockupRenderer:
             x, y = app.bounds(*wave_box(*key))[:2]
             self.wave_items[key] = canvas.create_image(x, y, image=photo, anchor="nw",
                                                        state="hidden")
+        self.fm_items = {}
+        for osc, face in self.sprites["fm"].items():
+            photo = self.photo(face.resize((max(1, round(face.width*scale)),
+                                            max(1, round(face.height*scale))),
+                                           Image.Resampling.LANCZOS))
+            self.photos[("fm", osc)] = photo
+            x, y = app.bounds(*FM_BUTTONS[osc])[:2]
+            self.fm_items[osc] = canvas.create_image(x, y, image=photo, anchor="nw",
+                                                     state="hidden")
+            app.buttons[f"switch:osc{osc}_fm_on"] = FM_BUTTONS[osc]
         self.meter_items = {}
         for key, face in self.sprites["meter"].items():
             box = app.bounds(*meter_box(*key))
@@ -262,6 +274,9 @@ class MockupRenderer:
             if lit != entry[2]:
                 canvas.itemconfigure(entry[0], image=entry[1][lit])
                 entry[2] = lit
+        for osc, item in self.fm_items.items():
+            on = app.synth.get_param(f"osc{osc}_fm_on") >= 0.5
+            canvas.itemconfigure(item, state="normal" if on else "hidden")
         for (osc, index), item in self.wave_items.items():
             selected = round(app.synth.get_param(f"osc{osc}_wave") * 3) == index
             canvas.itemconfigure(item, state="normal" if selected else "hidden")

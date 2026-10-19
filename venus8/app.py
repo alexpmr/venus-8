@@ -22,7 +22,7 @@ from .synth import DEFAULTS, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
-from .display import DISPLAY_MODES
+from .display import DISPLAY_MODES, PARAM_LABELS, SWITCH_PARAMS, format_value
 
 def setup_windows_dpi():
     """Prevent Windows from bitmap-upscaling and blurring the UI."""
@@ -593,23 +593,40 @@ class App:
 
     def mouse_right(self,event):
         x,y=self.coords(event)
-        for ident,(style,x1,y1,x2,y2) in self.controls.items():
-            if self.inside(x,y,(x1,y1,x2,y2)):
+        targets=[(ident,box) for ident,(style,*box) in self.controls.items()]
+        targets+=[(ident[7:],box) for ident,box in self.buttons.items() if ident.startswith("switch:")]
+        for ident,box in targets:
+            if self.inside(x,y,box):
+                param=ident.split("@")[0]
                 menu=tk.Menu(self.root,tearoff=0)
-                menu.add_command(label=f"{ident}: {self.synth.get_param(ident):.3f}",state="disabled")
-                menu.add_command(label="MIDI Learn — próxima versão",state="disabled")
+                label=PARAM_LABELS.get(param,param)
+                menu.add_command(label=f"{label}: {format_value(param,self.synth.get_param(param))}",state="disabled")
+                menu.add_separator()
+                if getattr(self,"learning",None)==param:
+                    menu.add_command(label="Cancelar MIDI Learn",command=lambda:(setattr(self,"learning",None),self.draw()))
+                else:
+                    menu.add_command(label="MIDI Learn: mova um controle do teclado",command=lambda n=param:self.start_learn(n))
+                cc=self.midi_cc_for(param)
+                if cc is not None:
+                    menu.add_command(label=f"Esquecer MIDI (CC {cc})",command=lambda n=param:self.forget_midi(n))
+                menu.add_separator()
                 menu.add_command(label="Restaurar padrão",command=lambda n=ident:self.change(n,DEFAULTS[n.split("@")[0]]))
                 menu.tk_popup(event.x_root,event.y_root)
                 return
 
-    def change(self,ident,value):
+    @staticmethod
+    def snap(ident,value):
         if ident.endswith("_octave"):
-            value=round(max(0.0,min(1.0,value))*4)/4      # five detented positions
-        elif ident.startswith("drawbar"):
-            value=round(max(0.0,min(1.0,value))*8)/8      # drawbar positions 0..8
-        self.synth.set_param(ident,value)
+            return round(max(0.0,min(1.0,value))*4)/4      # five detented positions
+        if ident.startswith("drawbar"):
+            return round(max(0.0,min(1.0,value))*8)/8      # drawbar positions 0..8
+        return value
+
+    def change(self,ident,value):
+        self.synth.set_param(ident,self.snap(ident,value))
         ident=ident.split("@")[0]
         self.last_param=ident
+        self.midi_note=None
         if ident not in ("pitch_bend","modwheel"):
             self.patch_dirty=True
         self.draw()
@@ -766,6 +783,64 @@ class App:
             except Exception:pass
             self.stream=None
 
+    # MIDI Learn: CC number -> parameter, kept in settings.json ("midi_map").
+    DEFAULT_MIDI_MAP={1:"modwheel",7:"volume",74:"cutoff",73:"attack",72:"release",91:"delay_mix"}
+
+    @property
+    def midi_map(self):
+        if "midi_map" not in self.settings:
+            self.settings["midi_map"]={str(cc):ident for cc,ident in self.DEFAULT_MIDI_MAP.items()}
+        return self.settings["midi_map"]
+
+    def midi_cc_for(self,ident):
+        return next((int(cc) for cc,name in self.midi_map.items() if name==ident),None)
+
+    def start_learn(self,ident):
+        """Next CC moved on the controller is assigned to ``ident``."""
+        self.learning=ident.split("@")[0]
+        self.midi_note=None
+        self.draw()
+
+    def forget_midi(self,ident):
+        for cc in [cc for cc,name in self.midi_map.items() if name==ident]:
+            del self.midi_map[cc]
+        self._save_settings()
+        self.draw()
+
+    def reset_midi_map(self):
+        self.settings["midi_map"]={str(cc):ident for cc,ident in self.DEFAULT_MIDI_MAP.items()}
+        self._save_settings()
+
+    def learn_cc(self,control):
+        ident=self.learning
+        self.learning=None
+        for cc in [cc for cc,name in self.midi_map.items() if name==ident]:
+            del self.midi_map[cc]             # one CC per control
+        self.midi_map[str(control)]=ident
+        self._save_settings()
+        self.midi_note=f"CC {control} → {PARAM_LABELS.get(ident,ident)}"
+
+    def midi_control(self,control,value):
+        ident=self.midi_map.get(str(control))
+        if not hasattr(self,"cc_values"):
+            self.cc_values={}
+        previous=self.cc_values.get(control,0)
+        self.cc_values[control]=value
+        if ident is None or ident not in DEFAULTS:
+            return
+        if ident in SWITCH_PARAMS:
+            # Buttons toggle on press: works for momentary and latching buttons.
+            if value>=64 and previous<64:
+                self.synth.set_param(ident,0.0 if self.synth.get_param(ident)>=0.5 else 1.0)
+            else:
+                return
+        else:
+            self.synth.set_param(ident,self.snap(ident,value/127.0))
+        self.last_param=ident
+        self.midi_note=None
+        if ident not in ("modwheel","pitch_bend"):
+            self.patch_dirty=True
+
     def midi_message(self,msg):
         self.last_midi=f"MIDI: {msg.type}"
         if msg.type=="note_on" and msg.velocity:
@@ -774,6 +849,8 @@ class App:
         elif msg.type=="note_off" or (msg.type=="note_on" and not msg.velocity):
             self.synth.note_off(msg.note)
             self.midi_held.discard(msg.note)
+        elif msg.type=="control_change" and getattr(self,"learning",None):
+            self.learn_cc(msg.control)
         elif msg.type=="control_change" and msg.control==64:
             self.synth.set_sustain(msg.value>=64)
         elif msg.type=="program_change":
@@ -783,13 +860,7 @@ class App:
         elif msg.type=="pitchwheel":
             self.synth.pitch_bend=msg.pitch/8192*2
         elif msg.type=="control_change":
-            mapping={1:"modwheel",7:"volume",74:"cutoff",73:"attack",72:"release",91:"delay_mix"}
-            if msg.control in mapping:
-                ident=mapping[msg.control]
-                self.synth.set_param(ident,msg.value/127.0)
-                self.last_param=ident
-                if ident!="modwheel":
-                    self.patch_dirty=True
+            self.midi_control(msg.control,msg.value)
 
     def open_settings(self):
         box=tk.Toplevel(self.root)
@@ -855,6 +926,7 @@ class App:
                  bg=PANEL,fg=FADED).pack()
         row=tk.Frame(box,bg=PANEL);row.pack(pady=14)
         tk.Button(row,text="Reexaminar dispositivos",command=lambda:(self.scan_devices(),box.destroy(),self.open_settings())).pack(side="left",padx=8)
+        tk.Button(row,text="Restaurar MIDI padrão",command=self.reset_midi_map).pack(side="left",padx=8)
         tk.Button(row,text="Aplicar",command=apply).pack(side="left",padx=8)
 
     def save_patch(self):

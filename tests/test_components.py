@@ -146,6 +146,31 @@ class OrganPanelTests(unittest.TestCase):
         self.assertGreater(lit(on), 5)
 
 
+class FMPanelTests(unittest.TestCase):
+    def test_fm_buttons_have_lit_faces_and_are_not_greyed(self):
+        from venus8.components import FM_BUTTONS
+        with Image.open("docs/venus-8-mockup.png") as image:
+            art = image.convert("RGB")
+        clean, _ = clean_artwork(art)
+        sprites = panel_sprites(art, clean)
+        for osc, box in FM_BUTTONS.items():
+            face = sprites["fm"][osc]
+            self.assertEqual(face.size, clean.crop(box).size)
+            self.assertGreater(sum(amber(p) for p in face.getdata() if p[3] > 200), 5)
+            self.assertGreater(max(clean.crop(box).convert("L").getdata()), 120)   # legend readable
+            for name, area in INACTIVE_AREAS.items():
+                self.assertFalse(box[0] < area[2] and area[0] < box[2]
+                                 and box[1] < area[3] and area[1] < box[3], (osc, name))
+
+    def test_fm_knobs_and_mod_env_are_live_controls(self):
+        for osc in (1, 2, 3):
+            self.assertIn(f"osc{osc}_fm", KNOB_GEOMETRY)
+            self.assertNotIn(f"osc{osc}_pw2", INACTIVE_KNOBS)
+        for stage in ("attack", "decay", "sustain", "release"):
+            self.assertIn(f"mod_{stage}", PAINTED_CAPS)
+        self.assertNotIn("mod_env", INACTIVE_FADER_BANKS)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)

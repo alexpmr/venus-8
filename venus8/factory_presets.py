@@ -381,7 +381,53 @@ MORE_PROGRAMS = (
         "release": 0.15, "lfo_rate": 0.95, "lfo_depth": 0.8, "volume": 0.34,
     }),
 )
-PROGRAMS = PROGRAMS + MORE_PROGRAMS
+
+
+def fm_voice(**params):
+    """Sine operators, OSC1 the carrier modulated by OSC2 (OSC3 -> OSC2 -> OSC1),
+    with the analog filter open. Ratios: octave and tune of each oscillator."""
+    values = dict(osc1_wave=1.0, osc2_wave=1.0, osc3_wave=1.0, osc1_level=1.0,
+                  osc2_level=0.0, osc3_level=0.0, sub_level=0.0, noise_level=0.0,
+                  osc1_tune=0.5, osc2_tune=0.5, osc3_tune=0.5, cutoff=1.0, resonance=0.0,
+                  drive=0.0, osc1_fm_on=1.0)
+    values.update(params)
+    return values
+
+
+# FM (v0.2.19): tune 0.5 + semitones/24, octave 0.75/1.0 = +1/+2 octaves.
+FM_PROGRAMS = (
+    ("FM E.Piano", "FM", "Piano elétrico FM dos anos 80: ataque brilhante que suaviza.", fm_voice(
+        osc1_fm=0.45, osc2_fm_on=1.0, osc2_fm=0.18, osc3_octave=1.0, osc3_tune=1.0,
+        mod_attack=0.0, mod_decay=0.45, mod_sustain=0.1, mod_release=0.3,
+        attack=0.0, decay=0.7, sustain=0.0, release=0.35, volume=1.00)),
+    ("FM Bells", "FM", "Sinos inarmônicos (razão 3,5) com cauda longa.", fm_voice(
+        osc1_fm=0.55, osc2_octave=1.0, osc2_tune=0.5 - 2.31 / 24,
+        mod_decay=0.7, mod_sustain=0.2, mod_release=0.6,
+        attack=0.0, decay=0.9, sustain=0.0, release=0.7, delay_mix=0.2, volume=0.90)),
+    ("FM Bass", "FM", "Baixo FM percussivo e definido, ótimo para slap sintético.", fm_voice(
+        osc1_fm=0.55, osc1_octave=0.25, osc2_octave=0.25, mod_decay=0.3, mod_sustain=0.15,
+        mod_release=0.1, attack=0.0, decay=0.5, sustain=0.6, release=0.1, volume=1.00)),
+    ("FM Brass", "FM", "Metais FM: o brilho abre devagar como um sopro.", fm_voice(
+        osc1_fm=0.5, osc2_fm_on=1.0, osc2_fm=0.3, osc3_fm_on=1.0, osc3_fm=0.3,
+        mod_attack=0.25, mod_decay=0.4, mod_sustain=0.7, mod_release=0.25,
+        attack=0.12, decay=0.4, sustain=0.85, release=0.2, lfo2_rate=0.4, lfo2_depth=0.05,
+        volume=0.84)),
+    ("FM Marimba", "FM", "Marimba de madeira (razão 4), curta e redonda.", fm_voice(
+        osc1_fm=0.5, osc2_octave=1.0, mod_decay=0.15, mod_sustain=0.0, mod_release=0.1,
+        attack=0.0, decay=0.45, sustain=0.0, release=0.2, volume=1.00)),
+    ("FM Glass Pad", "FM", "Pad de vidro que brilha devagar, com vibrato.", fm_voice(
+        osc1_fm=0.35, osc2_octave=0.75, osc2_fine=0.52, mod_attack=0.6, mod_decay=0.6,
+        mod_sustain=0.5, mod_release=0.6, attack=0.5, decay=0.5, sustain=0.9, release=0.6,
+        delay_mix=0.25, delay_time=0.45, lfo2_rate=0.35, lfo2_depth=0.04, volume=0.84)),
+    ("FM Feedback Lead", "FM", "Lead de operador com feedback: serrote limpo e cortante.", fm_voice(
+        osc1_level=0.0, osc1_fm_on=0.0, osc3_level=1.0, osc3_fm_on=1.0, osc3_fm=0.55,
+        cutoff=0.8, attack=0.0, sustain=0.9, release=0.15, lfo2_rate=0.45, volume=0.80)),
+    ("FM Clav", "FM", "Clavinet FM (razão 3), ataque estalado e curto.", fm_voice(
+        osc1_fm=0.6, osc2_octave=0.75, osc2_tune=0.5 + 7 / 24, mod_decay=0.2,
+        mod_sustain=0.0, mod_release=0.1, attack=0.0, decay=0.35, sustain=0.0,
+        release=0.08, volume=1.00)),
+)
+PROGRAMS = PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS
 
 
 def factory_programs():
