@@ -44,6 +44,12 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.15 — Barra superior legível
+
+- ✅ CPU e RAM em coluna alinhada (rótulo à esquerda, valor à direita), versão acima do botão UPD.
+- ✅ Textos dessa área acompanham a escala do painel, sem se sobrepor em janelas menores.
+- [ ] Homologar no Windows real.
+
 ## v0.2.14 — Mais controles reais e painel sinalizado
 
 - ✅ Knobs OCTAVE (−2 a +2, 5 posições) e FINE (±50 cents) dos 3 osciladores com som real.
@@ -183,6 +189,15 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 - [ ] Mensagens de erro, aviso e informação (patch inválido, falha de áudio/MIDI, versão mais recente etc.) no mesmo componente.
 - [ ] Diálogos funcionam com mouse, teclado (Enter/Esc) e futuramente touch; centralizados sobre o painel e redimensionados com ele.
 - [ ] Testes do componente e homologação no Windows real.
+
+## Display LCD com pixels (backlog)
+
+- [ ] Display central com aparência de LCD real: matriz de pixels visível, leve brilho e reflexo de vidro.
+- [ ] Modo **monocromático** (ex.: âmbar, verde ou azul clássico) e modo **colorido**, alternáveis pelo usuário.
+- [ ] Textos, osciloscópio e confirmações desenhados na grade de pixels, com fonte estilo LCD.
+- [ ] Ajuste de brilho/contraste do display.
+- [ ] Preferência salva nas configurações do app.
+- [ ] Homologar no Windows real.
 
 ## v0.2 — Síntese analógica
 
