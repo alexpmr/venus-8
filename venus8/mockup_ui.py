@@ -14,6 +14,7 @@ from PIL import Image, ImageTk
 from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP,
                          DRAWBAR_TOP, DRAWBAR_WIDTH, DRAWBAR_X, KNOB_GEOMETRY,
                          ORGAN_LABEL_X, ORGAN_SWITCHES, render_switch, FM_BUTTONS,
+                         FX_LEDS, CHORUS_TITLE, CHORUS_TITLE_BOX, TUBE_WINDOW, render_tube,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -189,6 +190,26 @@ class MockupRenderer:
             self.fm_items[osc] = canvas.create_image(x, y, image=photo, anchor="nw",
                                                      state="hidden")
             app.buttons[f"switch:osc{osc}_fm_on"] = FM_BUTTONS[osc]
+        # Effect LEDs, the CHORUS/FLANGER title and the tube.
+        self.led_items = {}
+        for ident, face in self.sprites["leds"].items():
+            photo = self.photo(face.resize((max(1, round(face.width*scale)),
+                                            max(1, round(face.height*scale))),
+                                           Image.Resampling.LANCZOS))
+            self.photos[("led", ident)] = photo
+            x, y = app.bounds(*FX_LEDS[ident])[:2]
+            self.led_items[ident] = canvas.create_image(x, y, image=photo, anchor="nw",
+                                                        state="hidden")
+            app.buttons[f"switch:{ident}"] = FX_LEDS[ident]
+        self.chorus_title = canvas.create_text(*app.bounds(*CHORUS_TITLE, 0, 0)[:2], text="CHORUS",
+                                               fill="#d2ccc2", font=("Segoe UI", max(6, round(9*scale)), "bold"))
+        app.buttons["chorus_type"] = CHORUS_TITLE_BOX
+        self.tube_frames = {}
+        self.tube_glow = None
+        self.tube_item = canvas.create_image(*app.bounds(*TUBE_WINDOW)[:2], anchor="nw")
+        x, y, r = KNOB_GEOMETRY["tube_drive"]
+        canvas.create_text(*app.bounds(x, y + r + 12, 0, 0)[:2], text="TUBE DRIVE",
+                           fill="#b9b4ab", font=("Segoe UI", max(5, round(8*scale)), "bold"))
         self.meter_items = {}
         for key, face in self.sprites["meter"].items():
             box = app.bounds(*meter_box(*key))
@@ -274,6 +295,12 @@ class MockupRenderer:
             if lit != entry[2]:
                 canvas.itemconfigure(entry[0], image=entry[1][lit])
                 entry[2] = lit
+        for ident, item in self.led_items.items():
+            on = app.synth.get_param(ident) >= 0.5
+            canvas.itemconfigure(item, state="normal" if on else "hidden")
+        flanger = app.synth.get_param("chorus_type") >= 0.5
+        canvas.itemconfigure(self.chorus_title, text="FLANGER" if flanger else "CHORUS")
+        self.update_tube()
         for osc, item in self.fm_items.items():
             on = app.synth.get_param(f"osc{osc}_fm_on") >= 0.5
             canvas.itemconfigure(item, state="normal" if on else "hidden")
@@ -290,12 +317,24 @@ class MockupRenderer:
         if self.built_size:
             self.display.tick()
             self.tick_meter()
+            self.update_tube()
             if getattr(self.app, "update_state", "") == "available":
                 blink = int(time.time() * 2) % 2
                 if blink != getattr(self, "blink", None):
                     self.blink = blink
                     self.draw_status()
         self.app.root.after(50, self.tick)
+
+    def update_tube(self):
+        """The heater always glows a little; drive and signal light it up."""
+        drive = self.app.synth.get_param("tube_drive")
+        glow = 0.12 + 0.5 * drive + (0.38 * min(1.0, self.meter_level * 1.3) if drive > 0.001 else 0.0)
+        level = round(min(1.0, glow) * 12)
+        if level != self.tube_glow:
+            if level not in self.tube_frames:
+                self.tube_frames[level] = self.photo(render_tube(level / 12, self.app.scale))
+            self.app.canvas.itemconfigure(self.tube_item, image=self.tube_frames[level])
+            self.tube_glow = level
 
     def tick_meter(self):
         """Peak meter: −48 dB..0 dB over 12 LEDs, fast attack, slow fall."""
@@ -317,7 +356,13 @@ class MockupRenderer:
         before = set(canvas.find_all())
         # Mask fictional patch metadata, show actual patch name and status.
         app.rect(566,18,777,67,"#080d17")
-        app.text(672,37,app.patch_name[:21],15,"#eed9bf",bold=True)
+        dirty = getattr(app, "patch_dirty", False)
+        app.text(672,37,app.patch_name[:21] + (" *" if dirty else ""),15,
+                 "#ffb05e" if dirty else "#eed9bf",bold=True)
+        if dirty:
+            # Edited: the sound no longer matches the stored patch.
+            app.rect(735,20,775,30,"#3a2008","#ffb05e")
+            app.text(755,25,"EDITADO",6,"#ffd08b",bold=True,minimum=4)
         app.text(672,57,f"{app.patch_bank.upper()} / {app.patch_category.upper()}  ·  v{__version__()}",9,"#a2b2c6")
         # The bank/category selectors must reflect the real patch, not the
         # text that happened to be photographed in the reference artwork.

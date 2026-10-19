@@ -269,6 +269,86 @@ class TestFM(unittest.TestCase):
             self.assertEqual(DEFAULTS[f"osc{i}_fm_on"], 0.0)
 
 
+class TestElectricGrand(unittest.TestCase):
+    GRAND = {"ep_level": 1.0, "ep_model": 1.0, "osc1_level": 0.0, "osc2_level": 0.0,
+             "osc3_level": 0.0, "sub_level": 0.0, "cutoff": 1.0, "drive": 0.0,
+             "attack": 0.0, "sustain": 1.0, "release": 0.12}
+
+    def play(self, note=57, velocity=100, seconds=2.0, **params):
+        s = Synth()
+        s.load_params(dict(self.GRAND, **params))
+        s.note_on(note, velocity)
+        return np.concatenate([s.render(512) for _ in range(int(seconds * s.sample_rate / 512))])[:, 0], s
+
+    def test_pitch_and_stretched_partials(self):
+        audio, s = self.play(note=45, seconds=1.0)
+        sr = s.sample_rate
+        size = 32768
+        spectrum = np.abs(np.fft.rfft(audio[:size] * np.hanning(size)))
+        freqs = np.fft.rfftfreq(size, 1 / sr)
+        def peak(near):
+            band = (freqs > near * 0.97) & (freqs < near * 1.04)
+            return freqs[band][np.argmax(spectrum[band])]
+        self.assertAlmostEqual(peak(110.0), 110.0, delta=1.0)
+        self.assertGreater(peak(880.0), 880.0 + 0.5)     # stiff strings: 8th partial sharp
+
+    def test_decays_and_differs_from_the_tine(self):
+        audio, s = self.play(seconds=3.0)
+        sr = s.sample_rate
+        rms = lambda a: float(np.sqrt((a ** 2).mean()))
+        self.assertLess(rms(audio[int(2.5 * sr):]), rms(audio[:int(0.3 * sr)]) / 2.5)
+        tine, _ = self.play(seconds=1.0, ep_model=0.0)
+        self.assertGreater(np.abs(audio[:len(tine)] - tine).max(), 0.05)
+        self.assertTrue(np.isfinite(audio).all())
+
+
+class TestEffectsAndTube(unittest.TestCase):
+    def play(self, seconds=0.6, block=512, notes=(48, 55, 64), **params):
+        s = Synth()
+        s.load_params(params)
+        for note in notes:
+            s.note_on(note)
+        return np.concatenate([s.render(block) for _ in range(int(seconds * s.sample_rate / block))])
+
+    def test_effects_off_by_default_and_bypass_exactly(self):
+        for name in ("chorus_on", "phaser_on", "tube_drive"):
+            self.assertEqual(DEFAULTS[name], 0.0)
+        plain = self.play()
+        np.testing.assert_array_equal(plain, self.play(chorus_depth=1.0, phaser_depth=1.0))
+
+    def test_chorus_is_stereo_flanger_and_phaser_colour_the_sound(self):
+        plain = self.play()
+        chorus = self.play(chorus_on=1.0)
+        self.assertGreater(np.abs(chorus[:, 0] - chorus[:, 1]).max(), 0.01)
+        for params in ({"chorus_on": 1.0, "chorus_type": 1.0}, {"phaser_on": 1.0}):
+            wet = self.play(**params)
+            self.assertTrue(np.isfinite(wet).all())
+            self.assertGreater(np.abs(wet[:, 0] - plain[:, 0]).max(), 0.02, params)
+            np.testing.assert_array_equal(wet[:, 0], wet[:, 1])
+
+    def test_effects_do_not_depend_on_block_size(self):
+        settings = dict(chorus_on=1.0, phaser_on=1.0, tube_drive=0.6, chorus_rate=0.8)
+        np.testing.assert_allclose(self.play(block=13230, **settings),
+                                   self.play(block=441, **settings), atol=1e-5)
+        settings["chorus_type"] = 1.0
+        np.testing.assert_allclose(self.play(block=13230, **settings),
+                                   self.play(block=441, **settings), atol=1e-5)
+
+    def test_tube_adds_even_harmonics_on_any_engine(self):
+        sine = dict(osc1_wave=1.0, osc2_level=0.0, osc3_level=0.0, sub_level=0.0, cutoff=1.0,
+                    resonance=0.0, drive=0.0, attack=0.0, sustain=1.0, volume=0.3)
+        def second(audio):
+            spectrum = np.abs(np.fft.rfft(audio[4096:4096 + 16384, 0] * np.hanning(16384)))
+            bin_ = round(220 * 16384 / 44100)
+            return spectrum[2 * bin_ - 2:2 * bin_ + 3].max() / spectrum[bin_ - 2:bin_ + 3].max()
+        clean = self.play(notes=(57,), **sine)
+        tube = self.play(notes=(57,), tube_drive=0.8, **sine)
+        self.assertGreater(second(tube), 5 * second(clean) + 0.01)
+        organ = self.play(notes=(57,), tube_drive=0.8, drawbar3=1.0, osc1_level=0.0,
+                          osc2_level=0.0, osc3_level=0.0, sub_level=0.0)
+        self.assertTrue(np.isfinite(organ).all())
+
+
 class TestElectricPiano(unittest.TestCase):
     def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
         s = Synth()

@@ -171,6 +171,28 @@ class FMPanelTests(unittest.TestCase):
         self.assertNotIn("mod_env", INACTIVE_FADER_BANKS)
 
 
+class EffectsAndTubeTests(unittest.TestCase):
+    def test_effect_leds_start_unlit_and_light_from_the_art(self):
+        from venus8.components import FX_LEDS
+        with Image.open("docs/venus-8-mockup.png") as image:
+            art = image.convert("RGB")
+        clean, _ = clean_artwork(art)
+        sprites = panel_sprites(art, clean)
+        for ident, box in FX_LEDS.items():
+            self.assertEqual(sum(amber(p) for p in clean.crop(box).getdata()), 0, ident)
+            self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 20, ident)
+        for ident in ("chorus_depth", "chorus_rate", "phaser_depth", "phaser_rate", "tube_drive"):
+            self.assertIn(ident, KNOB_GEOMETRY)
+            self.assertNotIn(ident, INACTIVE_KNOBS)
+
+    def test_tube_glows_brighter_with_drive(self):
+        from venus8.components import render_tube
+        warm = lambda image: sum(max(0, p[0] - p[2]) * p[3] // 255 for p in image.getdata())
+        cold, hot = render_tube(0.1, 1.0), render_tube(1.0, 1.0)
+        self.assertEqual(cold.size, hot.size)
+        self.assertGreater(warm(hot), 3 * warm(cold))
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)
