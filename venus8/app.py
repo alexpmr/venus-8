@@ -183,127 +183,174 @@ class App:
             self.knob_targets[ident] = (x, y1, y2)
 
     def draw(self):
-        w, h = max(1, self.canvas.winfo_width()), max(1, self.canvas.winfo_height())
+        """Draw the canonical full-size Venus-8 panel; grey controls remain disabled."""
+        w = max(1, self.canvas.winfo_width())
+        h = max(1, self.canvas.winfo_height())
         self.scale = min(w / BASE_W, h / BASE_H)
-        self.offset = ((w - BASE_W * self.scale) / 2, (h - BASE_H * self.scale) / 2)
+        self.offset = ((w-BASE_W*self.scale)/2, (h-BASE_H*self.scale)/2)
+        self.canvas.delete("all")
         self.controls.clear()
         self.buttons.clear()
         self.knob_targets.clear()
-        self.canvas.delete("all")
-        self.rect(0, 0, 1600, 980, "#0b0e12")
-        self.rect(0, 0, 24, 979, "#77472a")
-        self.rect(1576, 0, 1599, 979, "#77472a")
-        self.rect(26, 2, 1574, 85, "#131820", EDGE)
-        self.text(48, 33, "VENUS", 36, WHITE, "w", True)
-        self.text(201, 33, "-8", 36, ORANGE, "w", True)
-        self.text(50, 69, "VIRTUAL ANALOG SYNTHESIZER", 12, "#9ea6b1", "w")
-        self.rect(440, 13, 855, 71, "#080f1c", "#49505b")
-        self.text(647, 33, self.patch_name, 20, GOLD, bold=True)
-        self.text(647, 55, f"USER PATCH  •  v{__version__}", 11, FADED)
-        self.button("prev_patch", "◀", 405, 18, 438, 67)
-        self.button("next_patch", "▶", 857, 18, 892, 67)
-        self.button("save", "SAVE", 909, 22, 985, 62)
-        self.button("load", "LOAD", 989, 22, 1064, 62)
-        self.button("settings", "AUDIO / MIDI", 1069, 22, 1191, 62)
-        self.button("check_update", self.update_label, 1195, 22, 1358, 62, selected=bool(self.release))
-        self.button("panic", "PANIC", 1365, 22, 1446, 62)
-        self.text(1550, 28, f"CPU {self.cpu_text}", 12, GREEN, "e")
-        self.text(1550, 51, f"RAM {self.ram_text}  •  {self.voices_text}", 11, GOLD, "e")
+        self.rect(0,0,1600,980,DARK)
+        for left,right in ((0,28),(1572,1600)):
+            self.rect(left,0,right,980,"#744526")
+            self.rect(left+8,5,left+17,976,"#ac6b39")
+        self.rect(30,3,1570,83,"#10151b","#4c5055")
+        self.text(49,24,"VENUS",36,WHITE,"w",True)
+        self.text(211,24,"-8",36,ORANGE,"w",True)
+        self.text(51,66,"VIRTUAL ANALOG SYNTHESIZER",12,FADED,"w")
+        self.rect(480,12,835,73,"#0c1421","#4c5967")
+        self.text(658,31,self.patch_name[:28],19,GOLD,bold=True)
+        self.text(658,55,f"USER / ANALOG PAD  •  v{__version__}",11,FADED)
+        self.button("prev_patch","◀",445,20,478,65)
+        self.button("next_patch","▶",838,20,870,65)
+        self.button("browse","BROWSE",879,23,957,60)
+        self.button("save","SAVE",963,23,1021,60)
+        self.text(1042,14,"BANK",10,FADED,"w")
+        self.button("bank","USER ▾",1037,27,1125,59,enabled=False)
+        self.text(1142,14,"CATEGORY",10,FADED,"w")
+        self.button("category","ALL ▾",1137,27,1222,59,enabled=False)
+        self.button("settings","MIDI / AUDIO",1227,23,1340,60)
+        self.text(1366,21,"MIDI",11,GREEN)
+        self.rect(1359,34,1376,47,GREEN if self.midi_held else "#304950")
+        self.text(1422,20,"CPU",10,GREEN)
+        self.text(1422,41,self.cpu_text,12,GOLD)
+        self.text(1483,20,"RAM",10,GREEN)
+        self.text(1483,41,self.ram_text,11,GOLD)
+        self.button("check_update","UPDATE" if self.release else "↻",1522,17,1561,51,
+                    selected=bool(self.release))
+        self.text(1540,67,f"v{__version__}",10,FADED)
 
         for sec in SECTIONS:
             self.panel(*sec)
-        # Three oscillators with usable wave, tune and levels.
-        for i, x in enumerate((35, 270, 505), 1):
-            ox = x + 115
-            for j, shape in enumerate(WAVES):
-                ident = f"wave{i}_{j}"
-                self.button(ident, shape.upper()[:3], x+10+j*55, 135,
-                            x+61+j*55, 167, selected=(round(self.synth.get_param(f"osc{i}_wave")*3)==j))
-            self.knob(f"osc{i}_tune", "TUNE ±12", x+66, 232, 26)
-            self.knob(f"osc{i}_level", "LEVEL", x+167, 232, 26)
-            self.button(f"sync{i}", "SYNC", x+16, 288, x+82, 319, enabled=False)
-            self.button(f"fm{i}", "FM", x+91, 288, x+148, 319, enabled=False)
-            self.button(f"ring{i}", "RING", x+156, 288, x+220, 319, enabled=False)
-        for ident, label, x in [
-            ("osc1_level","OSC1",784),("osc2_level","OSC2",826),
-            ("osc3_level","OSC3",868),("sub_level","SUB",910),("noise_level","NOISE",952)
-        ]:
-            self.slider(ident,label,x,155,284)
-        self.text(857,310,"MIXER / LEVELS",11,FADED)
-        self.button("filter_type","LOW PASS 24 dB",1000,137,1210,170,enabled=False)
-        self.knob("cutoff","CUTOFF",1041,237,31)
-        self.knob("drive","DRIVE",1133,237,26)
-        self.knob("resonance","RESO • SOON",1185,306,15,enabled=False)
-        for ident, name, x in [
-            ("attack","A",1252),("decay","D",1290),("sustain","S",1328),("release","R",1365)
-        ]:
-            self.slider(ident,name,x,152,284,enabled=ident in ("attack","release"))
-        for title, x in [("A",1415),("D",1456),("S",1497),("R",1538)]:
-            self.slider("_filter_env_"+title,title,x,152,284,enabled=False)
-        # Modulation / display.
-        self.knob("lfo_rate","RATE",100,450)
-        self.knob("lfo_depth","DEPTH",204,450)
-        self.button("lfo_wave","SINE",75,503,231,535,enabled=False)
-        self.knob("lfo2_rate","RATE",348,450,enabled=False)
-        self.knob("lfo2_depth","DEPTH",448,450,enabled=False)
-        self.button("lfo2_wave","FUTURE ENGINE",310,503,480,535,enabled=False)
-        self.rect(531,382,1067,535,"#101726","#364552")
-        for j in range(35):
-            fraction = j / 35
-            self.line(536,387+j*4.1,1062,387+j*4.1,fill=f"#{int(12+17*fraction):02x}{int(22+16*fraction):02x}{int(41+18*fraction):02x}")
-        self.canvas.create_oval(*self.bounds(706,400,875,528),fill="#9a562f",outline="#d48342",width=self.s(2))
-        self.text(800,420,"VENUS-8",23,GOLD,bold=True)
-        self.text(800,455,self.patch_name,18,WHITE,bold=True)
-        self.text(800,482,"ANALOG WORKBENCH",12,WHITE)
-        self.text(800,512,"ENABLED CONTROLS = AMBER   |   FUTURE = GREY",10,FADED)
-        for i,(source,dest) in enumerate([
-            ("LFO 1","FILTER CUTOFF"),("MOD WHEEL","FILTER RESO"),
+
+        # Oscillators — three permanent modules, controls positioned as in the mockup.
+        for i,(left,right) in enumerate(((35,268),(273,506),(511,699)),1):
+            inner = right-left-19
+            step = inner/4
+            for j,name in enumerate(("SAW","PUL","TRI","SIN")):
+                x=left+8+j*step
+                selected=round(self.synth.get_param(f"osc{i}_wave")*3)==j
+                self.button(f"wave{i}_{j}",name,x,129,x+step-3,159,selected=selected)
+            mx=(left+right)/2
+            self.knob(f"osc{i}_oct","OCTAVE",left+40,218,19,enabled=False)
+            self.knob(f"osc{i}_tune","TUNE",mx,218,20)
+            self.knob(f"osc{i}_level","LEVEL",right-40,218,20)
+            self.button(f"sync{i}","SYNC",left+11,286,left+77,316,enabled=False)
+            self.button(f"fm{i}","FM",left+82,286,left+143,316,enabled=False)
+            self.button(f"ring{i}","RING",left+149,286,right-8,316,enabled=False)
+
+        for ident,title,x in (
+            ("osc1_level","OSC1",729),("osc2_level","OSC2",776),
+            ("osc3_level","OSC3",823),("sub_level","SUB",870),("noise_level","NOISE",916)
+        ):
+            self.slider(ident,title,x,165,286)
+
+        self.button("filter_type","LOW PASS 24 dB",955,133,1126,163,enabled=False)
+        self.knob("cutoff","CUTOFF",1004,224,28)
+        self.knob("resonance","RESONANCE",1085,224,25,enabled=False)
+        self.knob("drive","DRIVE",1007,291,17)
+        self.knob("filter_track","KEY TRACK",1082,291,17,enabled=False)
+        self.button("filter_env","ENV",1103,290,1126,316,enabled=False)
+
+        # ADSR modules — only attack and release are currently wired to DSP.
+        for left,prefix in ((1143,"amp"),(1285,"filter"),(1428,"mod")):
+            positions=(left+20,left+50,left+80,left+109)
+            for idx,(x,label) in enumerate(zip(positions,("A","D","S","R"))):
+                key={"A":"attack","D":"decay","S":"sustain","R":"release"}[label]
+                active=prefix=="amp" and label in ("A","R")
+                self.slider(key if active else f"{prefix}_env_{label}",label,x,165,279,
+                            enabled=active)
+
+        self.knob("lfo_rate","RATE",104,444,24)
+        self.knob("lfo_depth","DEPTH",203,444,24)
+        self.button("lfo_wave","SINE   TRI   SAW   S&H",62,489,247,521,enabled=False)
+        self.knob("lfo2_rate","RATE",352,444,24,enabled=False)
+        self.knob("lfo2_depth","DEPTH",452,444,24,enabled=False)
+        self.button("lfo2_wave","SINE   TRI   SAW   S&H",303,489,491,521,enabled=False)
+
+        # Central display, with the five tabs of the final layout.
+        for idx,title in enumerate(("MAIN","MOD MATRIX","ARP / SEQ","FX","GLOBAL")):
+            left=535+idx*106
+            self.button(f"tab_{idx}",title,left,349,left+102,377,
+                        enabled=idx==0,selected=idx==0)
+        self.rect(539,387,1066,524,"#0a1725","#425466")
+        for j in range(26):
+            z=j/26
+            self.line(541,390+5*j,1063,390+5*j,
+                      fill=f"#{int(15+28*z):02x}{int(26+21*z):02x}{int(46+18*z):02x}")
+        self.canvas.create_oval(*self.bounds(670,393,832,520),
+                                fill="#915a40",outline="#dc8d57",width=self.s(2))
+        self.text(741,427,"VENUS-8",25,GOLD,bold=True)
+        self.text(741,461,self.patch_name[:25],16,WHITE,bold=True)
+        self.text(741,489,"VINTAGE ANALOG SYNTHESIZER",10,WHITE)
+        self.text(931,408,"PATCH",10,FADED,"w")
+        self.text(931,433,"CATEGORY   USER",11,WHITE,"w")
+        self.text(931,455,"MIDI       USB",11,GREEN,"w")
+        self.text(931,478,f"VOICES     {len(self.synth.voices):02d}",11,WHITE,"w")
+        self.text(931,505,"GREY = SOON",10,FADED,"w")
+
+        # Modulation matrix preview: routing is explicitly disabled.
+        for i,(source,dest) in enumerate((
+            ("LFO 1","FILTER CUTOFF"),("MOD WHEEL","RESONANCE"),
             ("ENV 2","OSC PWM"),("AFTERTOUCH","FILTER"),
-            ("VELOCITY","AMP LEVEL"),("LFO 2","CHORUS"),
-        ]):
-            y=390+i*25
-            self.text(1108,y,str(i+1),10,FADED,anchor="w")
-            self.text(1133,y,source,11,FADED,anchor="w")
-            self.text(1320,y,dest,11,FADED,anchor="w")
-            self.text(1518,y,"SOON",10,FADED)
-        # Arpeggiator and step sequencer remain deliberately disabled.
-        self.button("arp_on","ON",52,609,124,645,enabled=False)
-        self.button("arp_mode","UP / DOWN",134,609,268,645,enabled=False)
-        self.knob("arp_rate","RATE",98,690,enabled=False)
-        self.knob("arp_gate","GATE",208,690,enabled=False)
+            ("VELOCITY","AMP LEVEL"),("LFO 2","CHORUS")
+        )):
+            y=379+24*i
+            self.text(1105,y,str(i+1),11,FADED,"w")
+            self.text(1140,y,source,10,FADED,"w")
+            self.text(1314,y,dest,10,FADED,"w")
+            self.text(1538,y,"—",11,FADED)
+
+        self.button("arp_on","ON",54,588,110,620,enabled=False)
+        self.button("arp_mode","UP / DOWN",119,588,266,620,enabled=False)
+        self.knob("arp_rate","RATE",95,663,21,enabled=False)
+        self.knob("arp_gate","GATE",210,663,21,enabled=False)
+        self.text(518,587,"STEP SEQUENCER  •  EM BREVE",12,FADED)
         for i in range(16):
-            x=311+i*25.7
-            self.button(f"step{i}",str(i+1),x,648,x+23,681,enabled=False)
-        self.text(515,615,"16-STEP SEQUENCER  •  EM BREVE",12,FADED)
-        self.text(515,702,"PLAY     STOP     GATE     SWING",12,FADED)
-        for name,x in [("CHORUS",760),("PHASER",907),("DELAY",1052),("REVERB",1198)]:
-            self.rect(x,599,x+144,728,PANEL2,EDGE)
-            self.text(x+72,614,name,12,ORANGE if name=="DELAY" else FADED,bold=True)
+            x=300+i*27.0
+            self.button(f"step{i}",str(i+1),x,626,x+24,660,enabled=False)
+        self.text(519,675,"16 STEPS   •   GATE   •   SWING   •   SYNC",12,FADED)
+
+        # Effects, master.
+        for name,x in (("CHORUS",767),("PHASER",913),("DELAY",1059),("REVERB",1205)):
+            self.rect(x,587,x+142,690,PANEL2,EDGE)
+            self.text(x+71,601,name,12,ORANGE if name=="DELAY" else FADED,bold=True)
             if name=="DELAY":
-                self.knob("delay_mix","MIX",x+40,666,20)
-                self.knob("delay_time","TIME",x+106,666,20)
-                self.slider("delay_feedback","FB",x+72,642,683)
+                self.knob("delay_mix","MIX",x+36,639,18)
+                self.knob("delay_time","TIME",x+107,639,18)
+                self.slider("delay_feedback","FB",x+73,625,659)
             else:
-                self.knob("_fx_"+name,"EM BREVE",x+72,671,23,enabled=False)
-        self.knob("volume","VOLUME",1420,661,32)
-        self.text(1501,618,"MASTER",13,WHITE)
-        barx = 1503
-        peak = self.synth.peak
-        for i in range(10):
-            v = (10-i)/10
-            self.rect(barx,635+i*8,barx+15,641+i*8, GREEN if peak>=v else "#2e373b")
-        self.text(1530,710,f"{peak*100:.0f}%",11,GREEN)
-        # Performance strip.
-        self.button("poly","POLY",51,775,121,804,selected=True)
-        self.button("mono","MONO",128,775,199,804,enabled=False)
-        self.button("legato","LEGATO",206,775,293,804,enabled=False)
-        self.button("unison","UNISON",300,775,385,804,enabled=False)
-        self.text(490,790,"PITCH BEND  ±2",12,WHITE)
-        self.slider("pitch_bend","",590,770,800)
-        self.text(719,790,"MOD WHEEL",12,WHITE)
-        self.slider("modwheel","",812,770,800)
-        self.text(1048,791,self.last_midi,12,GREEN)
-        self.text(1498,790,f"VOICES: {len(self.synth.voices)}/{self.synth.max_voices}",12,GOLD,anchor="e")
+                self.knob(f"fx_{name}","EM BREVE",x+71,650,23,enabled=False)
+        self.knob("volume","LEVEL",1419,624,29)
+        self.knob("width","WIDTH",1517,624,22,enabled=False)
+        peak=self.synth.peak
+        for j in range(10):
+            y=671-j*7
+            self.rect(1431,y,1540,y+5,
+                      GREEN if peak>(j+1)/10 else "#364349")
+        self.text(1482,685,f"{peak*100:.0f}%",10,GOLD)
+
+        # Lower performance control strip, fixed keyboard below.
+        self.button("poly","POLY",53,743,120,775,selected=True)
+        self.button("mono","MONO",127,743,195,775,enabled=False)
+        self.button("legato","LEGATO",202,743,281,775,enabled=False)
+        self.button("unison","UNISON",287,743,368,775,enabled=False)
+        self.text(425,749,"DETUNE / SPREAD",11,FADED)
+        self.knob("perf_detune","DETUNE",486,778,15,enabled=False)
+        self.knob("perf_spread","SPREAD",558,778,15,enabled=False)
+        self.knob("perf_glide","GLIDE",647,779,16,enabled=False)
+        self.text(744,756,"TRANSPOSE",11,FADED)
+        self.text(744,780,"0",15,WHITE)
+        self.text(843,756,"OCTAVE",11,FADED)
+        self.text(843,780,"0",15,WHITE)
+        self.text(945,757,"LAYER / SPLIT",11,FADED)
+        self.text(945,780,"NOT YET ENABLED",10,FADED)
+        self.text(1250,758,"MIDI",11,GREEN)
+        self.text(1268,783,self.last_midi[:29],11,GREEN)
+        self.text(1516,758,"VOICES",11,GOLD)
+        self.text(1516,782,f"{len(self.synth.voices)} / {self.synth.max_voices}",14,GOLD)
         self.draw_keyboard()
 
     def draw_keyboard(self):
@@ -436,7 +483,7 @@ class App:
             self.open_settings()
         elif ident=="save":
             self.save_patch()
-        elif ident=="load":
+        elif ident in ("load", "browse"):
             self.load_patch()
         elif ident=="panic":
             self.panic()
