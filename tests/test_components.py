@@ -118,6 +118,34 @@ class CleanArtworkTests(unittest.TestCase):
         self.assertEqual(sum(amber(p) for p in self.clean.crop(DRAWBAR_PANEL).getdata()), 0)
 
 
+class OrganPanelTests(unittest.TestCase):
+    def test_switches_and_drive_fit_beside_the_drawbars(self):
+        from venus8.components import (DRAWBAR_PANEL, DRAWBAR_WIDTH, DRAWBAR_X,
+                                       ORGAN_SWITCHES)
+        x1, y1, x2, y2 = DRAWBAR_PANEL
+        right = DRAWBAR_X[-1] + DRAWBAR_WIDTH / 2
+        boxes = [box for _, box in ORGAN_SWITCHES.values()]
+        cx, cy, r = KNOB_GEOMETRY["organ_drive"]
+        boxes.append((cx - r, cy - r, cx + r, cy + r))
+        for bx1, by1, bx2, by2 in boxes:
+            self.assertGreater(bx1, right + 4)
+            self.assertTrue(x1 <= bx1 < bx2 <= x2 and y1 <= by1 < by2 <= y2)
+        for a in boxes:
+            for b in boxes:
+                if a is not b:
+                    self.assertTrue(a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+        for left, nxt in zip(DRAWBAR_X, DRAWBAR_X[1:]):
+            self.assertGreater(nxt - left, DRAWBAR_WIDTH)
+
+    def test_switch_lights_its_led(self):
+        from venus8.components import render_switch
+        lit = lambda image: sum(amber(p) for p in image.getdata() if p[3] > 200)
+        off, on = render_switch("PERC", False, (60, 22), 1.0), render_switch("PERC", True, (60, 22), 1.0)
+        self.assertEqual(off.size, (60, 22))
+        self.assertEqual(lit(off), 0)
+        self.assertGreater(lit(on), 5)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)

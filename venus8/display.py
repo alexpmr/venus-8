@@ -42,13 +42,21 @@ PARAM_LABELS = {
     **{f"drawbar{i + 1}": f"Drawbar {f}" for i, f in enumerate(
         ("16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'"))},
     "osc1_fine": "Fine OSC1", "osc2_fine": "Fine OSC2", "osc3_fine": "Fine OSC3",
+    "organ_perc": "Percussão", "organ_perc_third": "Perc 3ª harm.",
+    "organ_perc_fast": "Perc rápida", "organ_click": "Key click",
+    "organ_vibrato": "Vibrato órgão", "organ_chorus": "Chorus órgão",
+    "leslie": "Leslie", "leslie_fast": "Leslie rápido", "organ_drive": "Drive órgão",
 }
+SWITCH_PARAMS = {"organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
+                 "organ_vibrato", "organ_chorus", "leslie", "leslie_fast"}
 
 
 def format_value(param, value):
     """Readout in the control's own unit."""
     if param.startswith("drawbar"):
         return str(round(value * 8))
+    if param in SWITCH_PARAMS:
+        return "ON" if value >= 0.5 else "OFF"
     if param.endswith("_octave"):
         return f"{round((value - 0.5) * 4):+d}"
     if param.endswith("_fine"):

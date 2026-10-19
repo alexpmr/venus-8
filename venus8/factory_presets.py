@@ -140,6 +140,15 @@ def drawbars(registration):
     return values
 
 
+def organ(perc="", click=False, vibrato="", leslie=""):
+    """Organ switches in words: perc "second"/"third" (+ " fast"), vibrato
+    "vibrato"/"chorus", leslie "slow"/"fast"."""
+    return dict(organ_perc=float(bool(perc)), organ_perc_third=float("third" in perc),
+                organ_perc_fast=float("fast" in perc), organ_click=float(click),
+                organ_vibrato=float(bool(vibrato)), organ_chorus=float(vibrato == "chorus"),
+                leslie=float(bool(leslie)), leslie_fast=float(leslie == "fast"))
+
+
 def electric_piano(tone, bark, decay):
     """Tine electric piano layer with the analog oscillators and filter out."""
     return dict(ep_level=1.0, ep_tone=tone, ep_bark=bark, ep_decay=decay,
@@ -242,27 +251,36 @@ MORE_PROGRAMS = (
         "lfo_depth": 0.35, "volume": 0.46,
     }),
     # Organ: real drawbar registrations (16' 5⅓' 8' 4' 2⅔' 2' 1⅗' 1⅓' 1')
-    ("Full Drawbars", "Organ", "Órgão cheio, todos os drawbars em 8 (888888888).", dict(
-        drawbars("888888888"), drive=0.18, attack=0.0, decay=0.3, sustain=1.0,
-        release=0.06, lfo_rate=0.62, lfo_depth=0.12, volume=0.24)),
-    ("Jazz Organ", "Organ", "Registro clássico de jazz (888000000) com tremolo.", dict(
-        drawbars("888000000"), drive=0.1, attack=0.0, decay=0.3, sustain=1.0,
-        release=0.05, lfo_rate=0.55, lfo_depth=0.18, volume=0.42)),
-    ("Rock Organ", "Organ", "Órgão saturado para rock (888800000).", dict(
-        drawbars("888800000"), drive=0.62, attack=0.0, decay=0.3, sustain=1.0,
-        release=0.05, lfo_rate=0.75, lfo_depth=0.2, volume=0.30)),
+    ("Full Drawbars", "Organ", "Órgão cheio (888888888), drive e Leslie rápido.", dict(
+        drawbars("888888888"), organ_drive=0.3, leslie=1.0, leslie_fast=1.0,
+        attack=0.0, decay=0.3, sustain=1.0, release=0.06, volume=0.26)),
+    ("Jazz Organ", "Organ", "Jazz clássico (888000000): percussão 3ª rápida, click e Leslie lento.", dict(
+        drawbars("888000000"), **organ(perc="third fast", click=True, vibrato="chorus", leslie="slow"),
+        organ_drive=0.12, attack=0.0, decay=0.3, sustain=1.0, release=0.05, volume=0.42)),
+    ("Rock Organ", "Organ", "Rock saturado (888800000) com Leslie rápido.", dict(
+        drawbars("888800000"), **organ(perc="second fast", click=True, leslie="fast"),
+        organ_drive=0.75, attack=0.0, decay=0.3, sustain=1.0, release=0.05, volume=0.34)),
     ("Church Organ", "Organ", "Órgão de igreja amplo (876556678) com cauda.", dict(
         drawbars("876556678"), attack=0.12, decay=0.4, sustain=1.0, release=0.45,
         delay_mix=0.3, delay_time=0.7, delay_feedback=0.5, volume=0.26)),
-    ("Soft Combo", "Organ", "Órgão combo suave, flautado (008800000).", dict(
-        drawbars("008800000"), attack=0.003, decay=0.3, sustain=1.0, release=0.07,
-        lfo_rate=0.5, lfo_depth=0.1, volume=0.5)),
-    ("Ballad Organ", "Organ", "Balada gospel (838000000) com vibrato.", dict(
-        drawbars("838000000"), attack=0.0, decay=0.3, sustain=1.0, release=0.08,
-        lfo2_rate=0.45, lfo2_depth=0.12, volume=0.44)),
-    ("Blues Bar", "Organ", "Registro de blues (886000000), quente.", dict(
-        drawbars("886000000"), drive=0.3, attack=0.0, decay=0.3, sustain=1.0,
-        release=0.05, lfo_rate=0.6, lfo_depth=0.15, volume=0.40)),
+    ("Soft Combo", "Organ", "Órgão combo suave, flautado (008800000), com vibrato.", dict(
+        drawbars("008800000"), **organ(vibrato="vibrato"), attack=0.003, decay=0.3,
+        sustain=1.0, release=0.07, volume=0.5)),
+    ("Ballad Organ", "Organ", "Balada gospel (838000000), chorus e Leslie lento.", dict(
+        drawbars("838000000"), **organ(vibrato="chorus", leslie="slow"), attack=0.0,
+        decay=0.3, sustain=1.0, release=0.08, volume=0.44)),
+    ("Blues Bar", "Organ", "Blues (886000000): percussão 3ª, drive quente e Leslie lento.", dict(
+        drawbars("886000000"), **organ(perc="third", click=True, leslie="slow"),
+        organ_drive=0.4, attack=0.0, decay=0.3, sustain=1.0, release=0.05, volume=0.40)),
+    ("Gospel Shout", "Organ", "Gospel (888000008) com Leslie rápido, click e drive.", dict(
+        drawbars("888000008"), **organ(click=True, vibrato="chorus", leslie="fast"),
+        organ_drive=0.45, attack=0.0, decay=0.3, sustain=1.0, release=0.05, volume=0.36)),
+    ("Perc Groove", "Organ", "Groove seco (800000000) só com percussão 2ª rápida, sem Leslie.", dict(
+        drawbars("800000000"), **organ(perc="second fast", click=True), attack=0.0,
+        decay=0.3, sustain=1.0, release=0.04, volume=0.66)),
+    ("Leslie Swell", "Organ", "Registro aveludado (688600000) com Leslie lento e chorus.", dict(
+        drawbars("688600000"), **organ(vibrato="chorus", leslie="slow"), organ_drive=0.2,
+        attack=0.02, decay=0.3, sustain=1.0, release=0.1, volume=0.4)),
     # E.Piano: tine engine (ep_*), no synth oscillators or filter.
     ("Suitcase Tine", "E.Piano", "Piano de tines clássico: redondo baixo, ataque de sino forte.", dict(
         electric_piano(tone=0.5, bark=0.35, decay=0.6), lfo_rate=0.45, lfo_depth=0.0,

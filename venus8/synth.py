@@ -26,6 +26,31 @@ DEFAULTS.update({f"drawbar{i}": 0.0 for i in range(1, len(DRAWBARS) + 1)})
 # Electric piano layer (tine model): level, tone (bell/brightness), bark, decay.
 DEFAULTS.update({"ep_level": 0.0, "ep_tone": 0.5, "ep_bark": 0.3, "ep_decay": 0.5})
 EP_SLOT = 4 + len(DRAWBARS)
+# Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
+# slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
+# scanner vibrato/chorus, tube-style overdrive and a two-rotor Leslie.
+ORGAN_SWITCHES = ("organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
+                  "organ_vibrato", "organ_chorus", "leslie", "leslie_fast")
+DEFAULTS.update({name: 0.0 for name in ORGAN_SWITCHES})
+DEFAULTS["organ_drive"] = 0.0
+PERC_BARS = (3, 4)                 # 4' (2nd harmonic) and 2⅔' (3rd) drawbar slots
+# Leslie rotors (Hz): horn and drum, slow (chorale) and fast (tremolo), and how
+# long each takes to speed up / slow down. The heavy drum is much slower.
+HORN_SPEED, DRUM_SPEED = (0.83, 6.7), (0.67, 5.7)
+HORN_INERTIA, DRUM_INERTIA = (0.9, 0.6), (4.0, 3.2)
+DELAY_HISTORY = 0.001              # seconds kept by the short modulated delay lines
+CROSSOVER = 24                     # moving-average split between drum and horn (~800 Hz)
+
+
+def modulated_delay(history, block, delay):
+    """Read ``block`` through a delay line at a per-sample fractional delay
+    (1..len(history) samples). Returns the output and the new history."""
+    line = np.concatenate((history, block))
+    pos = len(history) + np.arange(len(block)) - delay
+    index = np.floor(pos).astype(np.int64)
+    frac = pos - index
+    return line[index] * (1.0 - frac) + line[index + 1] * frac, line[-len(history):]
+
 
 class Synth:
     def __init__(self, sample_rate=44100, max_voices=16):
@@ -44,6 +69,17 @@ class Synth:
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
         self.peak = 0.0
+        self._reset_organ()
+
+    def _reset_organ(self):
+        self.scanner_phase = 0.0
+        self.history = size = int(DELAY_HISTORY * self.sample_rate) + 4
+        self.scanner_history = np.zeros(size)
+        self.horn_history = np.zeros(size)
+        self.drum_history = np.zeros(size)
+        self.crossover_history = np.zeros(CROSSOVER - 1)
+        self.rotor_phase = [0.0, 0.0]            # horn, drum (turns)
+        self.rotor_speed = [HORN_SPEED[0], DRUM_SPEED[0]]
 
     @property
     def waveform(self):
@@ -113,7 +149,10 @@ class Synth:
                 victim = min(self.voices, key=lambda k: self.voices[k]["serial"])
                 del self.voices[victim]
             self.voice_serial += 1
+            # Percussion is single-triggered: legato notes don't retrigger it.
+            percussion = not any(v["gate"] for n, v in self.voices.items() if n != note)
             self.voices[note] = {
+                "perc": percussion,
                 "phases": [0.0] * (EP_SLOT + 1), "age": 0.0,
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
@@ -153,6 +192,7 @@ class Synth:
             self.filter_states = [0.0, 0.0, 0.0, 0.0]
             self.delay_buffer.fill(0)
             self.peak = 0.0
+            self._reset_organ()
 
     def detune(self, osc):
         """Oscillator offset in semitones: tune ±12, octave −2..+2, fine ±50 cents."""
@@ -237,6 +277,7 @@ class Synth:
             # Organ and electric piano have no synth filter: they are mixed
             # after the ladder, like the real instruments.
             keys_mono = np.zeros(frames, dtype=np.float64)
+            organ_mono = np.zeros(frames, dtype=np.float64)
             playing = list(self.voices.items())
             if playing:
                 voices = [voice for _, voice in playing]
@@ -266,13 +307,24 @@ class Synth:
                         sound += level * self._wave(ph, osc, step)
                     for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
-                keys = np.zeros_like(sound)
+                organ = np.zeros_like(sound)
+                perc_bar, perc_amp = None, 0.0
+                if p["organ_perc"] >= 0.5:
+                    perc_bar = PERC_BARS[p["organ_perc_third"] >= 0.5]
+                    tau = 0.12 if p["organ_perc_fast"] >= 0.5 else 0.45
+                    age = np.array([voice["age"] for voice in voices])[:, None] + t / sr
+                    struck = np.array([voice.get("perc", False) for voice in voices])[:, None]
+                    perc_amp = 0.3 * struck * np.exp(-age / tau)
                 # Drawbar organ: one sine per drawbar, 0..8 in ~3 dB steps.
                 for index, (_, ratio) in enumerate(DRAWBARS):
                     position = round(p[f"drawbar{index + 1}"] * 8)
-                    if position == 0:
+                    if perc_bar is not None and index == len(DRAWBARS) - 1:
+                        position = 0            # percussion takes the 1' bus
+                    if position == 0 and index != perc_bar:
                         continue
-                    level = 0.32 * 10 ** (-(8 - position) * 3 / 20)
+                    level = 0.32 * 10 ** (-(8 - position) * 3 / 20) if position else 0.0
+                    if index == perc_bar:
+                        level = level + perc_amp
                     hz = freq * ratio
                     for _ in range(4):
                         hz = np.where(hz > TONEWHEEL_TOP, hz / 2, hz)
@@ -287,9 +339,20 @@ class Synth:
                         run = np.cumsum(step, axis=1)
                         ph = start + run - step
                         end = start + run[:, -1:]
-                    keys += level * np.sin(2 * np.pi * ph)
+                    organ += level * np.sin(2 * np.pi * ph)
                     for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
+                organ_on = perc_bar is not None or any(
+                    p[f"drawbar{i}"] > 0 for i in range(1, len(DRAWBARS) + 1))
+                if organ_on and p["organ_click"] >= 0.5:
+                    # Key contacts closing: a few ms of bright noise per new note.
+                    for row, voice in enumerate(voices):
+                        if voice["age"] < 0.02:
+                            age = voice["age"] + t / sr
+                            noise = self.rng.standard_normal(frames)
+                            noise = noise - np.concatenate(([0.0], noise[:-1])) * 0.6
+                            organ[row] += 0.22 * noise * np.exp(-age / 0.0025)
+                keys = np.zeros_like(sound)
                 if p["ep_level"] > 0.0001:
                     keys += p["ep_level"] * self._electric_piano(voices, freq, t, bend_curve)
                 if p["noise_level"] > 0:
@@ -307,6 +370,7 @@ class Synth:
                 velocity = np.array([voice["velocity"] for voice in voices])[:, None]
                 mono += (sound * env * velocity).sum(axis=0)
                 keys_mono += (keys * env).sum(axis=0)
+                organ_mono += (organ * env).sum(axis=0)
                 for (note, voice), level in zip(playing, env[:, -1]):
                     voice["level"] = float(level)
                     voice["age"] = voice.get("age", 0.0) + frames / sr
@@ -319,6 +383,7 @@ class Synth:
             active = max(1, len(self.voices))
             mono /= max(1.5, math.sqrt(active) * 1.5)
             keys_mono /= max(1.5, math.sqrt(active) * 1.5)
+            organ_mono /= max(1.5, math.sqrt(active) * 1.5)
             # Four-pole resonant subtractive filter, vintage-ladder inspired.
             # Soft nonlinear feedback is intentionally bounded to avoid runaway.
             hz = min(sr * 0.40, 55 * (2 ** (p["cutoff"] * 8.3)))
@@ -341,12 +406,14 @@ class Synth:
             self.filter_states = [s0, s1, s2, s3]
             mono = np.asarray(filtered) * (1.0 + p["resonance"] * 0.7)
             self.lowpass = s3
-            mono += keys_mono
+            organ_mono, side = self._organ_effects(organ_mono, t)
+            mono += keys_mono + organ_mono
             # LFO evaluated per sample so the tremolo has no block steps.
             rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
             lfo = np.sin((self.lfo_phase + rate * t) * 2 * math.pi)
             self.lfo_phase = (self.lfo_phase + frames * rate) % 1.0
-            mono *= (1.0 - p["lfo_depth"] * 0.5) + p["lfo_depth"] * 0.5 * (1.0 + lfo)
+            tremolo = (1.0 - p["lfo_depth"] * 0.5) + p["lfo_depth"] * 0.5 * (1.0 + lfo)
+            mono *= tremolo
             mono = np.tanh(mono * (1.0 + p["drive"] * 2)) * p["volume"] * 0.8
             # Feedback delay. The shortest delay is longer than any chunk, so a
             # chunk only reads samples written by earlier chunks and can be
@@ -365,6 +432,77 @@ class Synth:
                     self.delay_index = (self.delay_index + len(dry)) % size
             else:
                 self.delay_index = (self.delay_index + frames) % size
-            mono = np.clip(mono, -0.95, 0.95).astype(np.float32)
-            self.peak = float(np.max(np.abs(mono)))
-            return np.column_stack((mono, mono))
+            if side is None:
+                mono = np.clip(mono, -0.95, 0.95).astype(np.float32)
+                self.peak = float(np.max(np.abs(mono)))
+                return np.column_stack((mono, mono))
+            # The Leslie's stereo spread rides on top of the mono chain.
+            side = side * tremolo * p["volume"] * 0.8
+            stereo = np.clip(np.column_stack((mono + side, mono - side)), -0.95, 0.95)
+            stereo = stereo.astype(np.float32)
+            self.peak = float(np.max(np.abs(stereo)))
+            return stereo
+
+    def _organ_effects(self, x, t):
+        """Organ chain: scanner vibrato/chorus, overdrive, then the Leslie.
+        Returns the mid signal and the Leslie's stereo side (or None)."""
+        p, sr = self.params, self.sample_rate
+        if not (x.any() or self.scanner_history.any() or self.horn_history.any()
+                or self.drum_history.any()):
+            self._spin_rotors(t)
+            return x, None
+        frames = len(x)
+        # Scanner vibrato (~6.9 Hz, about ±25 cents); chorus mixes in the dry tone.
+        rate = 6.9 / sr
+        sweep = np.sin(2 * np.pi * (self.scanner_phase + rate * t))
+        self.scanner_phase = (self.scanner_phase + rate * frames) % 1.0
+        depth = 0.00026 * sr
+        wet, self.scanner_history = modulated_delay(self.scanner_history, x,
+                                                    1.0 + depth * (1.0 + sweep))
+        if p["organ_vibrato"] >= 0.5:
+            x = 0.5 * (x + wet) if p["organ_chorus"] >= 0.5 else wet
+        # Tube-style overdrive: asymmetric, so it adds even harmonics.
+        if p["organ_drive"] > 0.001:
+            gain = 1.0 + 14.0 * p["organ_drive"] ** 2
+            bias = 0.25 * p["organ_drive"]
+            x = (np.tanh(gain * x + bias) - math.tanh(bias)) / gain ** 0.4
+        horn_turns, drum_turns = self._spin_rotors(t)
+        line = np.concatenate((self.crossover_history, x))
+        total = np.cumsum(np.concatenate(([0.0], line)))
+        drum = (total[CROSSOVER:] - total[:-CROSSOVER]) / CROSSOVER
+        self.crossover_history = line[len(line) - (CROSSOVER - 1):]
+        horn = x - drum
+        if p["leslie"] < 0.5:
+            self.horn_history = np.concatenate((self.horn_history, horn))[-self.history:]
+            self.drum_history = np.concatenate((self.drum_history, drum))[-self.history:]
+            return x, None
+        # Two microphones 90° apart: each hears the rotors' Doppler (delay)
+        # and the swirl of level as horn and drum point towards and away.
+        channels = []
+        horn_line = np.concatenate((self.horn_history, horn))
+        drum_line = np.concatenate((self.drum_history, drum))
+        for mic in (0.0, 0.25):
+            ha = 2 * np.pi * (horn_turns - mic)
+            da = 2 * np.pi * (drum_turns - mic)
+            h, _ = modulated_delay(self.horn_history, horn, 1.0 + 0.0003 * sr * (1.0 + np.sin(ha)))
+            d, _ = modulated_delay(self.drum_history, drum, 1.0 + 0.0001 * sr * (1.0 + np.sin(da)))
+            channels.append(h * (1.0 + 0.45 * np.cos(ha)) * 0.8 + d * (1.0 + 0.25 * np.cos(da)))
+        self.horn_history = horn_line[-self.history:]
+        self.drum_history = drum_line[-self.history:]
+        left, right = channels
+        return (left + right) * 0.5, (left - right) * 0.5
+
+    def _spin_rotors(self, t):
+        """Rotor angles (turns) per sample; speeds glide to slow/fast with inertia."""
+        sr, fast = self.sample_rate, self.params["leslie_fast"] >= 0.5
+        turns = []
+        for rotor, (speeds, inertia) in enumerate(((HORN_SPEED, HORN_INERTIA),
+                                                   (DRUM_SPEED, DRUM_INERTIA))):
+            target = speeds[fast]
+            tau = inertia[fast] * sr
+            speed = target + (self.rotor_speed[rotor] - target) * np.exp(-(t + 1) / tau)
+            angle = self.rotor_phase[rotor] + np.cumsum(speed) / sr
+            turns.append(angle - speed / sr)
+            self.rotor_phase[rotor] = float(angle[-1] % 1.0)
+            self.rotor_speed[rotor] = float(speed[-1])
+        return turns

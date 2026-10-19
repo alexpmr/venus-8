@@ -99,5 +99,16 @@ class MidiWatchdogTests(unittest.TestCase):
         self.assertIsNone(app.stream)
 
 
+class OrganSwitchTests(unittest.TestCase):
+    def test_switch_click_toggles_and_marks_patch_modified(self):
+        app = bare_app()
+        app.patch_dirty = False
+        app.action("switch:leslie")
+        self.assertEqual(app.synth.get_param("leslie"), 1.0)
+        self.assertTrue(app.patch_dirty)
+        app.action("switch:leslie")
+        self.assertEqual(app.synth.get_param("leslie"), 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

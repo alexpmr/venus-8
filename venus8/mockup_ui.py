@@ -13,6 +13,7 @@ from PIL import Image, ImageTk
 
 from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP,
                          DRAWBAR_TOP, DRAWBAR_WIDTH, DRAWBAR_X, KNOB_GEOMETRY,
+                         ORGAN_LABEL_X, ORGAN_SWITCHES, render_switch,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -188,8 +189,23 @@ class MockupRenderer:
         # Drawbar organ: one object per drawbar, pulled down 0..8.
         self.drawbar_items, self.drawbar_frames = {}, {}
         hx1, hy1, hx2, hy2 = DRAWBAR_HEADER
-        canvas.create_text(*app.bounds((hx1+hx2)/2, (hy1+hy2)/2, 0, 0)[:2], text="DRAWBARS",
-                           fill="#241208", font=("Segoe UI", max(6, round(12*scale)), "bold"))
+        for x, title in (((DRAWBAR_X[0] + DRAWBAR_X[-1]) / 2, "DRAWBARS"),
+                         (ORGAN_LABEL_X, "ORGAN")):
+            canvas.create_text(*app.bounds(x, (hy1+hy2)/2, 0, 0)[:2], text=title,
+                               fill="#241208", font=("Segoe UI", max(6, round(12*scale)), "bold"))
+        x, y, r = KNOB_GEOMETRY["organ_drive"]
+        canvas.create_text(*app.bounds(x - r - 30, y, 0, 0)[:2], text="DRIVE",
+                           fill="#c9c4bb", font=("Segoe UI", max(5, round(9*scale)), "bold"))
+        # Organ tab switches: lit and unlit faces, toggled by a click.
+        self.switch_items = {}
+        for ident, (label, box) in ORGAN_SWITCHES.items():
+            size_px = (box[2] - box[0], box[3] - box[1])
+            faces = tuple(self.photo(render_switch(label, lit, size_px, scale))
+                          for lit in (False, True))
+            sx, sy = app.bounds(*box)[:2]
+            self.switch_items[ident] = [canvas.create_image(round(sx), round(sy), image=faces[0],
+                                                            anchor="nw"), faces, False]
+            app.buttons[f"switch:{ident}"] = box
         for index, x in enumerate(DRAWBAR_X):
             ident = f"drawbar{index + 1}"
             app.controls[ident] = ("drawbar", x - DRAWBAR_WIDTH/2 - 2, DRAWBAR_TOP,
@@ -241,6 +257,11 @@ class MockupRenderer:
                         render_drawbar(int(ident[7:]) - 1, position, app.scale))
                 canvas.itemconfigure(entry[0], image=self.drawbar_frames[(ident, position)])
                 entry[1] = position
+        for ident, entry in self.switch_items.items():
+            lit = app.synth.get_param(ident) >= 0.5
+            if lit != entry[2]:
+                canvas.itemconfigure(entry[0], image=entry[1][lit])
+                entry[2] = lit
         for (osc, index), item in self.wave_items.items():
             selected = round(app.synth.get_param(f"osc{osc}_wave") * 3) == index
             canvas.itemconfigure(item, state="normal" if selected else "hidden")

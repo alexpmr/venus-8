@@ -124,6 +124,96 @@ class TestDrawbarOrgan(unittest.TestCase):
         self.assertEqual(float(np.max(np.abs(s.render(2048)))), 0.0)
 
 
+class TestFullOrgan(unittest.TestCase):
+    def play(self, notes=(60,), seconds=1.0, block=512, **params):
+        s = Synth()
+        s.load_params(dict({"osc1_level": 0.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                            "sub_level": 0.0, "cutoff": 1.0, "drive": 0.0, "attack": 0.0,
+                            "sustain": 1.0, "drawbar3": 1.0}, **params))
+        for note in notes:
+            s.note_on(note)
+        audio = np.concatenate([s.render(block) for _ in range(int(seconds * s.sample_rate / block))])
+        return audio, s
+
+    @staticmethod
+    def level_at(audio, sr, hz, start=0, size=4096):
+        chunk = audio[start:start + size, 0] * np.hanning(size)
+        spectrum = np.abs(np.fft.rfft(chunk))
+        return spectrum[int(round(hz * size / sr))]
+
+    def test_percussion_adds_a_decaying_harmonic(self):
+        plain, s = self.play(notes=(57,))
+        third, _ = self.play(notes=(57,), organ_perc=1.0, organ_perc_third=1.0, organ_perc_fast=1.0)
+        second, _ = self.play(notes=(57,), organ_perc=1.0)
+        sr = s.sample_rate
+        self.assertGreater(self.level_at(third, sr, 660), 20 * self.level_at(plain, sr, 660) + 1)
+        self.assertGreater(self.level_at(second, sr, 440), 20 * self.level_at(plain, sr, 440) + 1)
+        late = sr // 2
+        self.assertLess(self.level_at(third, sr, 660, start=late), self.level_at(third, sr, 660) / 20)
+
+    def test_percussion_is_single_triggered_and_cancels_the_1_foot(self):
+        s = Synth()
+        s.note_on(60)
+        s.note_on(64)
+        self.assertTrue(s.voices[60]["perc"])
+        self.assertFalse(s.voices[64]["perc"])
+        audio, s = self.play(notes=(57,), drawbar9=1.0, organ_perc=1.0)
+        self.assertLess(self.level_at(audio, s.sample_rate, 1760), 1.0)
+
+    def test_key_click_only_at_the_start(self):
+        clean, s = self.play(seconds=0.2)
+        click, _ = self.play(seconds=0.2, organ_click=1.0)
+        start = np.abs(click[:200, 0] - clean[:200, 0]).max()
+        later = np.abs(click[2000:, 0] - clean[2000:, 0]).max()
+        self.assertGreater(start, 0.01)
+        self.assertLess(later, 1e-9)
+
+    def test_vibrato_and_chorus_move_the_pitch(self):
+        dry, s = self.play(notes=(69,))
+        vib, _ = self.play(notes=(69,), organ_vibrato=1.0)
+        chorus, _ = self.play(notes=(69,), organ_vibrato=1.0, organ_chorus=1.0)
+        sr = s.sample_rate
+        def spread(audio):     # energy away from the 440 Hz line
+            spectrum = np.abs(np.fft.rfft(audio[4096:4096 + 32768, 0] * np.hanning(32768)))
+            bin_ = int(440 * 32768 / sr)
+            return 1 - spectrum[bin_ - 3:bin_ + 4].sum() / spectrum[bin_ - 60:bin_ + 61].sum()
+        self.assertGreater(spread(vib), spread(dry) + 0.05)
+        self.assertGreater(spread(chorus), spread(dry) + 0.02)
+
+    def test_overdrive_adds_harmonics(self):
+        clean, s = self.play(notes=(57,))
+        driven, _ = self.play(notes=(57,), organ_drive=1.0)
+        sr = s.sample_rate
+        ratio = lambda a: self.level_at(a, sr, 440) / self.level_at(a, sr, 220)
+        self.assertGreater(ratio(driven), 10 * ratio(clean) + 0.01)
+        self.assertLess(np.sqrt((driven ** 2).mean()), 2 * np.sqrt((clean ** 2).mean()))
+
+    def test_leslie_is_stereo_and_speeds_up_with_inertia(self):
+        mono, _ = self.play()
+        np.testing.assert_array_equal(mono[:, 0], mono[:, 1])
+        slow, s = self.play(leslie=1.0)
+        self.assertGreater(np.abs(slow[:, 0] - slow[:, 1]).max(), 0.01)
+        self.assertTrue(np.isfinite(slow).all())
+        s.set_param("leslie_fast", 1.0)
+        s.render(s.sample_rate)
+        horn, drum = s.rotor_speed
+        self.assertGreater(horn, 5.0)          # the light horn is nearly at speed
+        self.assertLess(drum, 3.0)             # the heavy drum still accelerating
+        s.render(int(s.sample_rate * 12))
+        self.assertAlmostEqual(s.rotor_speed[1], 5.7, delta=0.15)
+
+    def test_organ_effects_do_not_depend_on_block_size(self):
+        settings = dict(organ_perc=1.0, organ_vibrato=1.0, organ_chorus=1.0,
+                        organ_drive=0.5, leslie=1.0, leslie_fast=1.0)
+        whole, _ = self.play(notes=(48, 55, 64), seconds=0.3, block=13230, **settings)
+        split, _ = self.play(notes=(48, 55, 64), seconds=0.3, block=441, **settings)
+        np.testing.assert_allclose(whole, split, atol=1e-5)
+
+    def test_switches_are_off_by_default(self):
+        for name in ("organ_perc", "organ_click", "organ_vibrato", "leslie", "organ_drive"):
+            self.assertEqual(DEFAULTS[name], 0.0)
+
+
 class TestElectricPiano(unittest.TestCase):
     def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
         s = Synth()
