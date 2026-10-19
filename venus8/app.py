@@ -218,7 +218,7 @@ class App:
         self.text(1422,41,self.cpu_text,12,GOLD)
         self.text(1483,20,"RAM",10,GREEN)
         self.text(1483,41,self.ram_text,11,GOLD)
-        self.button("check_update","UPDATE" if self.release else "↻",1522,17,1561,51,
+        self.button("check_update","UPD" if self.release else "↻",1522,17,1561,51,
                     selected=bool(self.release))
         self.text(1540,67,f"v{__version__}",10,FADED)
 
@@ -354,23 +354,32 @@ class App:
         self.draw_keyboard()
 
     def draw_keyboard(self):
+        """Large 49-note keyboard with dedicated vintage pitch/mod wheels on the left."""
         self.rect(35,826,1565,968,"#101214","#554e49")
+        self.rect(42,832,262,962,"#181c21","#545050")
+        self.text(104,844,"PITCH BEND",11,WHITE)
+        self.text(201,844,"MOD WHEEL",11,WHITE)
+        # Two touch/mouse-operable performance faders styled as hardware wheels.
+        self.slider("pitch_bend","±2",107,863,923)
+        self.slider("modwheel","MOD",201,863,923)
         self.keys.clear()
-        white = [n for n in range(48,97) if n % 12 in (0,2,4,5,7,9,11)]
-        width = 1514 / len(white)
-        for i,n in enumerate(white):
-            x=43+i*width
+        whites = [n for n in range(48,97) if n % 12 in (0,2,4,5,7,9,11)]
+        origin=270
+        white_width=(1558-origin)/len(whites)
+        for i,n in enumerate(whites):
+            x=origin+i*white_width
             active=n in self.midi_held or n==self.current_mouse_note
-            self.rect(x,835,x+width-1,959,GOLD if active else "#eee7d9","#1a1c20")
-            self.keys.append((n,x,835,x+width-1,959))
-        for i,n in enumerate(white):
+            self.rect(x,833,x+white_width-1,958,GOLD if active else "#f0e6d4","#1d2025")
+            self.keys.append((n,x,833,x+white_width-1,958))
+        for i,n in enumerate(whites):
             if n%12 in (4,11) or n+1>96:
                 continue
-            x=43+(i+1)*width-width*.31
+            x=origin+(i+1)*white_width-white_width*.31
             note=n+1
             active=note in self.midi_held or note==self.current_mouse_note
-            self.rect(x,835,x+width*.62,913,ORANGE if active else "#101317","#30343a")
-            self.keys.append((note,x,835,x+width*.62,913))
+            self.rect(x,833,x+white_width*.62,909,
+                      ORANGE if active else "#12151a","#30343a")
+            self.keys.append((note,x,833,x+white_width*.62,909))
 
     @property
     def cpu_text(self):
