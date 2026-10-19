@@ -171,6 +171,19 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Validar os novos testes automatizados no GitHub Actions e homologar timbres com áudio/MIDI no Windows real.
 - [ ] Modelagem detalhada de circuitos Moog; os timbres atuais são inspirações originais, não emulações oficiais.
 
+## Diálogos no estilo vintage do painel (backlog)
+
+Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 janelas de arquivo e 2 janelas próprias), que destoam do painel. Todas devem seguir a identidade visual do Venus-8.
+
+- [ ] Componente único de diálogo no estilo do painel: moldura metálica, cabeçalho cobre/laranja, textos e botões iluminados como os do teclado, sem a barra de título do Windows.
+- [ ] Atualização de versão: aviso de nova versão, progresso do download com barra em LEDs, conclusão e erros.
+- [ ] Salvar timbre: nome, categoria e descrição dentro do painel, salvando no banco User sem a janela de arquivo do Windows.
+- [ ] Abrir/importar timbre: navegação dentro do estilo do painel (manter opção de escolher arquivo externo).
+- [ ] Browser de timbres e janela de Áudio/MIDI (SETTINGS) redesenhados no mesmo estilo.
+- [ ] Mensagens de erro, aviso e informação (patch inválido, falha de áudio/MIDI, versão mais recente etc.) no mesmo componente.
+- [ ] Diálogos funcionam com mouse, teclado (Enter/Esc) e futuramente touch; centralizados sobre o painel e redimensionados com ele.
+- [ ] Testes do componente e homologação no Windows real.
+
 ## v0.2 — Síntese analógica
 
 - [ ] Três VCOs independentes e antialiasing
