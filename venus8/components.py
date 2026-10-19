@@ -23,6 +23,36 @@ KNOB_GEOMETRY = {
 KNOB_START, KNOB_SWEEP = 135.0, 270.0      # degrees, clockwise from +x (screen)
 KNOB_DOTS = 31
 
+# Painted knobs with no function yet: (cx, cy, radius incl. LED ring/scale).
+# They are greyed out so working and future controls are easy to tell apart.
+INACTIVE_KNOBS = {
+    "osc1_octave": (88, 193, 30), "osc1_fine": (224, 193, 25),
+    "osc1_pw": (90, 251, 28), "osc1_pw2": (165, 251, 28), "osc1_pwm": (224, 251, 28),
+    "osc2_octave": (304, 194, 30), "osc2_fine": (438, 194, 25),
+    "osc2_pw": (304, 252, 28), "osc2_pw2": (380, 252, 28), "osc2_pwm": (438, 251, 28),
+    "osc3_octave": (518, 193, 30), "osc3_fine": (653, 193, 25),
+    "osc3_pw": (519, 251, 28), "osc3_pw2": (594, 251, 28), "osc3_pwm": (654, 252, 28),
+    "key_track": (1065, 274, 27),
+    "lfo1_fade": (197, 465, 23),
+    "lfo2_rate": (317, 462, 27), "lfo2_depth": (377, 462, 27), "lfo2_fade": (434, 464, 23),
+    "arp_rate": (82, 648, 23), "arp_gate": (140, 647, 23), "arp_oct": (190, 644, 21),
+    "seq_gate": (433, 601, 22), "seq_swing": (488, 600, 22),
+    "chorus_depth": (798, 662, 22), "chorus_rate": (860, 661, 22),
+    "phaser_depth": (930, 661, 22), "phaser_rate": (993, 662, 22),
+    "reverb_size": (1226, 661, 22), "reverb_damp": (1273, 661, 22),
+    "reverb_mix": (1324, 661, 22),
+    "width": (1407, 644, 29),
+    "detune": (341, 767, 24), "spread": (405, 767, 24), "glide_time": (476, 768, 22),
+    "global_volume": (1254, 773, 28), "global_balance": (1321, 773, 28),
+    "global_tune": (1429, 770, 22),
+    "header_volume": (1517, 44, 31),
+}
+# Fader banks with no function yet (Filter Env and Mod Env): boxes.
+INACTIVE_FADER_BANKS = {
+    "filter_env": (1280, 122, 1400, 284),
+    "mod_env": (1424, 122, 1546, 284),
+}
+
 # Fader caps painted into the artwork: (slot centre x, glowing line y).
 PAINTED_CAPS = {
     "osc1_level": (722, 190), "osc2_level": (765, 226),
@@ -156,12 +186,29 @@ def clean_artwork(art):
         ImageDraw.Draw(mask).ellipse((cx - r - 5, cy - r - 5, cx + r + 5, cy + r + 5), fill=255)
         mask = mask.filter(ImageFilter.GaussianBlur(2))
         clean.paste(fill, (0, 0) + clean.size, mask)
+    grey_out(clean, inactive_mask(clean.size))
     x1, y1, x2, y2 = KEYBOARD
     clean.paste(KEY_GAP, (x1, y1, x2, y2))
     # The mockup's lit keys also glow onto the key slip below the keyboard.
     slip = art.crop((x1, y2, x1 + 1, y2 + 10)).resize((x2 - x1, 10))
     clean.paste(slip, (x1, y2))
     return clean, caps
+
+
+def grey_out(image, mask):
+    """Desaturate and darken ``image`` where ``mask`` is set (an "off" control)."""
+    dim = image.convert("L").point(lambda v: round(v * 0.42 + 10)).convert("RGB")
+    image.paste(dim, (0, 0), mask)
+
+
+def inactive_mask(size):
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    for cx, cy, r in INACTIVE_KNOBS.values():
+        draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+    for box in INACTIVE_FADER_BANKS.values():
+        draw.rectangle(box, fill=255)
+    return mask.filter(ImageFilter.GaussianBlur(1.2))
 
 
 def _mix(a, b, t):

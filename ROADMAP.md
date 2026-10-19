@@ -44,6 +44,13 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.12 — Controles futuros sinalizados como inativos
+
+- ✅ Os 40 knobs ainda sem função aparecem apagados (cinza, sem LEDs acesos): Octave/Fine/PW/PWM dos osciladores, Key Track, Fade do LFO 1, LFO 2, Arpeggiator, Step Sequencer, Chorus, Phaser, Reverb, Width, Detune, Spread, Glide, Global e VOL do topo.
+- ✅ Faders de Filter Env e Mod Env apagados (o Amp Env, que funciona, continua aceso).
+- ✅ Testes garantem que nenhum controle inativo fica aceso e nenhum controle ativo é apagado.
+- [ ] Sinalizar também botões e LEDs ainda sem função (formas de onda, Sync/FM/Ring, Arp, Seq, efeitos).
+
 ## v0.2.11 — MIDI reconecta sozinho
 
 - ✅ Controlador MIDI reconectado automaticamente a cada 2 s: após desligar/ligar o cabo USB ou quando a porta ainda estava ocupada ao abrir o app.
