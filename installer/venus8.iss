@@ -15,6 +15,7 @@ SolidCompression=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
+SetupIconFile=..\assets\venus-8.ico
 UninstallDisplayIcon={app}\Venus-8.exe
 [Files]
 Source: "..\dist\Venus-8\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
