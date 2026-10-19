@@ -211,7 +211,12 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Importação/exportação de patches e bancos completos
 - [ ] Histórico, INIT e Random Patch Generator
 - [ ] A/B e Undo/Redo
-- [ ] Avisos para alterações não salvas e proteção Factory
+- [ ] Avisos para alterações não salvas e proteção Factory:
+  - [ ] Indicar no display central que o timbre foi modificado (ex.: `*` ao lado do nome), ao mexer em qualquer parâmetro por mouse, touch ou MIDI CC; o sinal some ao salvar ou recarregar o timbre.
+  - [ ] Ao trocar de timbre com alterações pendentes (setas, browser ou MIDI Program Change), mostrar a confirmação no próprio display central, no visual do painel, com as opções **Salvar**, **Sair sem salvar** e **Manter como está** (cancelar a troca).
+  - [ ] Em timbre Factory, **Salvar** abre "Salvar como" no banco User, preservando o Factory original.
+  - [ ] Confirmação também ao fechar o app com alterações pendentes.
+  - [ ] Substituir a caixa de diálogo atual do Windows (Sim/Não) por essa confirmação no display.
 - [ ] Migração de schema, backup e compatibilidade entre versões
 - [ ] Patches demonstrativos Bass/Lead/Pad/Brass/Strings/Keys/FX
 
