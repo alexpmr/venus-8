@@ -226,6 +226,16 @@ class Synth:
         lines["allpass_index"][a] = index
         return out
 
+    def set_sample_rate(self, sample_rate):
+        """Follow the output device (e.g. 48 kHz on WASAPI): delay lines are
+        sized in samples, so they are rebuilt."""
+        with self.lock:
+            self.sample_rate = int(sample_rate)
+            self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
+            self.delay_index = 0
+            self._reset_organ()
+            self._reset_effects()
+
     def _reset_effects(self):
         self.phaser_phase = 0.0
         self.phaser_state = [0.0] * 9
