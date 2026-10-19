@@ -1,4 +1,4 @@
-"""Update README with live asset sizes, dates, links and dynamic download badges."""
+"""Update README with release sizes, dates, links and numeric download counts."""
 import json
 import os
 from pathlib import Path
@@ -20,8 +20,8 @@ for label,suffix in (("Instalador","Setup"),("Portátil (EXE único)","Portable"
     size=asset["size"]/(1024*1024)
     date=asset["created_at"][:10]
     url=asset["browser_download_url"]
-    badge=f"https://img.shields.io/github/downloads/{repo}/{tag}/{name}?label=downloads"
-    rows.append(f"| Windows 10/11 x64 | {label} | [`{name}`]({url}) | {size:.1f} MB | {date} | ![Downloads]({badge}) |")
+    count=int(asset["download_count"])
+    rows.append(f"| Windows 10/11 x64 | {label} | [`{name}`]({url}) | {size:.1f} MB | {date} | {count} |")
 path=Path("README.md")
 readme=path.read_text(encoding="utf-8")
 start=readme.index("## Downloads")
@@ -33,7 +33,7 @@ header=f"""## Downloads — Venus-8 {tag} (Windows)
 """
 header += "\n".join(rows) + f"""
 
-**Downloads:** contadores do GitHub Releases por arquivo, não instalações. [Histórico de versões](https://github.com/{repo}/releases).
+**Downloads:** quantidade de downloads por arquivo no GitHub Releases (não representa instalações ou usuários únicos). Atualização periódica da tabela. [Histórico de versões](https://github.com/{repo}/releases).
 
 """
 path.write_text(readme[:start]+header+readme[end:],encoding="utf-8")
