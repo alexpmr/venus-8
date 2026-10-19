@@ -199,6 +199,18 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 - [ ] Se necessário, alargar a área de status da barra superior (reorganizando busca/MIDI/VOL) para que CPU, RAM, versão e UPD caibam com folga e boa leitura em qualquer tamanho de janela.
 - [ ] Homologar no Windows real (instalador e portátil).
 
+## Biblioteca Factory ampliada (backlog)
+
+Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Keys, FX). Meta: uma biblioteca grande, organizada e original.
+
+- [ ] Ampliar para **128 timbres ou mais**, em vários bancos (ex.: Analog Classics, Modern, Cinematic, Performance).
+- [ ] Novas categorias: **Strings, Pluck, Sequence/Arp, Bells, Organ, E.Piano, Synth Brass, Choir/Vox, Chords, Ambient/Drone, Sweeps/Risers, Percussion e Sound FX**, além das atuais.
+- [ ] Timbres que aproveitem cada recurso novo à medida que for implementado (envelope de filtro, LFO 2, unison/detune, glide, efeitos, órgão, piano elétrico e válvula).
+- [ ] Descrição, autor e tags em cada timbre; filtros por categoria, banco e tag no browser.
+- [ ] Favoritos e pré-escuta (tocar uma nota de exemplo ao selecionar no browser).
+- [ ] Testes: todos os timbres geram som, sem clipping, nomes únicos e categorias válidas.
+- [ ] Homologar a biblioteca com controlador MIDI no Windows real.
+
 ## Display LCD com pixels (backlog)
 
 - [ ] Display central com aparência de LCD real: matriz de pixels visível, leve brilho e reflexo de vidro.
