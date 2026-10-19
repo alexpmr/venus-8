@@ -214,6 +214,61 @@ class TestFullOrgan(unittest.TestCase):
             self.assertEqual(DEFAULTS[name], 0.0)
 
 
+class TestFM(unittest.TestCase):
+    SINES = {"osc1_wave": 1.0, "osc2_wave": 1.0, "osc3_wave": 1.0, "osc1_level": 1.0,
+             "osc2_level": 0.0, "osc3_level": 0.0, "sub_level": 0.0, "cutoff": 1.0,
+             "resonance": 0.0, "drive": 0.0, "attack": 0.0, "sustain": 1.0}
+
+    def play(self, note=57, velocity=100, seconds=0.5, **params):
+        s = Synth()
+        s.load_params(dict(self.SINES, **params))
+        s.note_on(note, velocity)
+        return np.concatenate([s.render(512) for _ in range(int(seconds * s.sample_rate / 512))])[:, 0], s
+
+    @staticmethod
+    def centroid(audio, sr, start=0):
+        spectrum = np.abs(np.fft.rfft(audio[start:start + 8192] * np.hanning(8192)))
+        return (spectrum * np.fft.rfftfreq(8192, 1 / sr)).sum() / spectrum.sum()
+
+    def test_fm_switch_and_amount_add_sidebands(self):
+        plain, s = self.play()
+        sr = s.sample_rate
+        off, _ = self.play(osc1_fm=1.0)                       # amount alone: no FM
+        np.testing.assert_allclose(off, plain, atol=1e-6)
+        soft, _ = self.play(osc1_fm_on=1.0, osc1_fm=0.4)
+        hard, _ = self.play(osc1_fm_on=1.0, osc1_fm=0.9)
+        self.assertLess(self.centroid(plain, sr), 260)
+        self.assertGreater(self.centroid(soft, sr), self.centroid(plain, sr) + 50)
+        self.assertGreater(self.centroid(hard, sr), self.centroid(soft, sr) + 200)
+        self.assertAlmostEqual(pitch_of(dict(self.SINES, osc1_fm_on=1.0, osc1_fm=0.3), 57), 220.0, delta=1.5)
+
+    def test_silent_modulator_still_modulates(self):
+        # OSC2 at level 0 is a pure modulator, like a DX operator.
+        bell, s = self.play(osc1_fm_on=1.0, osc1_fm=0.7, osc2_tune=0.5 + 7 / 24, osc2_octave=0.75)
+        self.assertGreater(self.centroid(bell, s.sample_rate), 400)
+
+    def test_osc3_feedback(self):
+        plain, s = self.play(osc1_level=0.0, osc3_level=1.0)
+        fed, _ = self.play(osc1_level=0.0, osc3_level=1.0, osc3_fm_on=1.0, osc3_fm=0.6)
+        self.assertGreater(self.centroid(fed, s.sample_rate), 2 * self.centroid(plain, s.sample_rate))
+
+    def test_mod_env_and_velocity_shape_the_brightness(self):
+        params = dict(osc1_fm_on=1.0, osc1_fm=0.8, mod_decay=0.4, mod_sustain=0.0)
+        audio, s = self.play(seconds=1.5, **params)
+        sr = s.sample_rate
+        self.assertGreater(self.centroid(audio, sr), self.centroid(audio, sr, start=sr) + 150)
+        soft, _ = self.play(velocity=20, osc1_fm_on=1.0, osc1_fm=0.8)
+        loud, _ = self.play(velocity=127, osc1_fm_on=1.0, osc1_fm=0.8)
+        self.assertGreater(self.centroid(loud, sr), self.centroid(soft, sr))
+
+    def test_fm_finite_with_all_operators_and_old_patches_unchanged(self):
+        audio, _ = self.play(osc2_level=0.5, osc3_level=0.5, osc1_fm_on=1.0, osc2_fm_on=1.0,
+                             osc3_fm_on=1.0, osc1_fm=1.0, osc2_fm=1.0, osc3_fm=1.0, osc1_wave=0.0)
+        self.assertTrue(np.isfinite(audio).all())
+        for i in (1, 2, 3):
+            self.assertEqual(DEFAULTS[f"osc{i}_fm_on"], 0.0)
+
+
 class TestElectricPiano(unittest.TestCase):
     def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
         s = Synth()

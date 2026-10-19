@@ -44,6 +44,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.19 — Síntese FM e MIDI Learn
+
+- ✅ Síntese FM (modulação de fase, estilo DX) entre os 3 osciladores: OSC3 → OSC2 → OSC1, com o botão FM de cada oscilador; no OSC3 o FM é realimentação (feedback).
+- ✅ Knob FM (quantidade) em cada oscilador, no lugar do segundo knob PW repetido.
+- ✅ Oscilador com nível 0 continua modulando (operador puro, como no DX7); razões pelos knobs OCTAVE, TUNE e FINE.
+- ✅ MOD ENV ativo (A, D, S, R): controla o brilho (índice FM) ao longo da nota; a velocity também abre o brilho.
+- ✅ Nova categoria FM com 8 timbres: FM E.Piano, FM Bells, FM Bass, FM Brass, FM Marimba, FM Glass Pad, FM Feedback Lead e FM Clav (64 timbres).
+- ✅ **MIDI Learn**: botão direito em qualquer knob, fader, drawbar ou botão → "MIDI Learn" → mova um controle do teclado. O display mostra "MIDI LEARN" e depois "CC n → parâmetro".
+- ✅ Mapeamentos salvos em settings.json; "Esquecer MIDI" no menu do controle e "Restaurar MIDI padrão" em SETTINGS. Botões do teclado alternam liga/desliga a cada toque (momentâneo ou travado).
+- ✅ Testes de FM (bandas laterais, operador silencioso, feedback, MOD ENV, velocity) e de MIDI Learn.
+- [ ] Homologar no Windows real.
+
 ## v0.2.18 — Órgão completo
 
 - ✅ Percussão estilo B-3: 2ª ou 3ª harmônica, decaimento rápido ou lento, disparo único (notas em legato não redisparam) e drawbar 1' cancelado com a percussão ligada.
@@ -261,7 +273,8 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - [ ] Três VCOs independentes e antialiasing
 - [ ] Ondas sine/saw/triangle/square/pulse com PWM
 - [ ] Coarse/Fine Tune e ajuste de oitavas por VCO
-- [ ] Oscillator Sync, Hard Sync, Ring Mod e FM/Cross Mod
+- ✅ FM entre osciladores (v0.2.19).
+- [ ] Oscillator Sync, Hard Sync, Ring Mod e Cross Mod
 - [ ] Suboscillator e ruído branco/rosa
 - [ ] Mixer individual VCO1–3, Sub e Noise
 - [ ] Filtros LP/HP/BP/Notch e 12/24 dB/oitava
@@ -286,7 +299,8 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 ## v0.4 — MIDI USB e MIDI Learn
 
 - [ ] Múltiplas entradas MIDI e seleção de canal
-- [ ] MIDI Learn contextual em knobs, sliders, botões e pedais
+- ✅ MIDI Learn contextual em knobs, sliders, drawbars e botões (v0.2.19).
+- [ ] MIDI Learn para pedais de expressão e pitch bend
 - [ ] Mapeamento, edição, remoção e indicador visual de associação
 - [ ] Sincronização visual e sonora em tempo real para cada parâmetro
 - [ ] Teclas e wheels refletindo mensagens externas
@@ -406,7 +420,8 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 
 **Órgão (drawbars)**
 - ✅ 9 drawbars reais (16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'), posições 0–8, com mouse e roda do mouse (v0.2.16).
-- [ ] Drawbars por touch e MIDI CC.
+- ✅ Drawbars por MIDI CC via MIDI Learn (v0.2.19).
+- [ ] Drawbars por touch.
 - ✅ Motor aditivo de tonewheels com foldback nos agudos (v0.2.16).
 - [ ] Leve vazamento entre rodas (crosstalk).
 - ✅ Percussão: On/Off, 2º/3º harmônico, Fast/Slow, disparo único (v0.2.18).

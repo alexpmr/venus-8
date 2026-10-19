@@ -3,7 +3,7 @@ from unittest import mock
 
 from venus8 import app as app_module
 from venus8.app import App, match_midi_name
-from venus8.synth import Synth
+from venus8.synth import DEFAULTS, Synth
 
 
 class FakePort:
@@ -108,6 +108,53 @@ class OrganSwitchTests(unittest.TestCase):
         self.assertTrue(app.patch_dirty)
         app.action("switch:leslie")
         self.assertEqual(app.synth.get_param("leslie"), 0.0)
+
+
+class Msg:
+    def __init__(self, control, value):
+        self.type, self.control, self.value = "control_change", control, value
+
+
+class MidiLearnTests(unittest.TestCase):
+    def test_default_map_still_works(self):
+        app = bare_app()
+        app.midi_message(Msg(74, 0))
+        self.assertEqual(app.synth.get_param("cutoff"), 0.0)
+
+    def test_learn_assigns_the_next_cc_and_is_saved(self):
+        app = bare_app()
+        app.start_learn("resonance")
+        app.midi_message(Msg(21, 90))
+        self.assertIsNone(app.learning)
+        self.assertEqual(app.settings["midi_map"]["21"], "resonance")
+        app._save_settings.assert_called()
+        app.midi_message(Msg(21, 127))
+        self.assertEqual(app.synth.get_param("resonance"), 1.0)
+        # Learning again moves the control to the new CC (one CC per control).
+        app.start_learn("resonance")
+        app.midi_message(Msg(22, 0))
+        self.assertNotIn("21", app.settings["midi_map"])
+        self.assertEqual(app.midi_cc_for("resonance"), 22)
+        app.forget_midi("resonance")
+        self.assertIsNone(app.midi_cc_for("resonance"))
+
+    def test_learned_cc_can_take_over_a_default(self):
+        app = bare_app()
+        app.start_learn("drawbar3")
+        app.midi_message(Msg(74, 64))
+        app.midi_message(Msg(74, 127))
+        self.assertEqual(app.synth.get_param("drawbar3"), 1.0)
+        self.assertEqual(app.synth.get_param("cutoff"), DEFAULTS["cutoff"])
+        app.midi_message(Msg(74, 60))
+        self.assertEqual(app.synth.get_param("drawbar3") * 8, round(60 / 127 * 8))
+
+    def test_buttons_toggle_switches_on_press(self):
+        app = bare_app()
+        app.start_learn("leslie_fast")
+        app.midi_message(Msg(30, 127))
+        for value, expected in ((127, 1.0), (0, 1.0), (127, 0.0), (127, 0.0), (0, 0.0), (127, 1.0)):
+            app.midi_message(Msg(30, value))
+            self.assertEqual(app.synth.get_param("leslie_fast"), expected)
 
 
 if __name__ == "__main__":

@@ -46,9 +46,14 @@ PARAM_LABELS = {
     "organ_perc_fast": "Perc rápida", "organ_click": "Key click",
     "organ_vibrato": "Vibrato órgão", "organ_chorus": "Chorus órgão",
     "leslie": "Leslie", "leslie_fast": "Leslie rápido", "organ_drive": "Drive órgão",
+    "osc1_fm": "FM OSC1", "osc2_fm": "FM OSC2", "osc3_fm": "FM OSC3 (feedback)",
+    "osc1_fm_on": "FM OSC1", "osc2_fm_on": "FM OSC2", "osc3_fm_on": "FM OSC3",
+    "mod_attack": "Mod Attack", "mod_decay": "Mod Decay", "mod_sustain": "Mod Sustain",
+    "mod_release": "Mod Release",
 }
 SWITCH_PARAMS = {"organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
-                 "organ_vibrato", "organ_chorus", "leslie", "leslie_fast"}
+                 "organ_vibrato", "organ_chorus", "leslie", "leslie_fast",
+                 "osc1_fm_on", "osc2_fm_on", "osc3_fm_on"}
 
 
 def format_value(param, value):
@@ -225,8 +230,19 @@ class LiveDisplay:
             ("MIDI", midi, self.pal["ink"] if port is not None else self.pal["alert"]),
             ("ÁUDIO", short(f"{audio} · {rate:.1f} kHz", 20), self.pal["ink"]),
             ("CARGA DSP", f"{load:.0f}%", self.pal["alert"] if load > 70 else self.pal["ink"]),
-            ("AJUSTE", short(tweak, 20), self.pal["accent"] if last else self.pal["dim"]),
+            self.adjust_row(tweak, last),
         ]
+
+    def adjust_row(self, tweak, last):
+        """Last tweak, or the MIDI Learn state while assigning a controller."""
+        learning = getattr(self.app, "learning", None)
+        if learning:
+            return ("MIDI LEARN", short("mova: " + PARAM_LABELS.get(learning, learning), 20),
+                    self.pal["alert"])
+        note = getattr(self.app, "midi_note", None)
+        if note:
+            return ("MIDI", short(note, 20), self.pal["accent"])
+        return ("AJUSTE", short(tweak, 20), self.pal["accent"] if last else self.pal["dim"])
 
     def update(self):
         app = self.app

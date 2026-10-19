@@ -24,7 +24,13 @@ KNOB_GEOMETRY = {
     "osc1_fine": (224, 193, 21), "osc2_fine": (438, 194, 21), "osc3_fine": (653, 193, 21),
     "volume@header": (1517, 44, 26),
     "organ_drive": (1517, 513, 18),
+    # FM amount: the second (duplicate) PW knob of each oscillator.
+    "osc1_fm": (163, 254, 21), "osc2_fm": (377, 254, 21), "osc3_fm": (592, 253, 21),
 }
+# Painted "PW" labels under the FM knobs, repainted as "FM".
+FM_LABELS = {1: (163, 284), 2: (377, 284), 3: (592, 284)}
+# FM buttons of the SYNC / FM / RING row (artwork boxes).
+FM_BUTTONS = {1: (131, 297, 179, 320), 2: (346, 297, 394, 320), 3: (560, 297, 608, 320)}
 KNOB_START, KNOB_SWEEP = 135.0, 270.0      # degrees, clockwise from +x (screen)
 KNOB_DOTS = 31
 # Octave switches follow the painted −2..+2 scale over the top half circle.
@@ -34,9 +40,9 @@ DETENT_START, DETENT_SWEEP, DETENT_POSITIONS = 180.0, 180.0, 5
 # Painted knobs with no function yet: (cx, cy, radius incl. LED ring/scale).
 # They are greyed out so working and future controls are easy to tell apart.
 INACTIVE_KNOBS = {
-    "osc1_pw": (90, 251, 28), "osc1_pw2": (165, 251, 28), "osc1_pwm": (224, 251, 28),
-    "osc2_pw": (304, 252, 28), "osc2_pw2": (380, 252, 28), "osc2_pwm": (438, 251, 28),
-    "osc3_pw": (519, 251, 28), "osc3_pw2": (594, 251, 28), "osc3_pwm": (654, 252, 28),
+    "osc1_pw": (90, 251, 28), "osc1_pwm": (224, 251, 28),
+    "osc2_pw": (304, 252, 28), "osc2_pwm": (438, 251, 28),
+    "osc3_pw": (519, 251, 28), "osc3_pwm": (654, 252, 28),
     "key_track": (1065, 274, 27),
     "lfo1_fade": (197, 465, 23),
     "lfo2_fade": (434, 464, 23),
@@ -89,8 +95,9 @@ STATUS_BOX = (1322, 22, 1433, 66)
 
 # Painted buttons, LEDs, selectors and bar graphs with no function yet.
 INACTIVE_AREAS = {
-    "osc1_switches": (52, 296, 250, 322), "osc2_switches": (268, 296, 466, 322),
-    "osc3_switches": (482, 296, 680, 322),
+    "osc1_sync": (52, 296, 128, 322), "osc1_ring": (182, 296, 250, 322),
+    "osc2_sync": (268, 296, 342, 322), "osc2_xmod": (397, 296, 466, 322),
+    "osc3_sync": (482, 296, 557, 322), "osc3_noise": (611, 296, 680, 322),
     "lfo1_waves": (52, 370, 262, 422), "lfo1_sync": (226, 444, 264, 492),
     "lfo2_waves": (288, 370, 500, 422), "lfo2_sync": (464, 444, 502, 492),
     "arpeggiator": (48, 568, 262, 684), "sequencer": (270, 568, 756, 684),
@@ -108,7 +115,6 @@ INACTIVE_AREAS = {
 # Fader banks with no function yet (Filter Env and Mod Env): boxes.
 INACTIVE_FADER_BANKS = {
     "filter_env": (1280, 122, 1400, 284),
-    "mod_env": (1424, 122, 1546, 284),
 }
 
 # Central display (artwork coordinates). Its painted patch name and info
@@ -129,9 +135,11 @@ PAINTED_CAPS = {
     "noise_level": (897, 216),
     "attack": (1156, 225), "decay": (1186, 199),
     "sustain": (1215, 180), "release": (1245, 165),
+    "mod_attack": (1442, 220), "mod_decay": (1472, 168),
+    "mod_sustain": (1501, 200), "mod_release": (1532, 189),
 }
 CAP_REACH = 16
-FADER_TRACK = {"osc": (161, 285), "env": (151, 278)}   # slot top/bottom rows
+FADER_TRACK = {"osc": (161, 285), "env": (151, 278), "mod": (151, 278)}   # slot top/bottom rows
 
 # The painted keyboard has an irregular black-key pattern and keys lit in the
 # mockup, so the key bed is rebuilt as a real piano layout (C1-C8).
@@ -187,7 +195,8 @@ class KeySprites:
 
 
 def _bank(ident):
-    return "osc" if PAINTED_CAPS[ident][0] < 1000 else "env"
+    x = PAINTED_CAPS[ident][0]
+    return "osc" if x < 1000 else "env" if x < 1400 else "mod"
 
 
 def cap_half_width(ident):
@@ -275,6 +284,7 @@ def clean_artwork(art):
         mask = mask.filter(ImageFilter.GaussianBlur(2))
         clean.paste(fill, (0, 0) + clean.size, mask)
     grey_out(clean, inactive_mask(clean.size))
+    relabel_fm_knobs(clean)
     drawbar_panel(clean)
     clear_display(clean)
     # SAW is painted lit on every oscillator: show all wave buttons unlit;
@@ -466,7 +476,31 @@ def panel_sprites(art, clean):
             waves[(osc, index)] = lit
     meter = {(column, row): art.crop(meter_box(column, row, source=True))
              for column in range(2) for row in range(len(METER_ROWS))}
-    return {"waves": waves, "meter": meter}
+    fm = {}
+    for osc, box in FM_BUTTONS.items():
+        # Lit FM button: amber legend with a glow and an amber rim.
+        lum = clean.crop(box).convert("L")
+        legend = lum.point(lambda v: 255 if v > 120 else 0)
+        lit = Image.new("RGBA", lum.size, (255, 132, 40, 0))
+        lit.putalpha(legend.filter(ImageFilter.GaussianBlur(2.5)).point(lambda v: min(255, v * 3)))
+        core = Image.new("RGBA", lum.size, (255, 170, 80, 255))
+        core.putalpha(legend)
+        lit.alpha_composite(core)
+        ImageDraw.Draw(lit).rounded_rectangle((1, 1, lum.width - 2, lum.height - 2), radius=3,
+                                              outline=(255, 128, 44, 200), width=1)
+        fm[osc] = lit
+    return {"waves": waves, "meter": meter, "fm": fm}
+
+
+def relabel_fm_knobs(clean):
+    """The second PW knob of each oscillator is the FM amount: "PW" -> "FM"."""
+    draw = ImageDraw.Draw(clean)
+    font = label_font(10)
+    for x, y in FM_LABELS.values():
+        box = (x - 14, y - 7, x + 14, y + 7)
+        ring = np.asarray(clean.crop((box[0] - 3, box[1] - 3, box[2] + 3, box[1]))).reshape(-1, 3)
+        draw.rectangle(box, fill=tuple(int(v) for v in np.median(ring, axis=0)))
+        draw.text((x, y), "FM", font=font, anchor="mm", fill=(226, 222, 214))
 
 
 def _mix(a, b, t):

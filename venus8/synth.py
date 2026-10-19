@@ -23,6 +23,13 @@ DRAWBARS = (("16'", 0.5), ("5⅓'", 1.5), ("8'", 1.0), ("4'", 2.0), ("2⅔'", 3.
             ("2'", 4.0), ("1⅗'", 5.0), ("1⅓'", 6.0), ("1'", 8.0))
 TONEWHEEL_TOP = 5900.0     # highest tonewheel; partials above fold back an octave
 DEFAULTS.update({f"drawbar{i}": 0.0 for i in range(1, len(DRAWBARS) + 1)})
+# FM: each oscillator's FM switch lets the next one modulate its phase
+# (OSC3 -> OSC2 -> OSC1, as a 3-operator stack); OSC3's FM is self-feedback.
+# The index follows the MOD ENV and the key velocity.
+DEFAULTS.update({f"osc{i}_fm": 0.35 for i in (1, 2, 3)})
+DEFAULTS.update({f"osc{i}_fm_on": 0.0 for i in (1, 2, 3)})
+DEFAULTS.update({"mod_attack": 0.0, "mod_decay": 0.4, "mod_sustain": 1.0, "mod_release": 0.3})
+FM_MAX_INDEX = 10.0               # radians of phase deviation at full amount
 # Electric piano layer (tine model): level, tone (bell/brightness), bark, decay.
 DEFAULTS.update({"ep_level": 0.0, "ep_tone": 0.5, "ep_bark": 0.3, "ep_decay": 0.5})
 EP_SLOT = 4 + len(DRAWBARS)
@@ -157,7 +164,7 @@ class Synth:
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
                 "env_time": 0.0, "release_time": 0.0,
-                "release_start": 0.0,
+                "release_start": 0.0, "mod_level": 0.0, "mod_release_start": 0.0,
             }
 
     def note_off(self, note):
@@ -172,6 +179,7 @@ class Synth:
     @staticmethod
     def _release(voice):
         voice["release_start"] = voice["level"]
+        voice["mod_release_start"] = voice.get("mod_level", 0.0)
         voice["release_time"] = 0.0
         voice["gate"] = False
         voice["sustained"] = False
@@ -230,6 +238,20 @@ class Synth:
         return tone * (0.3 + 0.7 * velocity) * 1.1
 
     @staticmethod
+    def env_times(attack, decay, release):
+        """Fader positions (0..1) to seconds, shared by the AMP and MOD envelopes."""
+        return 0.002 + attack ** 2 * 3.0, 0.01 + decay ** 2 * 2.0, 0.01 + release ** 2 * 4.0
+
+    @staticmethod
+    def _adsr(gate, held, gone, start_level, attack, decay, sustain, release):
+        """Sample-accurate ADSR; the release starts from the current level."""
+        up = np.clip(held / max(0.002, attack), 0.0, 1.0)
+        down = sustain + (1.0 - sustain) * np.clip(
+            1.0 - (held - attack) / max(0.005, decay), 0.0, 1.0)
+        return np.where(gate, np.where(held < attack, up, down),
+                        start_level * np.clip(1.0 - gone / max(0.005, release), 0.0, 1.0))
+
+    @staticmethod
     def _blep(phase, step):
         """PolyBLEP residual that rounds off each wrap of a unit-phase ramp."""
         x = phase / step
@@ -260,9 +282,7 @@ class Synth:
             mono = np.zeros(frames, dtype=np.float64)
             sr = self.sample_rate
             p = self.params
-            attack = 0.002 + p["attack"] ** 2 * 3.0
-            release = 0.01 + p["release"] ** 2 * 4.0
-            decay = 0.01 + p["decay"] ** 2 * 2.0
+            attack, decay, release = self.env_times(p["attack"], p["decay"], p["release"])
             sustain = p["sustain"]
             bend = (p["pitch_bend"] - 0.5) * 4.0
             # All voices are rendered together as (voice, sample) arrays; a
@@ -284,12 +304,32 @@ class Synth:
                 freq = 440.0 * 2 ** ((np.array([note for note, _ in playing], dtype=np.float64)
                                       - 69 + bend) / 12)
                 sound = np.zeros((len(voices), frames), dtype=np.float64)
+                gate = np.array([voice["gate"] for voice in voices])[:, None]
+                held = np.array([voice["env_time"] for voice in voices])[:, None] + t / sr
+                gone = np.array([voice["release_time"] for voice in voices])[:, None] + t / sr
+                velocity = np.array([voice["velocity"] for voice in voices])[:, None]
+                fm_on = [p[f"osc{osc}_fm_on"] >= 0.5 for osc in (1, 2, 3)]
+                mod_env = None
+                if any(fm_on):
+                    m_attack, m_decay, m_release = self.env_times(
+                        p["mod_attack"], p["mod_decay"], p["mod_release"])
+                    mod_env = self._adsr(
+                        gate, held, gone,
+                        np.array([voice["mod_release_start"] for voice in voices])[:, None],
+                        m_attack, m_decay, p["mod_sustain"], m_release)
+                    for voice, level in zip(voices, mod_env[:, -1]):
+                        voice["mod_level"] = float(level)
+                    mod_env = mod_env * (0.5 + 0.5 * velocity)
+                # OSC3 first: it can modulate OSC2, which can modulate OSC1.
                 oscillators = [(osc - 1, p[f"osc{osc}_level"],
                                 freq * 2 ** (self.detune(osc) / 12), osc)
-                               for osc in (1, 2, 3)]
+                               for osc in (3, 2, 1)]
                 oscillators.append((3, p["sub_level"], freq * 0.5, None))
+                modulator = None
                 for slot, level, hz, osc in oscillators:
-                    if level < 0.0001:
+                    feeds = osc in (2, 3) and fm_on[osc - 2]   # next oscillator's FM is on
+                    if level < 0.0001 and not feeds:
+                        modulator = None
                         continue
                     step = (hz / sr)[:, None]
                     start = np.array([voice["phases"][slot] for voice in voices])[:, None]
@@ -304,7 +344,21 @@ class Synth:
                     if osc is None:     # sub oscillator: band-limited saw an octave down
                         sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
                     else:
-                        sound += level * self._wave(ph, osc, step)
+                        if fm_on[osc - 1]:
+                            index = FM_MAX_INDEX * p[f"osc{osc}_fm"] ** 2 * mod_env / (2 * np.pi)
+                            if osc == 3:    # self-feedback, unrolled twice
+                                out = self._wave(ph, osc, step)
+                                for _ in range(2):
+                                    out = self._wave((ph + index * out) % 1.0, osc, step)
+                            elif modulator is not None:
+                                out = self._wave((ph + index * modulator) % 1.0, osc, step)
+                            else:
+                                out = self._wave(ph, osc, step)
+                        else:
+                            out = self._wave(ph, osc, step)
+                        modulator = out
+                        if level >= 0.0001:
+                            sound += level * out
                     for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
                 organ = np.zeros_like(sound)
@@ -358,16 +412,8 @@ class Synth:
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5
                 # Sample-accurate ADSR with release from current amplitude.
-                gate = np.array([voice["gate"] for voice in voices])[:, None]
-                held = np.array([voice["env_time"] for voice in voices])[:, None] + t / sr
-                gone = np.array([voice["release_time"] for voice in voices])[:, None] + t / sr
                 start_level = np.array([voice["release_start"] for voice in voices])[:, None]
-                up = np.clip(held / max(0.002, attack), 0.0, 1.0)
-                down = sustain + (1.0 - sustain) * np.clip(
-                    1.0 - (held - attack) / max(0.005, decay), 0.0, 1.0)
-                env = np.where(gate, np.where(held < attack, up, down),
-                               start_level * np.clip(1.0 - gone / max(0.005, release), 0.0, 1.0))
-                velocity = np.array([voice["velocity"] for voice in voices])[:, None]
+                env = self._adsr(gate, held, gone, start_level, attack, decay, sustain, release)
                 mono += (sound * env * velocity).sum(axis=0)
                 keys_mono += (keys * env).sum(axis=0)
                 organ_mono += (organ * env).sum(axis=0)

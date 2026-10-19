@@ -24,6 +24,7 @@ def bare_app():
     app.port = None
     app.stream = None
     app._save_settings = mock.Mock()
+    app.settings = {}
     return app
 
 
