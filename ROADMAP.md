@@ -44,6 +44,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.18 — Órgão completo
+
+- ✅ Percussão estilo B-3: 2ª ou 3ª harmônica, decaimento rápido ou lento, disparo único (notas em legato não redisparam) e drawbar 1' cancelado com a percussão ligada.
+- ✅ Key click: estalo dos contatos no início de cada nota.
+- ✅ Vibrato/Chorus de scanner (~6,9 Hz) só no órgão.
+- ✅ Overdrive valvulado no órgão (knob DRIVE), assimétrico, com nível compensado.
+- ✅ Leslie de dois rotores (corneta e tambor) com Doppler, giro de volume e estéreo real; lento/rápido com inércia (a corneta acelera em ~1 s, o tambor em ~4 s).
+- ✅ Painel ORGAN ao lado dos drawbars: 8 botões iluminados (PERC, 3RD, P.FAST, CLICK, VIB, CHORUS, LESLIE, FAST) e knob DRIVE.
+- ✅ Timbres de órgão refeitos com os novos recursos e 3 novos: Gospel Shout, Perc Groove e Leslie Swell (56 timbres).
+- ✅ Testes de percussão, disparo único, click, vibrato/chorus, overdrive, Leslie (estéreo e inércia), independência do tamanho de bloco e do painel.
+- [ ] Homologar no Windows real.
+
 ## v0.2.17 — Drawbars audíveis e piano elétrico real
 
 - ✅ Órgão (drawbars) e piano elétrico mixados depois do filtro, como nos instrumentos reais: os drawbars passam a mudar claramente o som em qualquer timbre.
@@ -397,11 +409,15 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - [ ] Drawbars por touch e MIDI CC.
 - ✅ Motor aditivo de tonewheels com foldback nos agudos (v0.2.16).
 - [ ] Leve vazamento entre rodas (crosstalk).
-- [ ] Percussão: On/Off, 2º/3º harmônico, Fast/Slow, Soft/Normal.
-- [ ] Vibrato/Chorus: V1, V2, V3, C1, C2, C3.
-- [ ] Key click ajustável.
-- [ ] Simulação de caixa rotativa (Leslie): Slow/Fast/Stop com aceleração, horn e drum separados.
-- [ ] Overdrive valvulado do órgão.
+- ✅ Percussão: On/Off, 2º/3º harmônico, Fast/Slow, disparo único (v0.2.18).
+- [ ] Percussão Soft/Normal.
+- ✅ Vibrato/Chorus de scanner (v0.2.18), profundidade fixa.
+- [ ] Seletor de profundidade V1, V2, V3, C1, C2, C3.
+- ✅ Key click liga/desliga (v0.2.18).
+- [ ] Nível do key click ajustável.
+- ✅ Caixa rotativa (Leslie): Slow/Fast com aceleração, horn e drum separados, estéreo (v0.2.18).
+- [ ] Modo Stop (rotores parados) e ajuste de distância dos microfones.
+- ✅ Overdrive valvulado do órgão (v0.2.18).
 - [ ] Velocidade da caixa rotativa pela Mod Wheel ou pedal.
 - ✅ Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real (v0.2.16).
 
@@ -415,11 +431,11 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - [ ] Ruído mecânico opcional (martelo e abafador).
 
 **Timbres Factory novos**
-- [ ] Órgão (categoria Organ): Gospel Full, Jazz Ballad (percussão no 3º), Rock Overdrive (Leslie rápido e drive), Blues Bar (percussão no 2º), Soft Combo, Church Swell.
+- ✅ Órgão (categoria Organ) com percussão, Leslie e drive: Jazz Organ, Rock Organ, Blues Bar, Gospel Shout, Perc Groove, Leslie Swell, Ballad Organ, Soft Combo (v0.2.18).
 - ✅ Piano elétrico (categoria E.Piano): Suitcase Tine, Mellow Stage, Funky Bark, Tremolo Ballad, Reed Piano (v0.2.17).
 
 **Validação**
-- [ ] Testes do espectro de cada drawbar, percussão, decaimento e velocity do piano elétrico.
+- ✅ Testes do espectro de cada drawbar, percussão, decaimento e velocity do piano elétrico (v0.2.18).
 - [ ] Testes de desempenho com 16 vozes nos novos motores.
 - [ ] Homologação sonora com controlador MIDI no Windows real.
 

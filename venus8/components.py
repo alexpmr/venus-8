@@ -23,6 +23,7 @@ KNOB_GEOMETRY = {
     "osc1_octave": (88, 193, 19), "osc2_octave": (304, 194, 19), "osc3_octave": (518, 193, 19),
     "osc1_fine": (224, 193, 21), "osc2_fine": (438, 194, 21), "osc3_fine": (653, 193, 21),
     "volume@header": (1517, 44, 26),
+    "organ_drive": (1517, 513, 18),
 }
 KNOB_START, KNOB_SWEEP = 135.0, 270.0      # degrees, clockwise from +x (screen)
 KNOB_DOTS = 31
@@ -53,10 +54,20 @@ INACTIVE_KNOBS = {
 # Drawbar organ panel, in place of the painted modulation matrix.
 DRAWBAR_PANEL = (1104, 368, 1552, 543)
 DRAWBAR_HEADER = (1112, 348, 1546, 367)
-DRAWBAR_X = tuple(round(1137 + i * 49) for i in range(9))
+DRAWBAR_X = tuple(round(1130 + i * 33) for i in range(9))
 DRAWBAR_TOP, DRAWBAR_STEP, DRAWBAR_CAP, DRAWBAR_WIDTH = 386, 15, 24, 28
 DRAWBAR_COLORS = ("brown", "brown", "white", "white", "black", "white", "black", "black", "white")
 DRAWBAR_FOOTAGES = ("16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'")
+# Organ switches beside the drawbars: (param, label) -> box, two per row.
+ORGAN_SWITCHES = {}
+for _row, _pair in enumerate((("organ_perc", "PERC"), ("organ_perc_third", "3RD"),
+                              ("organ_perc_fast", "P.FAST"), ("organ_click", "CLICK"),
+                              ("organ_vibrato", "VIB"), ("organ_chorus", "CHORUS"),
+                              ("leslie", "LESLIE"), ("leslie_fast", "FAST"))):
+    _x = 1420 + (_row % 2) * 66
+    _y = 374 + (_row // 2) * 28
+    ORGAN_SWITCHES[_pair[0]] = (_pair[1], (_x, _y, _x + 60, _y + 22))
+ORGAN_LABEL_X = 1483                  # centre of the switch column
 _DRAWBAR_PAINT = {"brown": ((112, 58, 30), (150, 86, 48), (240, 220, 200)),
                   "white": ((222, 214, 198), (246, 240, 228), (40, 34, 30)),
                   "black": ((30, 30, 32), (64, 64, 68), (230, 224, 214))}
@@ -336,9 +347,15 @@ def drawbar_panel(clean):
     header = np.asarray(clean.crop(DRAWBAR_HEADER)).reshape(-1, 3)
     draw.rectangle(DRAWBAR_HEADER, fill=tuple(int(v) for v in np.median(header, axis=0)))
     # Metal rail the drawbars slide out of, and a dark slot for each.
-    draw.rectangle((x1 + 8, DRAWBAR_TOP - 10, x2 - 8, DRAWBAR_TOP), fill=(70, 72, 76))
-    draw.line((x1 + 8, DRAWBAR_TOP - 10, x2 - 8, DRAWBAR_TOP - 10), fill=(120, 122, 126))
-    draw.line((x1 + 8, DRAWBAR_TOP, x2 - 8, DRAWBAR_TOP), fill=(12, 12, 14), width=2)
+    right = DRAWBAR_X[-1] + DRAWBAR_WIDTH // 2 + 8
+    draw.rectangle((x1 + 8, DRAWBAR_TOP - 10, right, DRAWBAR_TOP), fill=(70, 72, 76))
+    draw.line((x1 + 8, DRAWBAR_TOP - 10, right, DRAWBAR_TOP - 10), fill=(120, 122, 126))
+    draw.line((x1 + 8, DRAWBAR_TOP, right, DRAWBAR_TOP), fill=(12, 12, 14), width=2)
+    # Organ switch plate, divided from the drawbars by a groove.
+    draw.line((right + 5, y1 + 4, right + 5, y2 - 4), fill=(8, 8, 10), width=2)
+    draw.line((right + 7, y1 + 4, right + 7, y2 - 4), fill=(46, 48, 52))
+    for _, box in ORGAN_SWITCHES.values():
+        draw.rounded_rectangle(box, radius=3, fill=(10, 10, 12))
     for x in DRAWBAR_X:
         half = DRAWBAR_WIDTH // 2 + 2
         draw.rectangle((x - half, DRAWBAR_TOP - 8, x + half, DRAWBAR_TOP), fill=(8, 8, 10))
@@ -352,6 +369,31 @@ def label_font(size):
         except OSError:
             continue
     return ImageFont.load_default()
+
+
+def render_switch(label, lit, size, scale):
+    """Organ tab switch: dark key with an LED and its name, RGBA."""
+    k = 4
+    w, h = size[0] * k, size[1] * k
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((k, k, w - k - 1, h - k - 1), radius=3 * k,
+                           fill=(40, 42, 46, 255) if lit else (28, 29, 32, 255),
+                           outline=(96, 98, 104, 255), width=k)
+    draw.line((3 * k, 2 * k, w - 4 * k, 2 * k), fill=(110, 112, 118, 255), width=k)
+    led = (5 * k, h // 2 - 3 * k, 11 * k, h // 2 + 3 * k)
+    if lit:
+        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(glow).ellipse((led[0] - 4 * k, led[1] - 4 * k, led[2] + 4 * k, led[3] + 4 * k),
+                                     fill=(255, 96, 20, 170))
+        image = Image.alpha_composite(image, glow.filter(ImageFilter.GaussianBlur(3 * k)))
+        draw = ImageDraw.Draw(image)
+    draw.ellipse(led, fill=(255, 128, 44, 255) if lit else (70, 40, 30, 255),
+                 outline=(12, 12, 12, 255))
+    draw.text(((led[2] + w) // 2, h // 2), label, font=label_font(8 * k), anchor="mm",
+              fill=(246, 232, 210, 255) if lit else (150, 150, 152, 255))
+    return image.resize((max(1, round(size[0] * scale)), max(1, round(size[1] * scale))),
+                        Image.Resampling.LANCZOS)
 
 
 def drawbar_length(position):

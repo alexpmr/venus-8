@@ -618,6 +618,9 @@ class App:
         if ident.startswith("wave"):
             _,number,index = ident[0:4],int(ident[4]),int(ident[6])
             self.change(f"osc{number}_wave",index/3)
+        elif ident.startswith("switch:"):
+            param=ident[7:]
+            self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)
         elif ident=="settings":
             self.open_settings()
         elif ident=="save":
