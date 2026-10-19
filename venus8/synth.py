@@ -33,6 +33,18 @@ FM_MAX_INDEX = 10.0               # radians of phase deviation at full amount
 # Electric piano layer (tine model): level, tone (bell/brightness), bark, decay.
 DEFAULTS.update({"ep_level": 0.0, "ep_tone": 0.5, "ep_bark": 0.3, "ep_decay": 0.5})
 EP_SLOT = 4 + len(DRAWBARS)
+# Electric grand (CP-70 style): ep_model 1 swaps the tine for struck strings
+# with piezo pickups. Ten stiff-string partials, each with its own phase slot.
+DEFAULTS["ep_model"] = 0.0
+GRAND_PARTIALS = 10
+GRAND_SLOT = EP_SLOT + 1
+# Effects: chorus/flanger (one unit, chorus_type 0/1) and a 4-stage phaser.
+DEFAULTS.update({"chorus_on": 0.0, "chorus_type": 0.0, "chorus_depth": 0.5,
+                 "chorus_rate": 0.3, "phaser_on": 0.0, "phaser_depth": 0.6,
+                 "phaser_rate": 0.25})
+# Tube stage on the whole instrument (triode-like, even harmonics). 0 = bypass.
+DEFAULTS["tube_drive"] = 0.0
+MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
 # scanner vibrato/chorus, tube-style overdrive and a two-rotor Leslie.
@@ -77,6 +89,13 @@ class Synth:
         self.delay_index = 0
         self.peak = 0.0
         self._reset_organ()
+        self._reset_effects()
+
+    def _reset_effects(self):
+        self.phaser_phase = 0.0
+        self.phaser_state = [0.0] * 9
+        self.mod_fx_phase = 0.0
+        self.mod_fx_history = np.zeros(int(MOD_FX_HISTORY * self.sample_rate) + 4)
 
     def _reset_organ(self):
         self.scanner_phase = 0.0
@@ -160,7 +179,7 @@ class Synth:
             percussion = not any(v["gate"] for n, v in self.voices.items() if n != note)
             self.voices[note] = {
                 "perc": percussion,
-                "phases": [0.0] * (EP_SLOT + 1), "age": 0.0,
+                "phases": [0.0] * (GRAND_SLOT + GRAND_PARTIALS), "age": 0.0,
                 "level": 0.0, "velocity": min(127, velocity) / 127.0,
                 "gate": True, "serial": self.voice_serial,
                 "env_time": 0.0, "release_time": 0.0,
@@ -201,6 +220,7 @@ class Synth:
             self.delay_buffer.fill(0)
             self.peak = 0.0
             self._reset_organ()
+            self._reset_effects()
 
     def detune(self, osc):
         """Oscillator offset in semitones: tune ±12, octave −2..+2, fine ±50 cents."""
@@ -236,6 +256,57 @@ class Synth:
         drive = 1.0 + p["ep_bark"] * 5.0 * velocity ** 2
         tone = np.tanh(drive * (tone + 0.2 * p["ep_bark"] * tone * tone)) / np.tanh(drive)
         return tone * (0.3 + 0.7 * velocity) * 1.1
+
+    def _electric_grand(self, voices, freq, t, bend_curve):
+        """Electric grand (CP-70 style): hammered stiff strings, so partials run
+        slightly sharp; upper partials die first; paired strings beat gently;
+        the piezo pickup is bright and barks a little when played hard."""
+        p, sr = self.params, self.sample_rate
+        frames = len(t)
+        start_age = np.array([voice.get("age", 0.0) for voice in voices])[:, None]
+        age = start_age + t / sr
+        # Envelopes and beating move slowly: evaluated at both block edges and
+        # interpolated, so only the partials' sines run per sample.
+        edges = np.hstack((start_age, start_age + frames / sr))
+        ramp = (t / frames)[None, :]
+        velocity = np.array([voice["velocity"] for voice in voices])[:, None]
+        stiffness = np.clip(0.00012 * (freq / 130.0) ** 0.9, 0.00005, 0.002)
+        sustain = (0.4 + 2.0 * p["ep_decay"]) * (261.6 / freq) ** 0.55
+        bright = 1.9 - 0.9 * p["ep_tone"] - 0.6 * velocity           # spectral slope
+        tone = np.zeros((len(voices), len(t)))
+        for n in range(1, GRAND_PARTIALS + 1):
+            hz = freq * n * np.sqrt(1.0 + stiffness * n * n)
+            audible = hz < sr * 0.45
+            if not audible.any():
+                break
+            step = (hz / sr)[:, None]
+            slot = GRAND_SLOT + n - 1
+            start = np.array([voice["phases"][slot] for voice in voices])[:, None]
+            if bend_curve is None:
+                ph = start + step * t
+                end = start + step * len(t)
+            else:
+                step = step * bend_curve[None, :]
+                run = np.cumsum(step, axis=1)
+                ph = start + run - step
+                end = start + run[:, -1:]
+            for voice, phase in zip(voices, (end % 1.0)[:, 0]):
+                voice["phases"][slot] = float(phase)
+            tau = (sustain / (1.0 + 0.45 * (n - 1)))[:, None]
+            # Two-stage decay (prompt sound, then a longer aftersound) and the
+            # slow beating of the string pair.
+            gain = (0.75 * np.exp(-edges / tau) + 0.25 * np.exp(-edges / (tau * 3.0))) \
+                * (1.0 + 0.12 * np.cos(2 * np.pi * (0.7 + 0.25 * n) * edges)) \
+                * n ** -bright * audible[:, None]
+            tone += (gain[:, :1] + (gain[:, 1:] - gain[:, :1]) * ramp) * np.sin(2 * np.pi * ph)
+        tone = tone * 0.8
+        young = start_age[:, 0] < 0.05
+        if young.any():         # hammer thump in the first few milliseconds
+            a = age[young]
+            tone[young] += 0.25 * velocity[young] * np.exp(-a / 0.006) * np.sin(2 * np.pi * 90.0 * a)
+        drive = 1.0 + p["ep_bark"] * 4.0 * velocity ** 2
+        tone = np.tanh(drive * tone) / np.tanh(drive)
+        return tone * (0.3 + 0.7 * velocity)
 
     @staticmethod
     def env_times(attack, decay, release):
@@ -408,7 +479,9 @@ class Synth:
                             organ[row] += 0.22 * noise * np.exp(-age / 0.0025)
                 keys = np.zeros_like(sound)
                 if p["ep_level"] > 0.0001:
-                    keys += p["ep_level"] * self._electric_piano(voices, freq, t, bend_curve)
+                    engine = (self._electric_grand if p["ep_model"] >= 0.5
+                              else self._electric_piano)
+                    keys += p["ep_level"] * engine(voices, freq, t, bend_curve)
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5
                 # Sample-accurate ADSR with release from current amplitude.
@@ -454,6 +527,10 @@ class Synth:
             self.lowpass = s3
             organ_mono, side = self._organ_effects(organ_mono, t)
             mono += keys_mono + organ_mono
+            if p["tube_drive"] > 0.001:
+                mono = self._tube(mono, p["tube_drive"])
+                if side is not None:
+                    side = side * (1.0 + 2.0 * p["tube_drive"]) ** -0.3
             # LFO evaluated per sample so the tremolo has no block steps.
             rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
             lfo = np.sin((self.lfo_phase + rate * t) * 2 * math.pi)
@@ -478,16 +555,99 @@ class Synth:
                     self.delay_index = (self.delay_index + len(dry)) % size
             else:
                 self.delay_index = (self.delay_index + frames) % size
-            if side is None:
-                mono = np.clip(mono, -0.95, 0.95).astype(np.float32)
+            mono = self._phaser(mono, t)
+            left, right = self._chorus(mono, t)
+            if side is None and left is right:
+                mono = np.clip(left, -0.95, 0.95).astype(np.float32)
                 self.peak = float(np.max(np.abs(mono)))
                 return np.column_stack((mono, mono))
-            # The Leslie's stereo spread rides on top of the mono chain.
-            side = side * tremolo * p["volume"] * 0.8
-            stereo = np.clip(np.column_stack((mono + side, mono - side)), -0.95, 0.95)
+            if side is not None:
+                # The Leslie's stereo spread rides on top of the mono chain.
+                side = side * tremolo * p["volume"] * 0.8
+                left, right = left + side, right - side
+            stereo = np.clip(np.column_stack((left, right)), -0.95, 0.95)
             stereo = stereo.astype(np.float32)
             self.peak = float(np.max(np.abs(stereo)))
             return stereo
+
+    @staticmethod
+    def _tube(x, amount):
+        """Triode-like stage: biased so it clips asymmetrically (even harmonics),
+        with the level roughly kept as the drive goes up."""
+        gain = 1.0 + 9.0 * amount ** 2
+        bias = 0.3 * amount
+        return (np.tanh(gain * x + bias) - math.tanh(bias)) / gain ** 0.55
+
+    def _phaser(self, x, t):
+        """Four first-order all-pass stages swept by an LFO, with feedback."""
+        p, sr = self.params, self.sample_rate
+        if p["phaser_on"] < 0.5:
+            self.phaser_state = [0.0] * 9
+            return x
+        rate = (0.05 + 4.95 * p["phaser_rate"] ** 2) / sr
+        lfo = 0.5 + 0.5 * np.sin(2 * np.pi * (self.phaser_phase + rate * t))
+        self.phaser_phase = (self.phaser_phase + rate * len(x)) % 1.0
+        low, span = 180.0, 1.0 + 4.0 * p["phaser_depth"]          # up to ~5 octaves
+        hz = np.minimum(low * 2 ** (span * lfo), sr * 0.4)
+        tan = np.tan(np.pi * hz / sr)
+        coef = ((tan - 1.0) / (tan + 1.0)).tolist()
+        feedback = 0.25 + 0.45 * p["phaser_depth"]
+        x1a, y1a, x1b, y1b, x1c, y1c, x1d, y1d, last = self.phaser_state
+        out = []
+        store = out.append
+        for sample, a in zip(x.tolist(), coef):
+            v = sample + feedback * last
+            y1a = a * v + x1a - a * y1a; x1a = v
+            y1b = a * y1a + x1b - a * y1b; x1b = y1a
+            y1c = a * y1b + x1c - a * y1c; x1c = y1b
+            y1d = a * y1c + x1d - a * y1d; x1d = y1c
+            last = y1d
+            store(y1d)
+        self.phaser_state = [x1a, y1a, x1b, y1b, x1c, y1c, x1d, y1d, last]
+        return 0.7 * (x + np.asarray(out))
+
+    def _chorus(self, x, t):
+        """Stereo chorus (two voices swept in opposite phase) or a flanger
+        (short swept delay with feedback). Returns (left, right)."""
+        p, sr = self.params, self.sample_rate
+        history = self.mod_fx_history
+        if p["chorus_on"] < 0.5:
+            self.mod_fx_history = np.concatenate((history, x))[-len(history):]
+            return x, x
+        frames = len(x)
+        if p["chorus_type"] < 0.5:
+            rate = (0.1 + 4.9 * p["chorus_rate"] ** 2) / sr
+            sweep = 2 * np.pi * (self.mod_fx_phase + rate * t)
+            centre, depth = 0.007 * sr, 0.0035 * sr * p["chorus_depth"]
+            left, _ = modulated_delay(history, x, centre + depth * np.sin(sweep))
+            right, _ = modulated_delay(history, x, centre + depth * np.sin(sweep + np.pi))
+            self.mod_fx_history = np.concatenate((history, x))[-len(history):]
+            self.mod_fx_phase = (self.mod_fx_phase + rate * frames) % 1.0
+            return 0.7 * x + 0.55 * left, 0.7 * x + 0.55 * right
+        # Flanger: 0.3..~6 ms sweep, feedback through the delay line. Each
+        # chunk is shorter than the shortest delay, so it only reads samples
+        # already written.
+        rate = (0.03 + 1.97 * p["chorus_rate"] ** 2) / sr
+        lfo = 0.5 - 0.5 * np.cos(2 * np.pi * (self.mod_fx_phase + rate * t))
+        self.mod_fx_phase = (self.mod_fx_phase + rate * frames) % 1.0
+        shortest = 0.0003 * sr
+        delay = shortest + 0.0055 * sr * p["chorus_depth"] * lfo
+        feedback = 0.55
+        chunk = max(1, int(delay.min()) - 1)
+        line = np.concatenate((history, np.zeros(frames)))
+        h = len(history)
+        wet = np.empty(frames)
+        for start in range(0, frames, chunk):
+            stop = min(frames, start + chunk)
+            pos = h + np.arange(start, stop) - delay[start:stop]
+            index = np.floor(pos).astype(np.int64)
+            frac = pos - index
+            delayed = line[index] * (1.0 - frac) + line[index + 1] * frac
+            line[h + start:h + stop] = x[start:stop] + feedback * delayed
+            wet[start:stop] = delayed
+        self.mod_fx_history = line[-h:]
+        out = 0.6 * x + 0.6 * wet
+        return out, out
 
     def _organ_effects(self, x, t):
         """Organ chain: scanner vibrato/chorus, overdrive, then the Leslie.

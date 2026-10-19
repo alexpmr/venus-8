@@ -44,6 +44,20 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.21 — Efeitos, válvula, CP-70 e estilo no display
+
+- ✅ Trocar de timbre não pergunta mais se quer salvar (como num sintetizador de hardware). Ao fechar o app, ainda pergunta.
+- ✅ Timbre alterado fica marcado: nome em laranja com `*` e selo EDITADO na barra superior, e "● EDITADO" no display.
+- ✅ Display central mostra o instrumento simulado (ESTILO): Minimoog, Prophet-5, Oberheim OB-Xa, Juno-60, Jupiter-8, ARP 2600, Hammond B-3 + Leslie, Fender Rhodes, Yamaha CP-70, Yamaha DX7; camadas aparecem juntas.
+- ✅ Drawbars por MIDI invertidos (fader para cima recolhe o drawbar, como no controlador); opção em SETTINGS para voltar ao modo anterior.
+- ✅ Piano elétrico de cordas estilo Yamaha CP-70: cordas rígidas (parciais levemente esticados), batimento entre cordas, decaimento em dois estágios, martelo e captador piezo.
+- ✅ Efeitos ativos no painel EFFECTS: Chorus estéreo ou Flanger (clique no título CHORUS/FLANGER para trocar), Phaser de 4 estágios; LEDs ligam/desligam; knobs DEPTH e RATE.
+- ✅ Válvula no topo (TUBE DRIVE) para todos os sons: saturação valvulada com harmônicos pares; a válvula brilha conforme o drive e o sinal.
+- ✅ 7 timbres novos: CP-70 Grand, CP-70 Chorus, CP-70 Stage, Phaser Tine, Chorus Tine, Flanger Pad e Tube Lead (71 timbres).
+- ✅ Testes do CP-70, efeitos (bypass exato, estéreo, independência do bloco), válvula, estilo do display, troca sem pergunta e drawbars invertidos.
+- [ ] Homologar no Windows real.
+- [ ] Continuar aprimorando os timbres (retorno do usuário: "melhoraram um pouco mas precisam ser aprimorados").
+
 ## v0.2.20 — App reabre depois de atualizar
 
 - ✅ Correção: após clicar em UPD, o instalador baixava, fechava o app e não abria de novo. O instalador roda em modo silencioso e a etapa "Abrir Venus-8" estava marcada para ser pulada nesse modo; agora ela roda sempre (como usuário normal, sem privilégios de administrador).
@@ -371,8 +385,9 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 
 ## v0.9 — Efeitos
 
-- [ ] Chorus e Ensemble vintage
-- [ ] Phaser e Flanger
+- ✅ Chorus estéreo (v0.2.21).
+- [ ] Ensemble vintage
+- ✅ Phaser e Flanger (v0.2.21).
 - [ ] Stereo Delay, Tape Delay e sincronismo BPM
 - [ ] Reverb Room/Hall/Plate
 - [ ] Saturation, Soft Distortion, EQ, Stereo Width, Limiter
@@ -464,12 +479,14 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 
 Inspirada na válvula visível de pianos de palco como o Korg SV-1: uma válvula real no painel que aquece e satura o som, com visual e comportamento vintage. Modelo e arte originais.
 
-- [ ] Válvula (estilo 12AX7) visível na parte superior do painel, atrás de uma janela, como objeto real e independente.
-- [ ] Brilho do filamento animado: acende ao ligar, pulsa levemente com o nível do som e fica mais intenso com o Drive.
-- [ ] Saturação valvulada modelada (triodo): harmônicos pares, assimetria e compressão suave, com oversampling para evitar aliasing.
-- [ ] Controles: Tube On/Off, Drive e Level de saída; opcional caráter (Clean / Warm / Crunch).
-- [ ] Posição na cadeia de áudio após o amplificador e antes dos efeitos, valendo para todos os motores: sintetizador, órgão (Hammond), piano elétrico (Rhodes/Wurlitzer) etc.
-- [ ] Parâmetros salvos por patch e controláveis por MIDI CC.
+- ✅ Válvula (estilo 12AX7) visível na parte superior do painel, atrás de uma janela, como objeto real e independente (v0.2.21).
+- ✅ Brilho do filamento: aceso sempre, pulsa com o nível do som e fica mais intenso com o Drive (v0.2.21).
+- ✅ Saturação valvulada (triodo): harmônicos pares, assimetria e compressão suave (v0.2.21).
+- [ ] Oversampling na válvula para reduzir aliasing.
+- ✅ Controle TUBE DRIVE (0 = desligada) (v0.2.21).
+- [ ] Level de saída e caráter (Clean / Warm / Crunch).
+- ✅ Posição na cadeia após o filtro e antes dos efeitos, valendo para todos os motores (v0.2.21).
+- ✅ Parâmetros salvos por patch e controláveis por MIDI CC via MIDI Learn (v0.2.21).
 - [ ] Testes de harmônicos, nível de saída, aliasing e desempenho com 16 vozes.
 - [ ] Homologar no Windows real.
 

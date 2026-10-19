@@ -26,7 +26,18 @@ KNOB_GEOMETRY = {
     "organ_drive": (1517, 513, 18),
     # FM amount: the second (duplicate) PW knob of each oscillator.
     "osc1_fm": (163, 254, 21), "osc2_fm": (377, 254, 21), "osc3_fm": (592, 253, 21),
+    "chorus_depth": (798, 662, 18), "chorus_rate": (860, 661, 18),
+    "phaser_depth": (930, 661, 18), "phaser_rate": (993, 662, 18),
+    "tube_drive": (442, 36, 15),
 }
+# Effect on/off LEDs (painted lit; unlit until switched on) and the chorus
+# title, which reads CHORUS or FLANGER and switches between them on a click.
+FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635)}
+CHORUS_TITLE = (826, 624)
+CHORUS_TITLE_BOX = (796, 612, 858, 636)
+# Tube in the top bar, where the "VIRTUAL ANALOG SYNTHESIZER" subtitle was.
+SUBTITLE_BOX = (362, 20, 506, 62)
+TUBE_WINDOW = (368, 11, 400, 69)
 # Painted "PW" labels under the FM knobs, repainted as "FM".
 FM_LABELS = {1: (163, 284), 2: (377, 284), 3: (592, 284)}
 # FM buttons of the SYNC / FM / RING row (artwork boxes).
@@ -48,8 +59,6 @@ INACTIVE_KNOBS = {
     "lfo2_fade": (434, 464, 23),
     "arp_rate": (82, 648, 23), "arp_gate": (140, 647, 23), "arp_oct": (190, 644, 21),
     "seq_gate": (433, 601, 22), "seq_swing": (488, 600, 22),
-    "chorus_depth": (798, 662, 22), "chorus_rate": (860, 661, 22),
-    "phaser_depth": (930, 661, 22), "phaser_rate": (993, 662, 22),
     "reverb_size": (1226, 661, 22), "reverb_damp": (1273, 661, 22),
     "reverb_mix": (1324, 661, 22),
     "width": (1407, 650, 29),
@@ -101,7 +110,6 @@ INACTIVE_AREAS = {
     "lfo1_waves": (52, 370, 262, 422), "lfo1_sync": (226, 444, 264, 492),
     "lfo2_waves": (288, 370, 500, 422), "lfo2_sync": (464, 444, 502, 492),
     "arpeggiator": (48, 568, 262, 684), "sequencer": (270, 568, 756, 684),
-    "chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635),
     "reverb_on": (1318, 613, 1342, 635),
     "filter_type": (953, 113, 1114, 142), "filter_env_button": (1095, 260, 1119, 300),
     "performance_tabs": (45, 697, 590, 731),
@@ -285,6 +293,9 @@ def clean_artwork(art):
         clean.paste(fill, (0, 0) + clean.size, mask)
     grey_out(clean, inactive_mask(clean.size))
     relabel_fm_knobs(clean)
+    blank_text(clean, (CHORUS_TITLE[0] - 26, CHORUS_TITLE[1] - 8,
+                       CHORUS_TITLE[0] + 26, CHORUS_TITLE[1] + 8))
+    blank_text(clean, SUBTITLE_BOX)
     drawbar_panel(clean)
     clear_display(clean)
     # SAW is painted lit on every oscillator: show all wave buttons unlit;
@@ -326,6 +337,8 @@ def inactive_mask(size):
     for box in INACTIVE_FADER_BANKS.values():
         draw.rectangle(box, fill=255)
     for box in INACTIVE_AREAS.values():
+        draw.rectangle(box, fill=255)
+    for box in FX_LEDS.values():
         draw.rectangle(box, fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))
 
@@ -489,7 +502,51 @@ def panel_sprites(art, clean):
         ImageDraw.Draw(lit).rounded_rectangle((1, 1, lum.width - 2, lum.height - 2), radius=3,
                                               outline=(255, 128, 44, 200), width=1)
         fm[osc] = lit
-    return {"waves": waves, "meter": meter, "fm": fm}
+    leds = {ident: art.crop(box).convert("RGBA") for ident, box in FX_LEDS.items()}
+    return {"waves": waves, "meter": meter, "fm": fm, "leds": leds}
+
+
+def blank_text(clean, box):
+    """Paint over painted lettering with the panel colour around it."""
+    x1, y1, x2, y2 = box
+    edge = np.concatenate([np.asarray(clean.crop((x1, y1 - 3, x2, y1))).reshape(-1, 3),
+                           np.asarray(clean.crop((x1, y2, x2, y2 + 3))).reshape(-1, 3)])
+    ImageDraw.Draw(clean).rectangle(box, fill=tuple(int(v) for v in np.median(edge, axis=0)))
+
+
+def render_tube(glow, scale):
+    """Glass vacuum tube in its window; ``glow`` 0..1 lights the heater/plate."""
+    k = 4
+    x1, y1, x2, y2 = TUBE_WINDOW
+    w, h = (x2 - x1) * k, (y2 - y1) * k
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    # Window bezel and dark recess.
+    draw.rounded_rectangle((0, 0, w - 1, h - 1), radius=5 * k, fill=(12, 10, 9, 255),
+                           outline=(70, 66, 62, 255), width=k)
+    cx = w // 2
+    # Orange glow behind the plate, growing with ``glow``.
+    halo = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    radius = (6 + 8 * glow) * k
+    ImageDraw.Draw(halo).ellipse((cx - radius, h * 0.52 - radius * 1.3, cx + radius, h * 0.52 + radius * 1.3),
+                                 fill=(255, 110, 20, round(60 + 170 * glow)))
+    image = Image.alpha_composite(image, halo.filter(ImageFilter.GaussianBlur(5 * k)))
+    draw = ImageDraw.Draw(image)
+    # Glass envelope with a domed top and a highlight.
+    gx1, gx2, gy1, gy2 = cx - 10 * k, cx + 10 * k, 4 * k, h - 9 * k
+    draw.rounded_rectangle((gx1, gy1, gx2, gy2), radius=10 * k, outline=(170, 176, 180, 200), width=k)
+    draw.line((gx1 + 3 * k, gy1 + 9 * k, gx1 + 3 * k, gy2 - 8 * k), fill=(230, 236, 240, 150), width=k)
+    # Plate (anode), heater filament and getter.
+    draw.rectangle((cx - 5 * k, 17 * k, cx + 5 * k, 36 * k), outline=(120, 118, 114, 255),
+                   fill=(52, 50, 48, 255), width=k)
+    heat = (255, round(120 + 110 * glow), round(40 + 80 * glow), 255)
+    draw.line((cx, 19 * k, cx, 34 * k), fill=heat, width=round((1.2 + 1.6 * glow) * k))
+    draw.ellipse((cx - 5 * k, 7 * k, cx + 5 * k, 12 * k), fill=(90, 92, 96, 255))
+    # Base and pins.
+    draw.rounded_rectangle((cx - 11 * k, h - 9 * k, cx + 11 * k, h - 3 * k), radius=2 * k,
+                           fill=(30, 28, 26, 255), outline=(80, 76, 70, 255), width=k)
+    size = (max(1, round((x2 - x1) * scale)), max(1, round((y2 - y1) * scale)))
+    return image.resize(size, Image.Resampling.LANCZOS)
 
 
 def relabel_fm_knobs(clean):

@@ -50,8 +50,33 @@ PARAM_LABELS = {
     "osc1_fm_on": "FM OSC1", "osc2_fm_on": "FM OSC2", "osc3_fm_on": "FM OSC3",
     "mod_attack": "Mod Attack", "mod_decay": "Mod Decay", "mod_sustain": "Mod Sustain",
     "mod_release": "Mod Release",
+    "chorus_on": "Chorus/Flanger", "chorus_type": "Chorus/Flanger", "chorus_depth": "Chorus Depth",
+    "chorus_rate": "Chorus Rate", "phaser_on": "Phaser", "phaser_depth": "Phaser Depth",
+    "phaser_rate": "Phaser Rate", "tube_drive": "Válvula (drive)",
+    "ep_model": "Modelo de piano",
 }
-SWITCH_PARAMS = {"organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
+# Classic instrument each engine is modelled on, shown in the display.
+ANALOG_STYLE = {"Bass": "Minimoog Model D", "Lead": "Minimoog Model D", "Pad": "Prophet-5",
+                "Brass": "Oberheim OB-Xa", "Strings": "Roland Juno-60", "Keys": "Prophet-5",
+                "Pluck": "Roland Jupiter-8", "Bells": "Prophet-5", "FX": "ARP 2600",
+                "Ambient": "Roland Jupiter-8"}
+
+
+def instrument_style(params, category=""):
+    """Which instrument(s) the current sound simulates, e.g. "Hammond B-3 + Leslie"."""
+    get = lambda name: params.get(name, 0.0)
+    layers = []
+    if any(get(f"osc{i}_level") > 0.0001 for i in (1, 2, 3)) or get("sub_level") > 0.0001:
+        if any(get(f"osc{i}_fm_on") >= 0.5 for i in (1, 2, 3)):
+            layers.append("Yamaha DX7")
+        else:
+            layers.append(ANALOG_STYLE.get(category, "Minimoog Model D"))
+    if any(get(f"drawbar{i}") > 0 for i in range(1, 10)) or get("organ_perc") >= 0.5:
+        layers.append("Hammond B-3" + (" + Leslie" if get("leslie") >= 0.5 else ""))
+    if get("ep_level") > 0.0001:
+        layers.append("Yamaha CP-70" if get("ep_model") >= 0.5 else "Fender Rhodes")
+    return " + ".join(layers) or "—"
+SWITCH_PARAMS = {"chorus_on", "phaser_on", "organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
                  "organ_vibrato", "organ_chorus", "leslie", "leslie_fast",
                  "osc1_fm_on", "osc2_fm_on", "osc3_fm_on"}
 
@@ -165,6 +190,10 @@ class LiveDisplay:
         self.items["scope"] = canvas.create_line(*flat, fill=self.pal["accent"],
                                                  width=max(1, 1.6 * app.scale), smooth=True)
 
+        sx1, sy1 = SCOPE_AREA[:2]
+        self.text("style_label", sx1 + 2, sy1 + 7, 8, self.pal["dim"], anchor="w", bold=True)
+        canvas.itemconfigure(self.items["style_label"], text="ESTILO")
+        self.text("style", sx1 + 46, sy1 + 7, 9, self.pal["accent"], anchor="w", bold=True)
         nx1, ny1, nx2, ny2 = DISPLAY_NAME_BOX
         cx = (nx1 + nx2) / 2
         self.text("name", cx, ny1 + 24, 17, self.pal["ink"], bold=True)
@@ -250,7 +279,8 @@ class LiveDisplay:
         self.set("name", text=short(app.patch_name, 24) + (" *" if dirty else ""),
                  fill=self.pal["accent"] if dirty else self.pal["ink"])
         self.set("description", text=short(app.patch_description, 38))
-        self.set("modified", text="MODIFICADO" if dirty else "")
+        self.set("modified", text="● EDITADO" if dirty else "")
+        self.set("style", text=short(instrument_style(app.synth.params, app.patch_category), 34))
         for row, (label, value, color) in enumerate(self.rows()):
             self.set(f"label{row}", text=label)
             self.set(f"value{row}", text=value, fill=color)

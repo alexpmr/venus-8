@@ -142,11 +142,17 @@ class MidiLearnTests(unittest.TestCase):
         app = bare_app()
         app.start_learn("drawbar3")
         app.midi_message(Msg(74, 64))
+        # Drawbars are inverted by default: fader up pushes the drawbar in.
+        app.midi_message(Msg(74, 127))
+        self.assertEqual(app.synth.get_param("drawbar3"), 0.0)
+        self.assertEqual(app.synth.get_param("cutoff"), DEFAULTS["cutoff"])
+        app.midi_message(Msg(74, 0))
+        self.assertEqual(app.synth.get_param("drawbar3"), 1.0)
+        app.midi_message(Msg(74, 60))
+        self.assertEqual(app.synth.get_param("drawbar3") * 8, round(67 / 127 * 8))
+        app.settings["invert_drawbars"] = False
         app.midi_message(Msg(74, 127))
         self.assertEqual(app.synth.get_param("drawbar3"), 1.0)
-        self.assertEqual(app.synth.get_param("cutoff"), DEFAULTS["cutoff"])
-        app.midi_message(Msg(74, 60))
-        self.assertEqual(app.synth.get_param("drawbar3") * 8, round(60 / 127 * 8))
 
     def test_buttons_toggle_switches_on_press(self):
         app = bare_app()

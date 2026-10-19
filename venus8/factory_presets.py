@@ -140,6 +140,11 @@ def drawbars(registration):
     return values
 
 
+def electric_grand(tone, bark, decay):
+    """Electric grand (CP-70 style) layer: struck strings with piezo pickups."""
+    return dict(electric_piano(tone, bark, decay), ep_model=1.0, release=0.18)
+
+
 def organ(perc="", click=False, vibrato="", leslie=""):
     """Organ switches in words: perc "second"/"third" (+ " fast"), vibrato
     "vibrato"/"chorus", leslie "slow"/"fast"."""
@@ -427,7 +432,34 @@ FM_PROGRAMS = (
         mod_sustain=0.0, mod_release=0.1, attack=0.0, decay=0.35, sustain=0.0,
         release=0.08, volume=1.00)),
 )
-PROGRAMS = PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS
+# Electric grand, effects and tube (v0.2.21).
+FX_PROGRAMS = (
+    ("CP-70 Grand", "E.Piano", "Piano elétrico de cordas (CP-70): brilhante, com batimento das cordas.", dict(
+        electric_grand(tone=0.55, bark=0.25, decay=0.55), volume=0.5)),
+    ("CP-70 Chorus", "E.Piano", "CP-70 com chorus estéreo, o som clássico dos anos 80.", dict(
+        electric_grand(tone=0.6, bark=0.2, decay=0.6), chorus_on=1.0, chorus_depth=0.55,
+        chorus_rate=0.3, volume=0.5)),
+    ("CP-70 Stage", "E.Piano", "CP-70 aquecido pela válvula, com um eco curto.", dict(
+        electric_grand(tone=0.5, bark=0.45, decay=0.5), tube_drive=0.45, delay_mix=0.15,
+        delay_time=0.35, volume=0.48)),
+    ("Phaser Tine", "E.Piano", "Rhodes com phaser lento, estilo anos 70.", dict(
+        electric_piano(tone=0.5, bark=0.4, decay=0.55), phaser_on=1.0, phaser_depth=0.6,
+        phaser_rate=0.22, volume=0.5)),
+    ("Chorus Tine", "E.Piano", "Rhodes macio com chorus estéreo.", dict(
+        electric_piano(tone=0.4, bark=0.25, decay=0.65), chorus_on=1.0, chorus_depth=0.5,
+        chorus_rate=0.28, volume=0.5)),
+    ("Flanger Pad", "Pad", "Pad de serras com flanger lento que varre o som.", {
+        "osc1_wave": 0.0, "osc2_wave": 0.0, "osc1_level": 0.7, "osc2_level": 0.6,
+        "osc3_level": 0.0, "osc2_tune": 0.506, "cutoff": 0.55, "resonance": 0.2,
+        "attack": 0.5, "decay": 0.5, "sustain": 0.85, "release": 0.6, "chorus_on": 1.0,
+        "chorus_type": 1.0, "chorus_depth": 0.7, "chorus_rate": 0.15, "volume": 0.75}),
+    ("Tube Lead", "Lead", "Lead de serra empurrado pela válvula: quente e encorpado.", {
+        "osc1_wave": 0.0, "osc2_wave": 0.33, "osc1_level": 0.8, "osc2_level": 0.4,
+        "osc3_level": 0.0, "osc2_tune": 0.503, "cutoff": 0.62, "resonance": 0.25,
+        "attack": 0.004, "decay": 0.3, "sustain": 0.85, "release": 0.18, "tube_drive": 0.75,
+        "lfo2_rate": 0.45, "volume": 0.55}),
+)
+PROGRAMS = PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS
 
 
 def factory_programs():

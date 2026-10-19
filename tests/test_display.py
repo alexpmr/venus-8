@@ -80,8 +80,24 @@ class MidiPerformanceTests(unittest.TestCase):
         self.assertEqual(app.patch_name, factory_entry(3)["name"])
         app.change("cutoff", 0.2)
         app.midi_message(mock.Mock(type="program_change", program=5))
-        self.assertEqual(app.pending["kind"], "patch")
-        self.assertEqual(app.patch_name, factory_entry(3)["name"])
+        self.assertIsNone(app.pending)                 # edited: switches without asking
+        self.assertEqual(app.patch_name, factory_entry(5)["name"])
+        self.assertFalse(app.patch_dirty)
+
+
+class InstrumentStyleTests(unittest.TestCase):
+    def test_style_follows_the_engines_in_use(self):
+        from venus8.display import instrument_style
+        from venus8.factory_presets import find_factory
+        style = lambda name: instrument_style(find_factory(name)["params"], find_factory(name)["category"])
+        self.assertEqual(style("Ladder Bass"), "Minimoog Model D")
+        self.assertEqual(style("Jazz Organ"), "Hammond B-3 + Leslie")
+        self.assertEqual(style("Suitcase Tine"), "Fender Rhodes")
+        self.assertEqual(style("CP-70 Grand"), "Yamaha CP-70")
+        self.assertEqual(style("FM E.Piano"), "Yamaha DX7")
+        self.assertEqual(style("Flanger Pad"), "Prophet-5")
+        layered = dict(find_factory("Jazz Organ")["params"], osc1_level=0.8)
+        self.assertEqual(instrument_style(layered, "Lead"), "Minimoog Model D + Hammond B-3 + Leslie")
 
 
 class UpdateButtonTests(unittest.TestCase):
@@ -192,47 +208,34 @@ class UnsavedPromptTests(unittest.TestCase):
         self.assertIsNone(app.pending)
         self.assertEqual(app.patch_name, factory_entry(1)["name"])
 
-    def test_keep_cancels_and_discard_switches(self):
+    def test_edited_patch_switches_without_asking(self):
         app = bare_app()
         app.change("cutoff", 0.1)
         self.assertTrue(app.patch_dirty)
         self.assertEqual(app.last_param, "cutoff")
-        self.assertFalse(app.load_catalog_entry(factory_entry(1)))
-        self.assertEqual(app.pending["kind"], "patch")
-        app.answer_unsaved("prompt_keep")
+        self.assertTrue(app.load_catalog_entry(factory_entry(1)))
         self.assertIsNone(app.pending)
-        self.assertEqual(app.patch_name, "Ladder Bass")
-        self.assertTrue(app.patch_dirty)
-        app.load_catalog_entry(factory_entry(1))
-        app.answer_unsaved("prompt_discard")
         self.assertEqual(app.patch_name, factory_entry(1)["name"])
         self.assertFalse(app.patch_dirty)
-        self.assertIsNone(app.pending)
-
-    def test_save_then_switch_and_cancelled_save_asks_again(self):
-        app = bare_app()
-        app.change("drive", 0.9)
-        app.load_catalog_entry(factory_entry(2))
-        app.save_patch = mock.Mock()                 # user cancels the save dialog
-        app.answer_unsaved("prompt_save")
-        self.assertIsNotNone(app.pending)
-        self.assertEqual(app.patch_name, "Ladder Bass")
-        app.save_patch = mock.Mock(side_effect=lambda: setattr(app, "patch_dirty", False))
-        app.answer_unsaved("prompt_save")
-        self.assertIsNone(app.pending)
-        self.assertEqual(app.patch_name, factory_entry(2)["name"])
-
-    def test_init_and_close_ask_when_modified(self):
-        app = bare_app()
+        self.assertEqual(app.synth.get_param("cutoff"), factory_entry(1)["data"]["params"]["cutoff"])
         app.change("volume", 0.2)
         app.init_patch()
-        self.assertEqual(app.pending["kind"], "init")
-        app.answer_unsaved("prompt_discard")
+        self.assertIsNone(app.pending)
         self.assertEqual(app.patch_name, "Init")
+
+    def test_close_still_asks_and_cancelled_save_asks_again(self):
+        app = bare_app()
         app.change("volume", 0.3)
         app.close()
         self.assertEqual(app.pending["kind"], "close")
         app.root.destroy.assert_not_called()
+        app.save_patch = mock.Mock()                 # user cancels the save dialog
+        app.answer_unsaved("prompt_save")
+        self.assertIsNotNone(app.pending)
+        app.answer_unsaved("prompt_keep")
+        self.assertIsNone(app.pending)
+        app.root.destroy.assert_not_called()
+        app.close()
         app.answer_unsaved("prompt_discard")
         app.root.destroy.assert_called_once()
 

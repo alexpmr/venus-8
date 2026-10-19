@@ -635,6 +635,8 @@ class App:
         if ident.startswith("wave"):
             _,number,index = ident[0:4],int(ident[4]),int(ident[6])
             self.change(f"osc{number}_wave",index/3)
+        elif ident=="chorus_type":
+            self.change("chorus_type",0.0 if self.synth.get_param("chorus_type")>=0.5 else 1.0)
         elif ident.startswith("switch:"):
             param=ident[7:]
             self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)
@@ -835,6 +837,8 @@ class App:
             else:
                 return
         else:
+            if ident.startswith("drawbar") and self.settings.get("invert_drawbars",True):
+                value=127-value         # fader up pushes the drawbar in, like the controller's drawbar mode
             self.synth.set_param(ident,self.snap(ident,value/127.0))
         self.last_param=ident
         self.midi_note=None
@@ -865,7 +869,7 @@ class App:
     def open_settings(self):
         box=tk.Toplevel(self.root)
         box.title("VENUS-8 — Audio e MIDI")
-        box.geometry("560x430")
+        box.geometry("560x470")
         box.configure(bg=PANEL)
         box.transient(self.root)
         tk.Label(box,text="DISPOSITIVOS DE ÁUDIO E MIDI",bg=PANEL,fg=GOLD,
@@ -888,9 +892,16 @@ class App:
         display.pack(pady=7)
         current=self.settings.get("display_mode","color")
         display.current(modes.index(current) if current in modes else 0)
+        invert=tk.BooleanVar(value=self.settings.get("invert_drawbars",True))
+        tk.Checkbutton(box,text="Drawbars por MIDI invertidos (fader para cima recolhe o drawbar)",
+                       variable=invert,bg=PANEL,fg=WHITE,selectcolor=PANEL,
+                       activebackground=PANEL,activeforeground=WHITE).pack(pady=(4,0))
         def apply():
             if audio.current()>=0:self.open_audio(self.audio_devices[audio.current()][1])
             if midi.current()>=0:self.open_midi(self.midi_devices[midi.current()])
+            if invert.get()!=self.settings.get("invert_drawbars",True):
+                self.settings["invert_drawbars"]=invert.get()
+                self._save_settings()
             if modes[display.current()]!=self.settings.get("display_mode","color"):
                 self.settings["display_mode"]=modes[display.current()]
                 self._save_settings()
@@ -968,9 +979,6 @@ class App:
         if not filename:
             return
         entry={"name":Path(filename).stem,"bank":"User","path":Path(filename)}
-        if self.patch_dirty:
-            self.ask_unsaved({"kind":"patch","entry":entry,"message":f"Abrir: {entry['name']}"})
-            return
         self.apply_catalog_entry(entry)
 
     def catalog(self):
@@ -997,11 +1005,8 @@ class App:
         return entries
 
     def load_catalog_entry(self,entry):
-        """Switch patch, or ask in the display first when there are unsaved edits."""
-        if self.patch_dirty:
-            self.ask_unsaved({"kind":"patch","entry":entry,
-                              "message":f"Trocar para: {entry['name']}"})
-            return False
+        """Switch patch straight away; unsaved edits are dropped, as on a
+        hardware synth (the edited mark shows a patch differs from its original)."""
         return self.apply_catalog_entry(entry)
 
     def apply_catalog_entry(self,entry):
@@ -1025,9 +1030,6 @@ class App:
         return True
 
     def init_patch(self):
-        if self.patch_dirty:
-            self.ask_unsaved({"kind":"init","message":"Carregar o timbre inicial (INIT)"})
-            return
         self.synth.panic()
         self.synth.load_params(DEFAULTS)
         self.patch_name="Init"
