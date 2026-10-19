@@ -128,6 +128,14 @@ class MockupRenderer:
         app.rect(566,18,777,67,"#080d17")
         app.text(672,37,app.patch_name[:21],15,"#eed9bf",bold=True)
         app.text(672,57,f"{app.patch_bank.upper()} / {app.patch_category.upper()}  ·  v{__version__()}",9,"#a2b2c6")
+        # The bank/category selectors must reflect the real patch, not the
+        # text that happened to be photographed in the reference artwork.
+        app.rect(963,29,1057,59,"#10151c","#434850")
+        app.text(1008,43,app.patch_bank[:11],11,"#f0e0c9")
+        app.text(1045,43,"▾",10,"#d8d5cc")
+        app.rect(1082,29,1199,59,"#10151c","#434850")
+        app.text(1128,43,app.patch_category[:12],11,"#f0e0c9")
+        app.text(1186,43,"▾",10,"#d8d5cc")
         app.rect(1370,43,1450,74,"#10151b")
         status = f"↑ {app.release['tag_name']}" if app.release else "UPD"
         app.text(1411,56,status,10,"#fca34e" if app.release else "#b3b5ba",bold=True)
