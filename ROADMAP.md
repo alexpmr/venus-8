@@ -44,6 +44,14 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.17 — Drawbars audíveis e piano elétrico real
+
+- ✅ Órgão (drawbars) e piano elétrico mixados depois do filtro, como nos instrumentos reais: os drawbars passam a mudar claramente o som em qualquer timbre.
+- ✅ Novo motor de piano elétrico (tine): brilho que decai, sino de ataque, decaimento natural por altura, bark por velocity e abafador.
+- ✅ Timbres E.Piano refeitos: Suitcase Tine, Mellow Stage, Funky Bark, Tremolo Ballad e Reed Piano.
+- ✅ Testes de afinação, decaimento, velocity, abafador e de órgão/piano independentes do filtro.
+- [ ] Homologar no Windows real.
+
 ## v0.2.16 — Performance, biblioteca e LCD
 
 - ✅ Botão UPD: verde quando atualizado, laranja piscando com versão nova, um clique inicia a atualização com progresso no botão, erros sem caixas de mensagem.
@@ -397,15 +405,17 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - ✅ Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real (v0.2.16).
 
 **Piano elétrico**
-- [ ] Modelo de tine/tonebar (estilo Rhodes) e de palheta (estilo Wurlitzer).
-- [ ] Resposta à velocity com "bark" (brilho e saturação nas notas fortes).
-- [ ] Controles: Tone/Bell, Hammer (ataque), Decay, Release/Damper, Pickup/Drive.
+- ✅ Modelo de tine (estilo Rhodes): FM com brilho que decai, "ping" de sino, decaimento natural mais longo nos graves (v0.2.17).
+- [ ] Modelo dedicado de palheta (estilo Wurlitzer); hoje aproximado pelo timbre Reed Piano.
+- ✅ Resposta à velocity com "bark" (brilho e saturação do captador nas notas fortes) (v0.2.17).
+- ✅ Parâmetros internos Tone, Bark, Decay e abafador (damper) ao soltar a tecla (v0.2.17).
+- [ ] Controles visíveis no painel para Tone, Bark e Decay.
 - [ ] Tremolo estéreo (Rate/Depth) e chorus/phaser integrados.
 - [ ] Ruído mecânico opcional (martelo e abafador).
 
 **Timbres Factory novos**
 - [ ] Órgão (categoria Organ): Gospel Full, Jazz Ballad (percussão no 3º), Rock Overdrive (Leslie rápido e drive), Blues Bar (percussão no 2º), Soft Combo, Church Swell.
-- [ ] Piano elétrico (categoria E.Piano): Suitcase Tine, Mellow Stage, Funky Bark, Tremolo Ballad, Reed Piano.
+- ✅ Piano elétrico (categoria E.Piano): Suitcase Tine, Mellow Stage, Funky Bark, Tremolo Ballad, Reed Piano (v0.2.17).
 
 **Validação**
 - [ ] Testes do espectro de cada drawbar, percussão, decaimento e velocity do piano elétrico.
