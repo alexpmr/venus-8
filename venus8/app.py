@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import mido
+import numpy as np
 import psutil
 import sounddevice as sd
 
@@ -122,6 +123,11 @@ class App:
         self.patch_identity = ("Factory", self.patch_name)
         self.synth.load_params(factory_programs()[0]["params"])
         self.patch_dirty = False
+        self.pending = None          # change waiting on the unsaved-changes prompt
+        self.last_param = None
+        self.dsp_load = 0.0
+        self.scope_buffer = np.zeros(512, dtype=np.float32)
+        self.audio_name = ""
         self.patch_dir = Path(os.environ.get("APPDATA") or Path.home()) / "Venus-8" / "Patches"
         self.patch_dir.mkdir(parents=True, exist_ok=True)
         self.settings_path = self.patch_dir.parent / "settings.json"
@@ -144,6 +150,7 @@ class App:
         self.root.after(2000, self.watch_midi)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.draw()
+        self.root.after(50, self.mockup.tick)
 
     def _load_settings(self):
         try:
@@ -581,7 +588,9 @@ class App:
 
     def change(self,ident,value):
         self.synth.set_param(ident,value)
-        self.patch_dirty=True
+        self.last_param=ident
+        if ident not in ("pitch_bend","modwheel"):
+            self.patch_dirty=True
         self.draw()
 
     def action(self,ident):
@@ -607,6 +616,15 @@ class App:
                 self.check_update(manual=True)
         elif ident in ("prev_patch","next_patch"):
             self.cycle_patch(1 if ident=="next_patch" else -1)
+        elif ident.startswith("prompt_"):
+            if self.pending:
+                self.answer_unsaved(ident)
+        elif self.pending:
+            pass                     # display buttons sit under the prompt
+        elif ident in ("display_prev","display_next"):
+            self.cycle_patch(1 if ident=="display_next" else -1)
+        elif ident=="init":
+            self.init_patch()
         self.draw()
 
     def scan_devices(self):
@@ -647,6 +665,7 @@ class App:
                 self.stream=sd.OutputStream(device=i,samplerate=sr,channels=2,
                                             blocksize=512,callback=self.audio_callback)
             self.stream.start()
+            self.audio_name=name
             self.settings["audio"]=name
             self._save_settings()
             self.audio_error=""
@@ -655,10 +674,15 @@ class App:
             self.stream=None
 
     def audio_callback(self,outdata,frames,timing,status):
+        started=time.perf_counter()
         try:
             outdata[:]=self.synth.render(frames)
         except Exception:
             outdata.fill(0)
+        # Engine load (share of the block's time budget) and scope samples.
+        load=(time.perf_counter()-started)*self.synth.sample_rate/max(1,frames)
+        self.dsp_load+=(load-self.dsp_load)*0.1
+        self.scope_buffer=outdata[:,0].copy()
 
     def open_midi(self,name=None):
         if self.port:
@@ -731,7 +755,11 @@ class App:
         elif msg.type=="control_change":
             mapping={1:"modwheel",7:"volume",74:"cutoff",73:"attack",72:"release",91:"delay_mix"}
             if msg.control in mapping:
-                self.synth.set_param(mapping[msg.control],msg.value/127.0)
+                ident=mapping[msg.control]
+                self.synth.set_param(ident,msg.value/127.0)
+                self.last_param=ident
+                if ident!="modwheel":
+                    self.patch_dirty=True
 
     def open_settings(self):
         box=tk.Toplevel(self.root)
@@ -776,6 +804,7 @@ class App:
                     img.convert("RGB").save(target,format="PNG",optimize=True)
                 self.mockup=MockupRenderer(self)
                 self.draw()
+                self.root.after(50,self.mockup.tick)
                 messagebox.showinfo("Arte do Venus-8","Arte oficial aplicada. Os controles continuam ativos nas mesmas posições.",parent=box)
             except Exception as exc:
                 messagebox.showerror("Importar painel",str(exc),parent=box)
@@ -823,9 +852,13 @@ class App:
 
     def load_patch(self):
         filename=filedialog.askopenfilename(parent=self.root,initialdir=self.patch_dir,filetypes=[("Venus Patch","*.json")])
-        if filename:
-            try:self.open_patch(filename)
-            except Exception as exc:messagebox.showerror("Abrir patch",str(exc),parent=self.root)
+        if not filename:
+            return
+        entry={"name":Path(filename).stem,"bank":"User","path":Path(filename)}
+        if self.patch_dirty:
+            self.ask_unsaved({"kind":"patch","entry":entry,"message":f"Abrir: {entry['name']}"})
+            return
+        self.apply_catalog_entry(entry)
 
     def catalog(self):
         """Factory programs plus user JSON patches, without altering Factory assets."""
@@ -851,10 +884,14 @@ class App:
         return entries
 
     def load_catalog_entry(self,entry):
-        if self.patch_dirty and not messagebox.askyesno(
-            "Venus-8", "O timbre atual foi alterado. Descartar as alterações?",
-            parent=self.root):
+        """Switch patch, or ask in the display first when there are unsaved edits."""
+        if self.patch_dirty:
+            self.ask_unsaved({"kind":"patch","entry":entry,
+                              "message":f"Trocar para: {entry['name']}"})
             return False
+        return self.apply_catalog_entry(entry)
+
+    def apply_catalog_entry(self,entry):
         if entry["bank"] == "Factory":
             self.synth.panic()
             self.synth.load_params(entry["data"]["params"])
@@ -864,6 +901,7 @@ class App:
             self.patch_description=entry["description"]
             self.patch_identity=entry["identity"]
             self.patch_dirty=False
+            self.last_param=None
             self.draw()
         else:
             try:
@@ -872,6 +910,47 @@ class App:
                 messagebox.showerror("Abrir patch",str(exc),parent=self.root)
                 return False
         return True
+
+    def init_patch(self):
+        if self.patch_dirty:
+            self.ask_unsaved({"kind":"init","message":"Carregar o timbre inicial (INIT)"})
+            return
+        self.synth.panic()
+        self.synth.load_params(DEFAULTS)
+        self.patch_name="Init"
+        self.patch_bank="User"
+        self.patch_category="Init"
+        self.patch_description="Timbre inicial"
+        self.patch_identity=("Init","")
+        self.patch_dirty=False
+        self.last_param=None
+        self.draw()
+
+    def ask_unsaved(self,pending):
+        """Show the Save / Discard / Keep prompt in the central display."""
+        self.pending=pending
+        self.draw()
+
+    def answer_unsaved(self,choice):
+        pending,self.pending=self.pending,None
+        if not pending or choice=="prompt_keep":
+            self.draw()
+            return
+        if choice=="prompt_save":
+            self.save_patch()
+            if self.patch_dirty:            # save dialog cancelled: ask again
+                self.pending=pending
+                self.draw()
+                return
+        self.patch_dirty=False
+        if pending["kind"]=="patch":
+            self.apply_catalog_entry(pending["entry"])
+        elif pending["kind"]=="init":
+            self.init_patch()
+        elif pending["kind"]=="close":
+            self.close(force=True)
+            return
+        self.draw()
 
     def browse_patches(self,default_bank="Todos"):
         entries=self.catalog()
@@ -936,7 +1015,8 @@ class App:
                       f"{entry['description']}") if entry else "Nenhum timbre nesta categoria.")
         def load_current(*unused):
             entry=selected_entry()
-            if entry and self.load_catalog_entry(entry):
+            # A pending prompt is answered in the main display, so close the browser.
+            if entry and (self.load_catalog_entry(entry) or self.pending):
                 window.destroy()
         buttons=tk.Frame(window,bg=PANEL)
         buttons.pack(fill="x",padx=16,pady=(0,15))
@@ -1045,7 +1125,7 @@ class App:
                         updater.run_portable(path)
                     else:
                         updater.run_installer(path)
-                    self.close()
+                    self.close(force=True)
                     return
                 except Exception as exc:
                     self.updating=False
@@ -1055,7 +1135,10 @@ class App:
         if dirty:self.draw()
         self.root.after(70,self.poll)
 
-    def close(self):
+    def close(self,force=False):
+        if self.patch_dirty and not force:
+            self.ask_unsaved({"kind":"close","message":"Fechar o Venus-8"})
+            return
         self.release_devices()
         self._save_settings()
         self.root.destroy()

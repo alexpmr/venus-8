@@ -44,6 +44,17 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.13 — Display central vivo
+
+- ✅ Osciloscópio em tempo real do som de saída, com disparo estável no cruzamento por zero.
+- ✅ Nome, descrição e sinal de modificado (`*` e "MODIFICADO") do timbre atual; setas do display trocam de timbre.
+- ✅ Tabela ao vivo: categoria, banco, vozes em uso, controlador MIDI (vermelho se desconectado), saída de áudio e sample rate, carga do motor de áudio e último ajuste.
+- ✅ Confirmação de alterações não salvas no próprio display (Salvar / Sair sem salvar / Manter como está) ao trocar de timbre, abrir JSON, INIT ou fechar o app.
+- ✅ Botão INIT carrega o timbre inicial.
+- ✅ Abas MOD MATRIX, ARP/SEQ, FX, GLOBAL e botões RANDOM, A/B, UNDO, REDO apagados até serem implementados.
+- ✅ Testes do osciloscópio e de todo o fluxo de confirmação.
+- [ ] Homologar o display no Windows real.
+
 ## v0.2.12 — Controles futuros sinalizados como inativos
 
 - ✅ Os 40 knobs ainda sem função aparecem apagados (cinza, sem LEDs acesos): Octave/Fine/PW/PWM dos osciladores, Key Track, Fade do LFO 1, LFO 2, Arpeggiator, Step Sequencer, Chorus, Phaser, Reverb, Width, Detune, Spread, Glide, Global e VOL do topo.
@@ -212,11 +223,12 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Histórico, INIT e Random Patch Generator
 - [ ] A/B e Undo/Redo
 - [ ] Avisos para alterações não salvas e proteção Factory:
-  - [ ] Indicar no display central que o timbre foi modificado (ex.: `*` ao lado do nome), ao mexer em qualquer parâmetro por mouse, touch ou MIDI CC; o sinal some ao salvar ou recarregar o timbre.
-  - [ ] Ao trocar de timbre com alterações pendentes (setas, browser ou MIDI Program Change), mostrar a confirmação no próprio display central, no visual do painel, com as opções **Salvar**, **Sair sem salvar** e **Manter como está** (cancelar a troca).
-  - [ ] Em timbre Factory, **Salvar** abre "Salvar como" no banco User, preservando o Factory original.
-  - [ ] Confirmação também ao fechar o app com alterações pendentes.
-  - [ ] Substituir a caixa de diálogo atual do Windows (Sim/Não) por essa confirmação no display.
+  - ✅ Indicar no display central que o timbre foi modificado (`*` e "MODIFICADO"), ao mexer em parâmetros por mouse ou MIDI CC; o sinal some ao salvar ou recarregar o timbre (v0.2.13).
+  - ✅ Ao trocar de timbre com alterações pendentes (setas, browser, abrir JSON ou INIT), confirmação no display central com **Salvar**, **Sair sem salvar** e **Manter como está** (v0.2.13).
+  - [ ] Mesma confirmação para MIDI Program Change (quando for suportado).
+  - ✅ Em timbre Factory, **Salvar** abre "Salvar como" no banco User, preservando o Factory original.
+  - ✅ Confirmação também ao fechar o app com alterações pendentes (v0.2.13).
+  - ✅ Caixa de diálogo Sim/Não do Windows substituída pela confirmação no display (v0.2.13).
 - [ ] Migração de schema, backup e compatibilidade entre versões
 - [ ] Patches demonstrativos Bass/Lead/Pad/Brass/Strings/Keys/FX
 
@@ -349,6 +361,7 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 - ✅ Download HTTPS, SHA-256, progresso e execução do instalador com confirmação (sem substituição em uso no portátil).
 - ✅ Exibição inicial de CPU, RAM e número de vozes (sem métricas DSP ainda).
 - [ ] Monitor completo DSP, áudio, buffer, latência, picos, underruns e MIDI.
+- [ ] Barra superior direita: junto com CPU, mostrar a memória em uso e a versão atual do software, antes de UPD.
 - [ ] Coerência de valores entre MIDI, mouse, touch, preset e automação VST3.
 - ✅ README com imagem conceitual e link para página Releases.
 - [ ] Release Windows com Setup e Portable realmente testados.

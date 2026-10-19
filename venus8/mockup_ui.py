@@ -11,6 +11,7 @@ from PIL import Image, ImageTk
 
 from .components import (KNOB_GEOMETRY, PAINTED_CAPS, CAP_REACH, KeySprites,
                          cap_half_width, clean_artwork, keyboard_layout, render_knob)
+from .display import LiveDisplay
 
 ART_W, ART_H = 1600, 959
 
@@ -157,6 +158,8 @@ class MockupRenderer:
                 self.wheel_items[key] = canvas.create_line(0, 0, 0, 0, fill="#ffad63",
                                                            width=max(1, 2*scale))
         app.buttons.update(BUTTONS)
+        self.display = LiveDisplay(app)
+        self.display.build()
         self.built_size = size
 
     def knob_image(self, ident, value):
@@ -189,7 +192,16 @@ class MockupRenderer:
             x, y1, y2 = SLIDERS[key]
             y = y2 - (y2 - y1) * app.synth.get_param(key)
             canvas.coords(item, *app.bounds(x - 11, y, x + 11, y))
+        self.display.update()
         self.draw_status()
+
+    def tick(self):
+        """~20 fps refresh of the live display while this renderer is in use."""
+        if getattr(self.app, "mockup", None) is not self or not self.ready:
+            return
+        if self.built_size:
+            self.display.tick()
+        self.app.root.after(50, self.tick)
 
     def draw_status(self):
         """Patch, update, MIDI and value readouts: small texts redrawn each update."""
