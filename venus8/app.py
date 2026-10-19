@@ -5,6 +5,7 @@ import ctypes
 import os
 from pathlib import Path
 import queue
+import re
 import sys
 import threading
 import time
@@ -66,6 +67,14 @@ SECTIONS = [
     ("MASTER", 1358, 539, 1565, 696),
     ("PERFORMANCE  /  SPLIT-LAYER  /  KEYBOARD  /  MIDI  /  SETTINGS", 35, 704, 1565, 819),
 ]
+
+
+def match_midi_name(saved, names):
+    """Saved controller among current ports; Windows may renumber the suffix."""
+    if saved in names:
+        return saved
+    base = re.sub(r"\s+\d+$", "", saved or "")
+    return next((n for n in names if base and re.sub(r"\s+\d+$", "", n) == base), None)
 
 
 class App:
@@ -132,6 +141,7 @@ class App:
         self.scan_devices()
         self.root.after(40, self.poll)
         self.root.after(1200, self.check_update)
+        self.root.after(2000, self.watch_midi)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.draw()
 
@@ -667,6 +677,47 @@ class App:
         except Exception as exc:
             self.last_midi=f"MIDI ERROR: {exc}"
 
+    def watch_midi(self):
+        """Reconnect the MIDI controller after hot-plug, or when its port was
+        still held by a closing Venus-8 at startup (Windows MIDI is exclusive)."""
+        try:
+            names=mido.get_input_names()
+        except Exception:
+            names=[]
+        changed=False
+        if self.port is not None and getattr(self.port,"name",None) not in names:
+            try:
+                self.port.close()
+            except Exception:
+                pass
+            self.port=None
+            for note in list(self.midi_held):
+                self.synth.note_off(note)
+            self.midi_held.clear()
+            self.last_midi="MIDI: desconectado"
+            changed=True
+        self.midi_devices=names
+        if self.port is None and names:
+            saved=self.settings.get("midi")
+            target=match_midi_name(saved,names) if saved else names[0]
+            if target:
+                self.open_midi(target)
+                changed=changed or self.port is not None
+        if changed:
+            self.draw()
+        self.root.after(2000,self.watch_midi)
+
+    def release_devices(self):
+        """Close MIDI and audio so another Venus-8 process can open them."""
+        if self.port:
+            try:self.port.close()
+            except Exception:pass
+            self.port=None
+        if self.stream:
+            try:self.stream.stop();self.stream.close()
+            except Exception:pass
+            self.stream=None
+
     def midi_message(self,msg):
         self.last_midi=f"MIDI: {msg.type}"
         if msg.type=="note_on" and msg.velocity:
@@ -987,6 +1038,10 @@ class App:
                         messagebox.showinfo("Portátil atualizado",
                             "A nova versão será aberta a partir da pasta de atualizações. O EXE antigo não será sobrescrito enquanto estiver em execução.",
                             parent=self.root)
+                    # Release the controller first: the new version cannot
+                    # open a MIDI port this process still holds.
+                    self.release_devices()
+                    if portable:
                         updater.run_portable(path)
                     else:
                         updater.run_installer(path)
@@ -994,18 +1049,14 @@ class App:
                     return
                 except Exception as exc:
                     self.updating=False
+                    self.scan_devices()
                     messagebox.showerror("Iniciar atualização",str(exc),parent=self.root)
                 dirty=True
         if dirty:self.draw()
         self.root.after(70,self.poll)
 
     def close(self):
-        if self.port:
-            try:self.port.close()
-            except Exception:pass
-        if self.stream:
-            try:self.stream.stop();self.stream.close()
-            except Exception:pass
+        self.release_devices()
         self._save_settings()
         self.root.destroy()
 
