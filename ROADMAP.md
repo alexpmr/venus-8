@@ -94,6 +94,20 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Teste de performance com 16 vozes, áudio ASIO/WASAPI e MIDI físico.
 - [ ] Finalizar ADSR completo, antialiasing, resonância e mod matrix.
 
+## v0.2.7 — Banco Factory de timbres vintage
+
+- ✅ Banco Factory **Analog Classics** com 14 timbres originais de inspiração analógica/vintage.
+- ✅ Categorias Bass, Lead, Brass, Pad, Keys e FX.
+- ✅ Navegador por banco/categoria com prévia da descrição e seleção por duplo clique.
+- ✅ Botões anterior/próximo incluem patches Factory e User.
+- ✅ Banco Factory somente leitura; salvar versões personalizadas no banco User (JSON).
+- ✅ Timbres implementados sobre o DSP, com diferenças sonoras audíveis e verificadas por testes automatizados.
+- ✅ Envelope ADSR completo: Attack, Decay, Sustain e Release.
+- ✅ Filtro passa-baixas ressonante de quatro polos, com comportamento inspirado em ladder analógico.
+- ✅ Controles de Resonance, Decay e Sustain habilitados no painel oficial.
+- [ ] Homologação dos timbres em interface de áudio e teclado MIDI no Windows real.
+- [ ] Modelagem detalhada de circuitos Moog; os timbres atuais são inspirações originais, não emulações oficiais.
+
 ## v0.2 — Síntese analógica
 
 - [ ] Três VCOs independentes e antialiasing
