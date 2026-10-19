@@ -17,6 +17,7 @@ import sounddevice as sd
 from . import __version__
 from .synth import DEFAULTS, WAVES, Synth
 from . import updater
+from .mockup_ui import MockupRenderer
 
 BASE_W, BASE_H = 1600, 980
 DARK = "#0b0e13"
@@ -98,6 +99,7 @@ class App:
         self.canvas.bind("<ButtonRelease-1>", self.mouse_up)
         self.canvas.bind("<MouseWheel>", self.mouse_wheel)
         self.canvas.bind("<Button-3>", self.mouse_right)
+        self.mockup = MockupRenderer(self)
         self.scan_devices()
         self.root.after(40, self.poll)
         self.root.after(1200, self.check_update)
@@ -236,6 +238,10 @@ class App:
 
 
     def draw(self):
+        # Artwork-first presentation keeps the exact final panel geometry.
+        if getattr(self, 'mockup', None) is not None and self.mockup.ready:
+            self.mockup.draw()
+            return
         """Draw the canonical full-size Venus-8 panel; grey controls remain disabled."""
         w = max(1, self.canvas.winfo_width())
         h = max(1, self.canvas.winfo_height())
