@@ -44,6 +44,17 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.22 — Filtro completo, LFOs e Reverb
+
+- ✅ FILTER ENV ativo (A, D, S, R) com o botão ENV: envelope de filtro parafônico (um envelope para o filtro, redisparado a cada nova tecla e liberado quando nenhuma tecla está pressionada), até 4,5 oitavas.
+- ✅ KEY TRACK: o corte do filtro acompanha a nota tocada (última nota).
+- ✅ Seletor de filtro: Low Pass 24 dB, Low Pass 12 dB, Band Pass 12 dB e High Pass 12 dB (clique no seletor).
+- ✅ LFO 1 e LFO 2 com formas de onda SINE, TRI, SAW e S&H (aleatório), FADE (entrada gradual após a primeira tecla) e SYNC (o LFO recomeça a cada primeira tecla).
+- ✅ REVERB (SIZE, DAMP, MIX e LED) estéreo e WIDTH no MASTER (0 = mono, centro = normal, máximo = mais largo).
+- ✅ 6 timbres novos: Envelope Bass, Acid Line, Bandpass Pluck, Cathedral Pad, Random Bleeps e Delayed Vibrato Lead (77 timbres).
+- ✅ Testes dos tipos de filtro, envelope de filtro, key track, ondas/fade/sync dos LFOs, reverb, width e independência do tamanho de bloco.
+- [ ] Homologar no Windows real.
+
 ## v0.2.21 — Efeitos, válvula, CP-70 e estilo no display
 
 - ✅ Trocar de timbre não pergunta mais se quer salvar (como num sintetizador de hardware). Ao fechar o app, ainda pergunta.
@@ -165,7 +176,8 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ LFO calculado amostra a amostra, sem degraus entre blocos; o som não depende mais do tamanho do buffer.
 - ✅ Testes de aliasing, independência do tamanho de bloco, delay contra referência e polifonia de 16 vozes.
 - [ ] Homologar no Windows real: ausência de estalos com 16 vozes, delay e MIDI.
-- [ ] Filtro por voz e envelope de filtro (depende de um filtro compilado ou de outra estratégia de desempenho).
+- ✅ Envelope de filtro parafônico (v0.2.22).
+- [ ] Filtro por voz (depende de um filtro compilado ou de outra estratégia de desempenho).
 
 ## v0.2.9 — Controles reais e independentes
 
@@ -292,17 +304,19 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 
 - [ ] Três VCOs independentes e antialiasing
 - [ ] Ondas sine/saw/triangle/square/pulse com PWM
-- [ ] Coarse/Fine Tune e ajuste de oitavas por VCO
+- ✅ Coarse/Fine Tune e ajuste de oitavas por VCO (v0.2.14).
 - ✅ FM entre osciladores (v0.2.19).
 - [ ] Oscillator Sync, Hard Sync, Ring Mod e Cross Mod
 - [ ] Suboscillator e ruído branco/rosa
 - [ ] Mixer individual VCO1–3, Sub e Noise
-- [ ] Filtros LP/HP/BP/Notch e 12/24 dB/oitava
-- [ ] Cutoff, Resonance, Key Tracking, Drive e Envelope Amount com DSP real
+- ✅ Filtros LP 24, LP 12, BP 12 e HP 12 (v0.2.22).
+- [ ] Filtro Notch
+- ✅ Cutoff, Resonance, Key Tracking e Drive com DSP real (v0.2.22).
+- [ ] Knob de Envelope Amount (hoje fixo em 4,5 oitavas)
 - [ ] Modelos de caráter analógico/vintage
-- [ ] Amplificador VCA e envelopes ADSR de amplitude, filtro e modulação
+- ✅ Envelopes ADSR de amplitude, filtro e modulação (v0.2.22).
 - [ ] Curvas de envelope e resposta a Velocity
-- [ ] LFO 1/2 com múltiplas ondas, Sample & Hold, Fade e Retrigger
+- ✅ LFO 1/2 com múltiplas ondas, Sample & Hold, Fade e Retrigger (SYNC) (v0.2.22).
 - [ ] Sincronismo dos LFOs por BPM
 
 ## v0.3 — Polifonia e performance
@@ -389,8 +403,10 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - [ ] Ensemble vintage
 - ✅ Phaser e Flanger (v0.2.21).
 - [ ] Stereo Delay, Tape Delay e sincronismo BPM
-- [ ] Reverb Room/Hall/Plate
-- [ ] Saturation, Soft Distortion, EQ, Stereo Width, Limiter
+- ✅ Reverb estéreo com Size/Damp/Mix (v0.2.22).
+- [ ] Modos de reverb Room/Hall/Plate
+- ✅ Saturação valvulada e Stereo Width (v0.2.21/v0.2.22).
+- [ ] EQ e Limiter
 - [ ] Wet/Dry e bypass individual
 - [ ] Ordem de processamento configurável
 - [ ] Configuração por patch e controle MIDI/touch

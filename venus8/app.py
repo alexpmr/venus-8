@@ -18,7 +18,7 @@ import psutil
 import sounddevice as sd
 
 from . import __version__
-from .synth import DEFAULTS, WAVES, Synth
+from .synth import DEFAULTS, FILTER_TYPES, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
@@ -635,6 +635,14 @@ class App:
         if ident.startswith("wave"):
             _,number,index = ident[0:4],int(ident[4]),int(ident[6])
             self.change(f"osc{number}_wave",index/3)
+        elif ident.startswith("lfowave"):
+            lfo,index=int(ident[7]),int(ident[9])
+            self.change("lfo_wave" if lfo==1 else "lfo2_wave",index/3)
+        elif ident=="filter_type":
+            menu=tk.Menu(self.root,tearoff=0)
+            for index,name in enumerate(FILTER_TYPES):
+                menu.add_command(label=name,command=lambda v=index/3:self.change("filter_type",v))
+            menu.tk_popup(self.root.winfo_pointerx(),self.root.winfo_pointery())
         elif ident=="chorus_type":
             self.change("chorus_type",0.0 if self.synth.get_param("chorus_type")>=0.5 else 1.0)
         elif ident.startswith("switch:"):

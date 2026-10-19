@@ -349,6 +349,123 @@ class TestEffectsAndTube(unittest.TestCase):
         self.assertTrue(np.isfinite(organ).all())
 
 
+class TestFilterAndLfos(unittest.TestCase):
+    SAW = {"osc2_level": 0.0, "osc3_level": 0.0, "sub_level": 0.0, "resonance": 0.0,
+           "drive": 0.0, "attack": 0.0, "sustain": 1.0}
+
+    def play(self, notes=(48,), seconds=1.0, block=512, **params):
+        s = Synth()
+        s.load_params(dict(self.SAW, **params))
+        for note in notes:
+            s.note_on(note)
+        return np.concatenate([s.render(block) for _ in range(int(seconds * s.sample_rate / block))]), s
+
+    @staticmethod
+    def centroid(audio, start=0, size=8192):
+        spectrum = np.abs(np.fft.rfft(audio[start:start + size, 0] * np.hanning(size)))
+        return (spectrum * np.fft.rfftfreq(size, 1 / 44100)).sum() / spectrum.sum()
+
+    def test_filter_types(self):
+        cut = {"cutoff": 0.5}
+        lp24, _ = self.play(**cut)
+        lp12, _ = self.play(filter_type=1 / 3, **cut)
+        bp, _ = self.play(filter_type=2 / 3, **cut)
+        hp, _ = self.play(filter_type=1.0, **cut)
+        self.assertLess(self.centroid(lp24), self.centroid(lp12))
+        self.assertLess(self.centroid(lp12), self.centroid(bp))
+        self.assertLess(self.centroid(bp), self.centroid(hp))
+        for audio in (lp12, bp, hp):
+            self.assertTrue(np.isfinite(audio).all())
+
+    def test_filter_envelope_opens_then_closes(self):
+        audio, s = self.play(seconds=1.5, cutoff=0.3, filter_env_on=1.0, fenv_attack=0.0,
+                             fenv_decay=0.35, fenv_sustain=0.0)
+        early, late = self.centroid(audio, 0, 4096), self.centroid(audio, 44100, 4096)
+        self.assertGreater(early, 2 * late)
+        off, _ = self.play(seconds=1.5, cutoff=0.3, fenv_decay=0.35, fenv_sustain=0.0)
+        self.assertLess(abs(self.centroid(off, 0, 4096) - self.centroid(off, 44100, 4096)), 150)
+
+    def test_filter_envelope_retriggers_and_releases_with_the_keys(self):
+        s = Synth()
+        s.load_params(dict(self.SAW, filter_env_on=1.0, fenv_attack=0.0, fenv_decay=0.2,
+                           fenv_sustain=0.2, fenv_release=0.2))
+        s.note_on(60)
+        s.render(22050)
+        self.assertAlmostEqual(s.fenv["level"], 0.2, delta=0.02)
+        s.note_on(64)                          # a new key retriggers the envelope
+        s.render(256)
+        self.assertGreater(s.fenv["level"], 0.9)
+        s.note_off(60)
+        s.note_off(64)
+        s.render(22050)
+        self.assertLess(s.fenv["level"], 0.01)
+
+    def test_key_track_follows_the_note(self):
+        low, _ = self.play(notes=(36,), cutoff=0.4, key_track=1.0)
+        high, _ = self.play(notes=(84,), cutoff=0.4, key_track=1.0)
+        fixed, _ = self.play(notes=(84,), cutoff=0.4)
+        rms = lambda a: float(np.sqrt((a ** 2).mean()))
+        self.assertGreater(rms(high), 2 * rms(fixed))     # the filter opens for high notes
+        self.assertLess(self.centroid(low), self.centroid(high))
+
+    def test_lfo_waves_fade_and_sync(self):
+        def tremolo(**params):
+            audio, s = self.play(seconds=2.0, cutoff=1.0, lfo_depth=1.0, lfo_rate=0.3, **params)
+            usable = len(audio) // 441 * 441
+            envelope = np.abs(audio[:usable, 0]).reshape(-1, 441).max(axis=1)
+            return envelope, s
+        shapes = [tremolo(lfo_wave=w / 3)[0] for w in range(4)]
+        for a in range(4):
+            for b in range(a + 1, 4):
+                self.assertGreater(np.abs(shapes[a] - shapes[b]).max(), 0.02, (a, b))
+        faded, _ = tremolo(lfo_fade=0.6)
+        sway = lambda e, a, b: e[a:b].max() - e[a:b].min()
+        self.assertLess(sway(faded, 2, 30), sway(faded, 150, 199) / 2)
+        s = Synth()
+        s.set_param("lfo_sync", 1.0)
+        s.render(3000)
+        self.assertGreater(s.lfo_phase, 0.0)
+        s.note_on(60)
+        self.assertEqual(s.lfo_phase, 0.0)
+
+    def test_new_controls_do_not_depend_on_block_size(self):
+        settings = dict(filter_env_on=1.0, filter_type=1 / 3, key_track=0.5, lfo_depth=0.5,
+                        lfo_wave=2 / 3, lfo2_depth=0.3, lfo2_wave=1 / 3, lfo_fade=0.3,
+                        reverb_on=1.0, width=0.8, cutoff=0.4)
+        whole, _ = self.play(notes=(48, 55), seconds=0.6, block=13230, **settings)
+        split, _ = self.play(notes=(48, 55), seconds=0.6, block=441, **settings)
+        np.testing.assert_allclose(whole, split, atol=1e-5)
+
+
+class TestReverbAndWidth(unittest.TestCase):
+    def test_reverb_tail_stereo_and_bypass(self):
+        def run(**params):
+            s = Synth()
+            s.load_params(params)
+            s.note_on(60)
+            sound = [s.render(512) for _ in range(20)]
+            s.note_off(60)
+            sound += [s.render(512) for _ in range(120)]
+            return np.concatenate(sound)
+        dry, wet = run(), run(reverb_on=1.0, reverb_size=0.8, reverb_mix=0.5)
+        tail = slice(30000, 60000)
+        self.assertLess(np.abs(dry[tail]).max(), 1e-4)
+        self.assertGreater(np.abs(wet[tail]).max(), 0.002)
+        self.assertGreater(np.abs(wet[:, 0] - wet[:, 1]).max(), 0.001)
+        np.testing.assert_array_equal(dry, run(reverb_size=1.0, reverb_mix=1.0))
+        self.assertTrue(np.isfinite(wet).all())
+
+    def test_width_narrows_and_widens(self):
+        def side(width):
+            s = Synth()
+            s.load_params({"chorus_on": 1.0, "width": width})
+            s.note_on(60)
+            audio = np.concatenate([s.render(512) for _ in range(20)])
+            return np.abs(audio[:, 0] - audio[:, 1]).max()
+        self.assertLess(side(0.0), 1e-6)
+        self.assertGreater(side(1.0), 1.5 * side(0.5))
+
+
 class TestElectricPiano(unittest.TestCase):
     def play(self, velocity=100, note=60, seconds=2.0, release_at=None, **params):
         s = Synth()

@@ -44,6 +44,24 @@ DEFAULTS.update({"chorus_on": 0.0, "chorus_type": 0.0, "chorus_depth": 0.5,
                  "phaser_rate": 0.25})
 # Tube stage on the whole instrument (triode-like, even harmonics). 0 = bypass.
 DEFAULTS["tube_drive"] = 0.0
+# Filter: type (LP24, LP12, BP12, HP12 from the ladder's stages), key tracking
+# and a paraphonic filter envelope (one envelope for the shared filter,
+# retriggered by each new note, released when no key is held).
+FILTER_TYPES = ("Low Pass 24 dB", "Low Pass 12 dB", "Band Pass 12 dB", "High Pass 12 dB")
+DEFAULTS.update({"filter_type": 0.0, "key_track": 0.0, "filter_env_on": 0.0,
+                 "fenv_attack": 0.02, "fenv_decay": 0.4, "fenv_sustain": 0.4,
+                 "fenv_release": 0.3})
+FILTER_ENV_OCTAVES = 4.5
+# LFO waves (Sine, Tri, Saw, S&H), fade-in after the first key and key sync.
+LFO_WAVES = ("Sine", "Tri", "Saw", "S&H")
+DEFAULTS.update({"lfo_wave": 0.0, "lfo2_wave": 0.0, "lfo_fade": 0.0, "lfo2_fade": 0.0,
+                 "lfo_sync": 0.0, "lfo2_sync": 0.0})
+# Reverb (Freeverb-style combs and all-passes) and master stereo width.
+DEFAULTS.update({"reverb_on": 0.0, "reverb_size": 0.5, "reverb_damp": 0.4,
+                 "reverb_mix": 0.3, "width": 0.5})
+REVERB_COMBS = (1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617)
+REVERB_ALLPASSES = (556, 441, 341, 225)
+REVERB_SPREAD = 23
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -83,6 +101,10 @@ class Synth:
         self.filter_states = [0.0, 0.0, 0.0, 0.0]
         self.lfo_phase = 0.0
         self.lfo2_phase = 0.0
+        self.lfo_hold = [0.0, 0.0]          # S&H values of LFO 1 and 2
+        self.lfo_age = 0.0                  # seconds since the first key (LFO fade)
+        self.last_note = 60
+        self.fenv = {"level": 0.0, "time": 0.0, "gate": False, "from": 0.0}
         self.sustain = False            # sustain pedal (MIDI CC64)
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
@@ -91,11 +113,117 @@ class Synth:
         self._reset_organ()
         self._reset_effects()
 
+    def _lfo_wave(self, which, phase, wave):
+        """LFO shape over ``phase`` (turns, from the block start, unwrapped)."""
+        index = round(wave * 3)
+        if index == 0:
+            return np.sin(2 * np.pi * phase)
+        frac = phase % 1.0
+        if index == 1:
+            return 1.0 - 4.0 * np.abs(frac - 0.5)
+        if index == 2:
+            return 1.0 - 2.0 * frac                     # falling ramp
+        # Sample & hold: a new random level each cycle.
+        cycles = np.floor(phase).astype(np.int64)
+        fresh = self.rng.uniform(-1.0, 1.0, int(cycles[-1]) + 1)
+        fresh[0] = self.lfo_hold[which]
+        self.lfo_hold[which] = float(fresh[-1])
+        return fresh[cycles]
+
+    def _fade(self, fade, t):
+        """LFO fade-in after the first key: 0..~5 s."""
+        if fade < 0.001:
+            return 1.0
+        return np.clip((self.lfo_age + t / self.sample_rate) / (fade ** 2 * 5.0), 0.0, 1.0)
+
+    def _filter_envelope(self, frames):
+        """Paraphonic filter envelope, per sample (0..1)."""
+        p, sr, env = self.params, self.sample_rate, self.fenv
+        if env["gate"] and not any(v["gate"] for v in self.voices.values()):
+            env.update(gate=False, time=0.0, start=env["level"])
+        attack, decay, release = self.env_times(p["fenv_attack"], p["fenv_decay"], p["fenv_release"])
+        time = env["time"] + np.arange(frames) / sr
+        start = env.get("start", 0.0)
+        if env["gate"]:
+            sustain = p["fenv_sustain"]
+            up = start + (1.0 - start) * np.clip(time / attack, 0.0, 1.0)
+            down = sustain + (1.0 - sustain) * np.clip(1.0 - (time - attack) / decay, 0.0, 1.0)
+            level = np.where(time < attack, up, down)
+        else:
+            level = start * np.clip(1.0 - time / release, 0.0, 1.0)
+        env["time"] += frames / sr
+        env["level"] = float(level[-1])
+        return level
+
+    def _reverb(self, left, right):
+        """Freeverb-style stereo reverb: 8 damped combs and 4 all-passes per
+        side. Every delay is longer than a block chunk, so chunks run as arrays."""
+        p = self.params
+        x = (left + right) * 0.5 * 0.05
+        frames = len(x)
+        feedback = 0.75 + 0.235 * p["reverb_size"]
+        damp = p["reverb_damp"] * 0.4
+        out = []
+        for side, lines in enumerate(self.reverb_lines):
+            wet = np.zeros(frames)
+            for c, (buffer, delay) in enumerate(lines["combs"]):
+                wet += self._comb(lines, c, buffer, delay, x, feedback, damp)
+            for a, (buffer, delay) in enumerate(lines["allpasses"]):
+                wet = self._allpass(lines, a, buffer, delay, wet)
+            out.append(wet)
+        mix = p["reverb_mix"]
+        return left * (1.0 - 0.5 * mix) + out[0] * mix, right * (1.0 - 0.5 * mix) + out[1] * mix
+
+    @staticmethod
+    def _comb(lines, c, buffer, delay, x, feedback, damp):
+        """Comb with a two-tap damping filter in its loop (block-safe: delay > chunk)."""
+        index = lines["comb_index"][c]
+        size = len(buffer)
+        out = np.empty(len(x))
+        for start in range(0, len(x), delay):
+            chunk = x[start:start + delay]
+            read = (index + np.arange(len(chunk))) % size
+            delayed = buffer[read]
+            previous = np.concatenate(([lines["comb_last"][c]], delayed[:-1]))
+            filtered = (1.0 - damp) * delayed + damp * previous
+            buffer[(read + delay) % size] = chunk + filtered * feedback
+            lines["comb_last"][c] = float(delayed[-1])
+            out[start:start + len(chunk)] = delayed
+            index = (index + len(chunk)) % size
+        lines["comb_index"][c] = index
+        return out
+
+    @staticmethod
+    def _allpass(lines, a, buffer, delay, x):
+        index = lines["allpass_index"][a]
+        size = len(buffer)
+        out = np.empty(len(x))
+        for start in range(0, len(x), delay):
+            chunk = x[start:start + delay]
+            read = (index + np.arange(len(chunk))) % size
+            delayed = buffer[read]
+            buffer[(read + delay) % size] = chunk + delayed * 0.5
+            out[start:start + len(chunk)] = delayed - chunk
+            index = (index + len(chunk)) % size
+        lines["allpass_index"][a] = index
+        return out
+
     def _reset_effects(self):
         self.phaser_phase = 0.0
         self.phaser_state = [0.0] * 9
         self.mod_fx_phase = 0.0
         self.mod_fx_history = np.zeros(int(MOD_FX_HISTORY * self.sample_rate) + 4)
+        scale = self.sample_rate / 44100
+        self.reverb_lines = []
+        for side in range(2):
+            spread = REVERB_SPREAD * side
+            combs = [round((d + spread) * scale) for d in REVERB_COMBS]
+            allpasses = [round((d + spread) * scale) for d in REVERB_ALLPASSES]
+            self.reverb_lines.append({
+                "combs": [(np.zeros(2 * d), d) for d in combs],
+                "allpasses": [(np.zeros(2 * d), d) for d in allpasses],
+                "comb_index": [0] * len(combs), "comb_last": [0.0] * len(combs),
+                "allpass_index": [0] * len(allpasses)})
 
     def _reset_organ(self):
         self.scanner_phase = 0.0
@@ -177,6 +305,15 @@ class Synth:
             self.voice_serial += 1
             # Percussion is single-triggered: legato notes don't retrigger it.
             percussion = not any(v["gate"] for n, v in self.voices.items() if n != note)
+            if percussion:                  # first key: LFO fade and key sync restart
+                self.lfo_age = 0.0
+                if self.params["lfo_sync"] >= 0.5:
+                    self.lfo_phase = 0.0
+                if self.params["lfo2_sync"] >= 0.5:
+                    self.lfo2_phase = 0.0
+            self.last_note = note
+            # Filter envelope retriggers from its current level.
+            self.fenv.update(gate=True, time=0.0, start=self.fenv["level"])
             self.voices[note] = {
                 "perc": percussion,
                 "phases": [0.0] * (GRAND_SLOT + GRAND_PARTIALS), "age": 0.0,
@@ -221,6 +358,7 @@ class Synth:
             self.peak = 0.0
             self._reset_organ()
             self._reset_effects()
+            self.fenv = {"level": 0.0, "time": 0.0, "gate": False, "from": 0.0}
 
     def detune(self, osc):
         """Oscillator offset in semitones: tune ±12, octave −2..+2, fine ±50 cents."""
@@ -363,7 +501,8 @@ class Synth:
             vib_rate = (0.1 + 9.9 * p["lfo2_rate"] ** 2) / sr
             bend_curve = None
             if vibrato > 1e-6:
-                bend_curve = 2 ** (vibrato * np.sin((self.lfo2_phase + vib_rate * t) * 2 * math.pi) / 12)
+                wave = self._lfo_wave(1, self.lfo2_phase + vib_rate * t, p["lfo2_wave"])
+                bend_curve = 2 ** (vibrato * wave * self._fade(p["lfo2_fade"], t) / 12)
             self.lfo2_phase = (self.lfo2_phase + frames * vib_rate) % 1.0
             # Organ and electric piano have no synth filter: they are mixed
             # after the ladder, like the real instruments.
@@ -505,8 +644,17 @@ class Synth:
             organ_mono /= max(1.5, math.sqrt(active) * 1.5)
             # Four-pole resonant subtractive filter, vintage-ladder inspired.
             # Soft nonlinear feedback is intentionally bounded to avoid runaway.
-            hz = min(sr * 0.40, 55 * (2 ** (p["cutoff"] * 8.3)))
-            g = min(0.94, 1.0 - math.exp(-2.0 * math.pi * hz / sr))
+            # Cutoff in octaves: knob, key tracking (last note) and the filter
+            # envelope; per sample only while the envelope is on.
+            octaves = p["cutoff"] * 8.3 + p["key_track"] * (self.last_note - 60) / 12
+            fenv = self._filter_envelope(frames)
+            if p["filter_env_on"] >= 0.5:
+                hz = np.minimum(sr * 0.40, 55 * 2 ** (octaves + FILTER_ENV_OCTAVES * fenv))
+                coefficients = np.minimum(0.94, 1.0 - np.exp(-2.0 * np.pi * hz / sr)).tolist()
+            else:
+                hz = min(sr * 0.40, 55 * (2 ** octaves))
+                coefficients = None
+            g = min(0.94, 1.0 - math.exp(-2.0 * math.pi * float(np.max(hz)) / sr))
             feedback = p["resonance"] * 3.4
             drive = 1 + p["drive"] * 1.5
             tanh = math.tanh
@@ -515,13 +663,26 @@ class Synth:
             # a local tanh keep it about 5x faster than indexing numpy arrays.
             filtered = []
             store = filtered.append
-            for sample in mono.tolist():
-                x = tanh(sample * drive - feedback * s3)
-                s0 += g * (x - s0)
-                s1 += g * (s0 - s1)
-                s2 += g * (s1 - s2)
-                s3 += g * (s2 - s3)
-                store(s3)
+            mode = round(p["filter_type"] * 3)
+            if mode == 0 and coefficients is None:
+                for sample in mono.tolist():
+                    x = tanh(sample * drive - feedback * s3)
+                    s0 += g * (x - s0)
+                    s1 += g * (s0 - s1)
+                    s2 += g * (s1 - s2)
+                    s3 += g * (s2 - s3)
+                    store(s3)
+            else:
+                # Stage mixes of the same ladder (Xpander style):
+                # LP12 = y2, BP12 = y1 - y2, HP12 = x - 2y1 + y2 (with make-up gain).
+                for sample, g in zip(mono.tolist(), coefficients or [g] * frames):
+                    x = tanh(sample * drive - feedback * s3)
+                    s0 += g * (x - s0)
+                    s1 += g * (s0 - s1)
+                    s2 += g * (s1 - s2)
+                    s3 += g * (s2 - s3)
+                    store(s3 if mode == 0 else s1 if mode == 1 else
+                          3.0 * (s0 - s1) if mode == 2 else 2.0 * (x - 2.0 * s0 + s1))
             self.filter_states = [s0, s1, s2, s3]
             mono = np.asarray(filtered) * (1.0 + p["resonance"] * 0.7)
             self.lowpass = s3
@@ -533,9 +694,11 @@ class Synth:
                     side = side * (1.0 + 2.0 * p["tube_drive"]) ** -0.3
             # LFO evaluated per sample so the tremolo has no block steps.
             rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
-            lfo = np.sin((self.lfo_phase + rate * t) * 2 * math.pi)
+            lfo = self._lfo_wave(0, self.lfo_phase + rate * t, p["lfo_wave"])
             self.lfo_phase = (self.lfo_phase + frames * rate) % 1.0
-            tremolo = (1.0 - p["lfo_depth"] * 0.5) + p["lfo_depth"] * 0.5 * (1.0 + lfo)
+            depth = p["lfo_depth"] * self._fade(p["lfo_fade"], t)
+            tremolo = (1.0 - depth * 0.5) + depth * 0.5 * (1.0 + lfo)
+            self.lfo_age += frames / sr
             mono *= tremolo
             mono = np.tanh(mono * (1.0 + p["drive"] * 2)) * p["volume"] * 0.8
             # Feedback delay. The shortest delay is longer than any chunk, so a
@@ -557,6 +720,8 @@ class Synth:
                 self.delay_index = (self.delay_index + frames) % size
             mono = self._phaser(mono, t)
             left, right = self._chorus(mono, t)
+            if p["reverb_on"] >= 0.5:
+                left, right = self._reverb(left, right)
             if side is None and left is right:
                 mono = np.clip(left, -0.95, 0.95).astype(np.float32)
                 self.peak = float(np.max(np.abs(mono)))
@@ -565,6 +730,10 @@ class Synth:
                 # The Leslie's stereo spread rides on top of the mono chain.
                 side = side * tremolo * p["volume"] * 0.8
                 left, right = left + side, right - side
+            if p["width"] != 0.5:
+                # WIDTH: 0 = mono, 0.5 = as produced, 1 = twice as wide.
+                mid, spread = (left + right) * 0.5, (left - right) * p["width"]
+                left, right = mid + spread, mid - spread
             stereo = np.clip(np.column_stack((left, right)), -0.95, 0.95)
             stereo = stereo.astype(np.float32)
             self.peak = float(np.max(np.abs(stereo)))

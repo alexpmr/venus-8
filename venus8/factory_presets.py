@@ -459,7 +459,46 @@ FX_PROGRAMS = (
         "attack": 0.004, "decay": 0.3, "sustain": 0.85, "release": 0.18, "tube_drive": 0.75,
         "lfo2_rate": 0.45, "volume": 0.55}),
 )
-PROGRAMS = PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS
+# Filter envelope, filter types, LFO waves and reverb (v0.2.22).
+FILTER_PROGRAMS = (
+    ("Envelope Bass", "Bass", "Baixo com envelope de filtro: ataque que abre e fecha rápido.", {
+        "osc1_wave": 0.0, "osc2_wave": 0.33, "osc1_level": 0.9, "osc2_level": 0.5,
+        "osc3_level": 0.0, "osc2_tune": 0.502, "sub_level": 0.4, "cutoff": 0.22,
+        "resonance": 0.45, "drive": 0.3, "filter_env_on": 1.0, "fenv_attack": 0.0,
+        "fenv_decay": 0.35, "fenv_sustain": 0.1, "fenv_release": 0.15, "key_track": 0.3,
+        "attack": 0.002, "decay": 0.3, "sustain": 0.8, "release": 0.12, "volume": 0.8}),
+    ("Acid Line", "Bass", "Linha ácida: ressonância alta e envelope curto.", {
+        "osc1_wave": 0.0, "osc1_level": 0.9, "osc2_level": 0.0, "osc3_level": 0.0,
+        "sub_level": 0.0, "cutoff": 0.25, "resonance": 0.78, "drive": 0.45,
+        "filter_env_on": 1.0, "fenv_attack": 0.0, "fenv_decay": 0.25, "fenv_sustain": 0.0,
+        "fenv_release": 0.1, "attack": 0.002, "decay": 0.25, "sustain": 0.7,
+        "release": 0.08, "delay_mix": 0.15, "delay_time": 0.3, "volume": 0.75}),
+    ("Bandpass Pluck", "Pluck", "Pluck oco com filtro passa-banda e reverb.", {
+        "osc1_wave": 0.0, "osc2_wave": 0.33, "osc1_level": 0.8, "osc2_level": 0.5,
+        "osc3_level": 0.0, "osc2_tune": 0.505, "filter_type": 2 / 3, "cutoff": 0.45,
+        "resonance": 0.35, "filter_env_on": 1.0, "fenv_attack": 0.0, "fenv_decay": 0.3,
+        "fenv_sustain": 0.0, "attack": 0.0, "decay": 0.45, "sustain": 0.0, "release": 0.3,
+        "reverb_on": 1.0, "reverb_size": 0.6, "reverb_mix": 0.3, "volume": 0.9}),
+    ("Cathedral Pad", "Pad", "Pad amplo que abre devagar, com reverb longo.", {
+        "osc1_wave": 0.0, "osc2_wave": 0.0, "osc1_level": 0.7, "osc2_level": 0.6,
+        "osc3_level": 0.3, "osc2_tune": 0.507, "osc3_tune": 0.493, "cutoff": 0.35,
+        "resonance": 0.15, "filter_env_on": 1.0, "fenv_attack": 0.6, "fenv_decay": 0.7,
+        "fenv_sustain": 0.5, "fenv_release": 0.7, "attack": 0.55, "decay": 0.5,
+        "sustain": 0.9, "release": 0.7, "reverb_on": 1.0, "reverb_size": 0.85,
+        "reverb_mix": 0.45, "width": 0.8, "volume": 0.85}),
+    ("Random Bleeps", "FX", "Notas aleatórias (S&H no LFO 2), clássico de ficção científica.", {
+        "osc1_wave": 0.33, "osc1_level": 0.8, "osc2_level": 0.0, "osc3_level": 0.0,
+        "cutoff": 0.6, "resonance": 0.5, "lfo2_wave": 1.0, "lfo2_rate": 0.5,
+        "lfo2_depth": 1.0, "lfo2_sync": 1.0, "attack": 0.0, "sustain": 0.9, "release": 0.3,
+        "delay_mix": 0.3, "delay_time": 0.25, "delay_feedback": 0.5, "volume": 0.75}),
+    ("Delayed Vibrato Lead", "Lead", "Lead cantado: o vibrato entra aos poucos (FADE).", {
+        "osc1_wave": 0.0, "osc2_wave": 0.0, "osc1_level": 0.8, "osc2_level": 0.6,
+        "osc3_level": 0.0, "osc2_tune": 0.504, "cutoff": 0.6, "resonance": 0.2,
+        "lfo2_rate": 0.45, "lfo2_depth": 0.3, "lfo2_fade": 0.55, "lfo2_sync": 1.0,
+        "attack": 0.01, "sustain": 0.9, "release": 0.2, "reverb_on": 1.0,
+        "reverb_mix": 0.2, "volume": 0.75}),
+)
+PROGRAMS = PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
 
 
 def factory_programs():

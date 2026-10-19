@@ -15,11 +15,14 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          DRAWBAR_TOP, DRAWBAR_WIDTH, DRAWBAR_X, KNOB_GEOMETRY,
                          ORGAN_LABEL_X, ORGAN_SWITCHES, render_switch, FM_BUTTONS,
                          FX_LEDS, CHORUS_TITLE, CHORUS_TITLE_BOX, TUBE_WINDOW, render_tube,
+                         LED_CLICK, FILTER_TYPE_BOX, FILTER_TYPE_TEXT, LFO_WAVE_BOXES,
+                         render_lfo_button,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
                          render_knob, wave_box)
 from .display import LiveDisplay, format_value
+from .synth import FILTER_TYPES
 
 ART_W, ART_H = 1600, 959
 
@@ -35,6 +38,8 @@ SLIDERS = {
     "attack": (1156, 161, 269),
     "decay": (1186, 161, 269), "sustain": (1215, 161, 269),
     "release": (1245, 161, 269),
+    "fenv_attack": (1296, 161, 269), "fenv_decay": (1328, 161, 269),
+    "fenv_sustain": (1357, 161, 269), "fenv_release": (1388, 161, 269),
     "mod_attack": (1442, 161, 269), "mod_decay": (1472, 161, 269),
     "mod_sustain": (1501, 161, 269), "mod_release": (1532, 161, 269),
     "pitch_bend": (76, 846, 927),
@@ -200,10 +205,25 @@ class MockupRenderer:
             x, y = app.bounds(*FX_LEDS[ident])[:2]
             self.led_items[ident] = canvas.create_image(x, y, image=photo, anchor="nw",
                                                         state="hidden")
-            app.buttons[f"switch:{ident}"] = FX_LEDS[ident]
+            app.buttons[f"switch:{ident}"] = LED_CLICK.get(ident, FX_LEDS[ident])
         self.chorus_title = canvas.create_text(*app.bounds(*CHORUS_TITLE, 0, 0)[:2], text="CHORUS",
                                                fill="#d2ccc2", font=("Segoe UI", max(6, round(9*scale)), "bold"))
         app.buttons["chorus_type"] = CHORUS_TITLE_BOX
+        tx1, ty1, tx2, ty2 = FILTER_TYPE_TEXT
+        self.filter_type_text = canvas.create_text(*app.bounds(tx1 + 6, (ty1 + ty2) / 2, 0, 0)[:2],
+                                                   text="", anchor="w", fill="#e8e3da",
+                                                   font=("Segoe UI", max(6, round(11*scale)), "normal"))
+        app.buttons["filter_type"] = FILTER_TYPE_BOX
+        # LFO wave buttons: lit and unlit faces, one object each.
+        self.lfo_items = {}
+        for (lfo, index), box in LFO_WAVE_BOXES.items():
+            size_px = (box[2] - box[0], box[3] - box[1])
+            faces = tuple(self.photo(render_lfo_button(index, lit, size_px, scale))
+                          for lit in (False, True))
+            sx, sy = app.bounds(*box)[:2]
+            self.lfo_items[(lfo, index)] = [canvas.create_image(round(sx), round(sy), image=faces[0],
+                                                                anchor="nw"), faces, False]
+            app.buttons[f"lfowave{lfo}_{index}"] = box
         self.tube_frames = {}
         self.tube_glow = None
         self.tube_item = canvas.create_image(*app.bounds(*TUBE_WINDOW)[:2], anchor="nw")
@@ -298,6 +318,14 @@ class MockupRenderer:
         for ident, item in self.led_items.items():
             on = app.synth.get_param(ident) >= 0.5
             canvas.itemconfigure(item, state="normal" if on else "hidden")
+        for (lfo, index), entry in self.lfo_items.items():
+            name = "lfo_wave" if lfo == 1 else "lfo2_wave"
+            lit = round(app.synth.get_param(name) * 3) == index
+            if lit != entry[2]:
+                canvas.itemconfigure(entry[0], image=entry[1][lit])
+                entry[2] = lit
+        canvas.itemconfigure(self.filter_type_text,
+                             text=FILTER_TYPES[round(app.synth.get_param("filter_type") * 3)])
         flanger = app.synth.get_param("chorus_type") >= 0.5
         canvas.itemconfigure(self.chorus_title, text="FLANGER" if flanger else "CHORUS")
         self.update_tube()
