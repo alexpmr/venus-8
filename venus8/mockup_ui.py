@@ -15,7 +15,8 @@ ART_W, ART_H = 1600, 959
 KNOBS = {
     "osc1_tune": (161, 189, 22), "osc2_tune": (377, 188, 22),
     "osc3_tune": (591, 188, 22),
-    "cutoff": (988, 187, 33), "drive": (990, 274, 23),
+    "cutoff": (988, 187, 33), "resonance": (1080, 188, 30),
+    "drive": (990, 274, 23),
     "lfo_rate": (78, 460, 22), "lfo_depth": (138, 460, 22),
     "delay_time": (1060, 660, 20), "delay_feedback": (1115, 660, 19),
     "delay_mix": (1167, 661, 20),
@@ -28,6 +29,7 @@ SLIDERS = {
     "sub_level": (854, 163, 274),
     "noise_level": (896, 163, 274),
     "attack": (1157, 159, 274),
+    "decay": (1186, 159, 274), "sustain": (1216, 159, 274),
     "release": (1245, 159, 274),
     "pitch_bend": (76, 846, 927),
     "modwheel": (166, 846, 927),
@@ -35,6 +37,8 @@ SLIDERS = {
 BUTTONS = {
     "save": (893, 26, 938, 61),
     "browse": (822, 26, 881, 61),
+    "bank": (950, 27, 1069, 64),
+    "category": (1071, 27, 1205, 64),
     "prev_patch": (528, 22, 559, 66),
     "next_patch": (778, 22, 813, 66),
     "settings": (592, 695, 728, 738),
@@ -123,7 +127,7 @@ class MockupRenderer:
         # Mask fictional patch metadata, show actual patch name and status.
         app.rect(566,18,777,67,"#080d17")
         app.text(672,37,app.patch_name[:21],15,"#eed9bf",bold=True)
-        app.text(672,57,f"VENUS USER  ·  v{__version__()}",9,"#a2b2c6")
+        app.text(672,57,f"{app.patch_bank.upper()} / {app.patch_category.upper()}  ·  v{__version__()}",9,"#a2b2c6")
         app.rect(1370,43,1450,74,"#10151b")
         status = f"↑ {app.release['tag_name']}" if app.release else "UPD"
         app.text(1411,56,status,10,"#fca34e" if app.release else "#b3b5ba",bold=True)
