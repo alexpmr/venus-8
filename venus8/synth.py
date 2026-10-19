@@ -120,6 +120,7 @@ class Synth:
         with self.lock:
             self.voices.clear()
             self.lowpass = 0.0
+            self.filter_states.fill(0)
             self.delay_buffer.fill(0)
             self.peak = 0.0
 
