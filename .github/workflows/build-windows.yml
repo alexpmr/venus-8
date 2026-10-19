@@ -43,7 +43,7 @@ jobs:
       - name: Compile source
         run: python -m compileall -q venus8 tests run.py
       - name: Build executable for Windows setup
-        run: pyinstaller --noconfirm --clean --windowed --name Venus-8 --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
+        run: pyinstaller --noconfirm --clean --windowed --name Venus-8 --collect-all sounddevice --collect-all rtmidi --collect-all mido --collect-all PIL --add-data 'docs/venus-8-mockup.jpg;docs' run.py
       - name: Build Inno Setup installer
         shell: pwsh
         run: |
@@ -52,7 +52,7 @@ jobs:
       - name: Build single-file portable executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name "Venus-8-$env:VENUS_TAG-Windows-Portable" --collect-all sounddevice --collect-all rtmidi --collect-all mido run.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name "Venus-8-$env:VENUS_TAG-Windows-Portable" --collect-all sounddevice --collect-all rtmidi --collect-all mido --collect-all PIL --add-data 'docs/venus-8-mockup.jpg;docs' run.py
           if ($LASTEXITCODE -ne 0) { throw 'Portable build failed' }
       - name: Verify files and generate SHA256SUMS
         shell: pwsh
