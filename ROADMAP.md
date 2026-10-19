@@ -44,6 +44,17 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.10 — Motor de áudio mais leve e limpo
+
+- ✅ Vozes renderizadas em conjunto (matriz voz × amostra): 16 vozes com delay caem de ~44% para ~13% do tempo de cada bloco de áudio (medido em Linux; Windows a homologar).
+- ✅ Filtro ladder de 4 polos ~5× mais rápido, com saída idêntica à anterior (saturação não linear preservada no laço).
+- ✅ Delay vetorizado por blocos, com saída idêntica à anterior.
+- ✅ Antialiasing PolyBLEP em Saw, Pulse e Sub: 16–18 dB menos aliasing em notas agudas. Triangle e Sine sem alteração.
+- ✅ LFO calculado amostra a amostra, sem degraus entre blocos; o som não depende mais do tamanho do buffer.
+- ✅ Testes de aliasing, independência do tamanho de bloco, delay contra referência e polifonia de 16 vozes.
+- [ ] Homologar no Windows real: ausência de estalos com 16 vozes, delay e MIDI.
+- [ ] Filtro por voz e envelope de filtro (depende de um filtro compilado ou de outra estratégia de desempenho).
+
 ## v0.2.9 — Controles reais e independentes
 
 - ✅ Teclado real de 85 teclas (C1–C8) com padrão correto de piano; cada tecla é um objeto independente que acende somente com mouse ou MIDI.
