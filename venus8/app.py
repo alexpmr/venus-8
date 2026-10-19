@@ -144,43 +144,96 @@ class App:
                                 "bold" if bold else "normal"), anchor=anchor)
 
     def panel(self, name, x1, y1, x2, y2):
-        self.rect(x1, y1, x2, y2, PANEL, EDGE)
-        self.rect(x1 + 2, y1 + 2, x2 - 2, y1 + 32, "#ae5e32")
-        self.text((x1 + x2) / 2, y1 + 18, name, 13, "#0d1015", bold=True)
+        """Layered steel panel and burnished copper section header."""
+        self.rect(x1, y1, x2, y2, "#0b0e12", "#564c42")
+        self.rect(x1+3, y1+3, x2-3, y2-3, "#1b1e23", "#303137")
+        self.rect(x1+5, y1+5, x2-5, y1+31, "#a55d37", "#bd7850")
+        self.rect(x1+6, y1+5, x2-6, y1+7, "#d28b58")
+        self.rect(x1+6, y1+29, x2-6, y1+31, "#693b26")
+        self.text((x1+x2)/2, y1+18, name, 12, "#111316", bold=True)
+        for screwx in (x1+9, x2-9):
+            self.circle(screwx,y2-9,2.1,"#65605c","#202123")
+            self.line(screwx-1,y2-10,screwx+1,y2-8,fill="#2c2d31",width=0.7)
+
+    def circle(self, x, y, r, color, outline=None, width=1):
+        self.canvas.create_oval(*self.bounds(x-r,y-r,x+r,y+r),
+                                fill=color, outline=outline or color,
+                                width=max(0.5,self.s(width)))
 
     def button(self, ident, title, x1, y1, x2, y2, enabled=True, selected=False):
-        color = ORANGE if selected else (PANEL2 if enabled else "#14191f")
-        ink = "#15171b" if selected else (WHITE if enabled else FADED)
-        self.rect(x1, y1, x2, y2, color, "#565354" if enabled else "#32363b")
-        self.text((x1 + x2) / 2, (y1 + y2) / 2, title, 11, ink, bold=True)
+        """Backlit tactile pushbutton, preserving existing hit targets."""
+        if selected:
+            self.rect(x1-2,y1-2,x2+2,y2+2,"#704122","#f4a04a")
+            self.rect(x1,y1,x2,y2,"#e68b40","#f8b36b")
+            self.rect(x1+2,y1+2,x2-2,y1+4,"#ffc07c")
+        else:
+            fill = "#242932" if enabled else "#171b20"
+            self.rect(x1-1,y1-1,x2+1,y2+1,"#080b0f","#50535a")
+            self.rect(x1+1,y1+1,x2-1,y2-1,fill)
+            self.line(x1+3,y1+3,x2-3,y1+3,fill="#474a50" if enabled else "#22272b")
+        ink = "#111113" if selected else (WHITE if enabled else "#72777f")
+        self.text((x1+x2)/2,(y1+y2)/2,title,10,ink,bold=True)
         if enabled:
-            self.buttons[ident] = (x1, y1, x2, y2)
+            self.buttons[ident]=(x1,y1,x2,y2)
 
     def knob(self, ident, caption, x, y, radius=25, enabled=True):
-        val = self.synth.params.get(ident, 0.5)
-        if not enabled:
-            val = 0.5
-        ink = ORANGE if enabled else "#505865"
-        p = self.bounds(x-radius, y-radius, x+radius, y+radius)
-        self.canvas.create_oval(*p, fill="#090c11", outline=ink, width=self.s(2))
-        ang = math.radians(225 + 270 * val)
-        px = x + radius * 0.73 * math.cos(ang)
-        py = y + radius * 0.73 * math.sin(ang)
-        self.line(x, y, px, py, fill=ink, width=3)
-        self.text(x, y+radius+16, caption, 11, WHITE if enabled else FADED)
+        """3D rotary control with tick arc, metal bezel and amber pointer."""
+        val = self.synth.params.get(ident,0.5) if enabled else 0.5
+        ink = ORANGE if enabled else "#656975"
+        # Scalloped calibration arc; 0 at 225 degrees, max at 495.
+        if radius>=18:
+            for tick in range(17):
+                deg=math.radians(135+270*tick/16)
+                outer=radius+7
+                inner=outer-(5 if tick%4==0 else 2.8)
+                active=(tick/16 <= val)
+                self.line(x+math.cos(deg)*inner,y+math.sin(deg)*inner,
+                          x+math.cos(deg)*outer,y+math.sin(deg)*outer,
+                          fill=ORANGE if enabled and active else "#51545c",
+                          width=1.25)
+        self.circle(x+1.3,y+2.6,radius+1.7,"#050608","#0f1318",2)
+        self.circle(x,y,radius,"#343942","#777b82",1)
+        self.circle(x,y,radius-2,"#191c22","#0d0d10")
+        self.circle(x-2,y-2,radius-5,"#353a41","#454951")
+        self.circle(x+1,y+1,radius-8,"#1b1f26","#090b0d",1)
+        # glossy crescent
+        if radius>=19:
+            self.line(x-radius*.52,y-radius*.56,x-radius*.17,y-radius*.74,
+                      fill="#74777c" if enabled else "#41474e",width=2)
+        pointer=math.radians(135+270*val)
+        self.line(x+math.cos(pointer)*(radius*.21),y+math.sin(pointer)*(radius*.21),
+                  x+math.cos(pointer)*(radius*.82),y+math.sin(pointer)*(radius*.82),
+                  fill=ink,width=2.7)
+        self.circle(x,y,1.2,"#b7b2ad" if enabled else "#555b62")
+        self.text(x,y+radius+17,caption,9.5,WHITE if enabled else FADED)
         if enabled:
-            self.controls[ident] = ("knob", x-radius-8, y-radius-8, x+radius+8, y+radius+9)
-            self.knob_targets[ident] = (x, y)
+            self.controls[ident]=("knob",x-radius-8,y-radius-8,x+radius+8,y+radius+9)
+            self.knob_targets[ident]=(x,y)
 
     def slider(self, ident, title, x, y1, y2, enabled=True):
-        val = self.synth.params.get(ident, 0.50) if enabled else 0.5
-        self.rect(x-5, y1, x+5, y2, "#090b0f", "#4b4f56")
-        pos = y2 - (y2 - y1) * val
-        self.rect(x-15, pos-6, x+15, pos+6, ORANGE if enabled else "#666a72")
-        self.text(x, y2+18, title, 10, WHITE if enabled else FADED)
+        """Hardware fader: calibrated steel track, illuminated movable cap."""
+        val = self.synth.params.get(ident,0.5) if enabled else 0.5
+        self.rect(x-4,y1,x+4,y2,"#080a0d","#51555b")
+        self.rect(x-1,y1+2,x+1,y2-2,"#343840")
+        if y2-y1>50:
+            for idx in range(9):
+                py=y1+(y2-y1)*idx/8
+                self.line(x-12,py,x-7,py,fill="#777570" if idx%2==0 else "#43454c",width=1)
+                self.line(x+7,py,x+12,py,fill="#777570" if idx%2==0 else "#43454c",width=1)
+        pos=y2-(y2-y1)*val
+        self.rect(x-16,pos-8,x+16,pos+8,"#060709")
+        self.rect(x-15,pos-7,x+15,pos+6,
+                  "#ea8a3c" if enabled else "#626971",
+                  "#f3ae68" if enabled else "#71757c")
+        self.rect(x-13,pos-6,x+13,pos-4,
+                  "#ffc17f" if enabled else "#858a90")
+        self.rect(x-13,pos+3,x+13,pos+5,
+                  "#a35927" if enabled else "#383d45")
+        self.text(x,y2+17,title,9,WHITE if enabled else FADED)
         if enabled:
-            self.controls[ident] = ("slider", x-22, y1-10, x+22, y2+12)
-            self.knob_targets[ident] = (x, y1, y2)
+            self.controls[ident]=("slider",x-22,y1-10,x+22,y2+12)
+            self.knob_targets[ident]=(x,y1,y2)
+
 
     def draw(self):
         """Draw the canonical full-size Venus-8 panel; grey controls remain disabled."""
