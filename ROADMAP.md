@@ -190,6 +190,14 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 - [ ] Diálogos funcionam com mouse, teclado (Enter/Esc) e futuramente touch; centralizados sobre o painel e redimensionados com ele.
 - [ ] Testes do componente e homologação no Windows real.
 
+## Botão de atualização (UPD) mais claro (backlog)
+
+- [ ] Sem versão nova: ao clicar, o botão verifica e mostra a versão atual em **verde** (ex.: "v0.2.15 ✓"), sem abrir caixa de mensagem.
+- [ ] Com versão nova: o botão fica **laranja piscando** com o número da nova versão.
+- [ ] Com versão nova: ao clicar, **inicia a atualização** diretamente, com o progresso no próprio botão/display.
+- [ ] Durante a verificação, indicação discreta (ex.: "…") no botão; em caso de falha de rede, o botão indica o erro sem bloquear o uso.
+- [ ] Homologar no Windows real (instalador e portátil).
+
 ## Display LCD com pixels (backlog)
 
 - [ ] Display central com aparência de LCD real: matriz de pixels visível, leve brilho e reflexo de vidro.
