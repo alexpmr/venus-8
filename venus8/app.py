@@ -220,7 +220,7 @@ class App:
         self.text(1483,41,self.ram_text,11,GOLD)
         self.button("check_update","UPD" if self.release else "↻",1522,17,1561,51,
                     selected=bool(self.release))
-        self.text(1540,67,f"v{__version__}",10,FADED)
+        self.text(1538,67,self.update_label[:16],9,GREEN if self.release else FADED)
 
         for sec in SECTIONS:
             self.panel(*sec)
@@ -458,6 +458,8 @@ class App:
         if self.current_mouse_note is not None:
             self.synth.note_off(self.current_mouse_note)
             self.current_mouse_note=None
+        if self.drag is not None and self.drag[0]=="pitch_bend":
+            self.synth.set_param("pitch_bend",0.5)
         self.drag=None
         self.draw()
 
