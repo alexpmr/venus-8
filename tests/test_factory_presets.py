@@ -37,6 +37,24 @@ class FactoryPresetsTest(unittest.TestCase):
             signals.append(np.round(audio[:,0],4))
         self.assertGreater(len({signal.tobytes() for signal in signals}),10)
 
+    def test_browser_catalog_without_gui(self):
+        import json
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from venus8.app import App
+        with TemporaryDirectory() as tmp:
+            app = App.__new__(App)
+            app.patch_dir = Path(tmp)
+            catalog = app.catalog()
+            self.assertEqual(len(catalog), len(factory_programs()))
+            self.assertEqual(catalog[0]["bank"], "Factory")
+            sample = Path(tmp) / "MyTest.json"
+            sample.write_text(json.dumps(dict(name="MyTest", category="Lead", params=dict(cutoff=0.5))), encoding="utf-8")
+            catalog = app.catalog()
+            self.assertEqual(len(catalog), len(factory_programs()) + 1)
+            self.assertEqual(catalog[-1]["name"], "MyTest")
+            self.assertEqual(catalog[-1]["bank"], "User")
+
     def test_full_amp_adsr_and_filter_resonance(self):
         synth=Synth()
         synth.set_param("attack",0.003)
