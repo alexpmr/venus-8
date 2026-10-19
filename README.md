@@ -9,7 +9,7 @@
 
 **Downloads:** quantidade de downloads por arquivo no GitHub Releases (não representa instalações ou usuários únicos). Atualização periódica da tabela. [Histórico de versões](https://github.com/alexpmr/venus-8/releases).
 
-![VENUS-8 — Interface do sintetizador](docs/venus-8-mockup.jpg)
+![VENUS-8 — Interface do sintetizador](docs/venus-8-mockup.png)
 
 **Plataforma suportada nesta fase:** exclusivamente Windows 10/11 x64. Outras plataformas ficam fora do escopo até nova orientação.
 
