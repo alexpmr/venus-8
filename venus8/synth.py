@@ -26,8 +26,9 @@ class Synth:
         self.voices = {}
         self.voice_serial = 0
         self.lowpass = 0.0
-        self.filter_states = np.zeros(4, dtype=np.float64)
+        self.filter_states = [0.0, 0.0, 0.0, 0.0]
         self.lfo_phase = 0.0
+        self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
         self.peak = 0.0
@@ -120,20 +121,31 @@ class Synth:
         with self.lock:
             self.voices.clear()
             self.lowpass = 0.0
-            self.filter_states.fill(0)
+            self.filter_states = [0.0, 0.0, 0.0, 0.0]
             self.delay_buffer.fill(0)
             self.peak = 0.0
 
-    def _wave(self, phase, which):
-        # Band-limiting is planned; the prototype uses basic waves.
+    @staticmethod
+    def _blep(phase, step):
+        """PolyBLEP residual that rounds off each wrap of a unit-phase ramp."""
+        x = phase / step
+        y = (phase - 1.0) / step
+        return np.where(phase < step, x + x - x*x - 1.0,
+                        np.where(phase > 1.0 - step, y*y + y + y + 1.0, 0.0))
+
+    def _wave(self, phase, which, step):
+        # Saw and pulse are band-limited with PolyBLEP so high notes do not
+        # alias; triangle and sine are left as is (little or no aliasing).
         idx = min(3, round(self.params[f"osc{which}_wave"] * 3))
+        step = np.minimum(step, 0.5)
         if idx == 1:
-            return np.where(phase < 0.5, 1.0, -1.0)
+            square = np.where(phase < 0.5, 1.0, -1.0)
+            return square + self._blep(phase, step) - self._blep((phase + 0.5) % 1.0, step)
         if idx == 2:
             return 1.0 - 4.0 * np.abs(phase - 0.5)
         if idx == 3:
             return np.sin(phase * (2 * np.pi))
-        return phase * 2.0 - 1.0
+        return phase * 2.0 - 1.0 - self._blep(phase, step)
 
     def render(self, frames):
         frames = int(frames)
@@ -149,43 +161,52 @@ class Synth:
             decay = 0.01 + p["decay"] ** 2 * 2.0
             sustain = p["sustain"]
             bend = (p["pitch_bend"] - 0.5) * 4.0
-            for note, voice in list(self.voices.items()):
-                freq = 440.0 * 2 ** ((note - 69 + bend) / 12)
-                sound = np.zeros(frames, dtype=np.float64)
-                for osc in (1, 2, 3):
-                    level = p[f"osc{osc}_level"]
+            # All voices are rendered together as (voice, sample) arrays; a
+            # per-voice loop of small numpy calls costs more than the maths.
+            playing = list(self.voices.items())
+            if playing:
+                voices = [voice for _, voice in playing]
+                freq = 440.0 * 2 ** ((np.array([note for note, _ in playing], dtype=np.float64)
+                                      - 69 + bend) / 12)
+                sound = np.zeros((len(voices), frames), dtype=np.float64)
+                oscillators = [(osc - 1, p[f"osc{osc}_level"],
+                                freq * 2 ** ((p[f"osc{osc}_tune"] - 0.5) * 24 / 12), osc)
+                               for osc in (1, 2, 3)]
+                oscillators.append((3, p["sub_level"], freq * 0.5, None))
+                for slot, level, hz, osc in oscillators:
                     if level < 0.0001:
                         continue
-                    tune = (p[f"osc{osc}_tune"] - 0.5) * 24
-                    f = freq * 2 ** (tune / 12)
-                    ph = (voice["phases"][osc - 1] + (f / sr) * t) % 1.0
-                    sound += level * self._wave(ph, osc)
-                    voice["phases"][osc - 1] = (voice["phases"][osc - 1] + f * frames / sr) % 1.0
-                if p["sub_level"] > 0:
-                    ph = (voice["phases"][3] + freq * 0.5 * t / sr) % 1.0
-                    sound += p["sub_level"] * (2 * ph - 1)
-                    voice["phases"][3] = (voice["phases"][3] + freq * 0.5 * frames / sr) % 1.0
+                    step = (hz / sr)[:, None]
+                    start = np.array([voice["phases"][slot] for voice in voices])[:, None]
+                    ph = (start + step * t) % 1.0
+                    if osc is None:     # sub oscillator: band-limited saw an octave down
+                        sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
+                    else:
+                        sound += level * self._wave(ph, osc, step)
+                    for voice, phase in zip(voices, ((start + step * frames) % 1.0)[:, 0]):
+                        voice["phases"][slot] = float(phase)
                 if p["noise_level"] > 0:
-                    sound += p["noise_level"] * np.random.default_rng().standard_normal(frames) * 0.5
+                    sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5
                 # Sample-accurate ADSR with release from current amplitude.
-                if voice["gate"]:
-                    clock = voice["env_time"] + t / sr
-                    up = np.clip(clock / max(0.002, attack), 0.0, 1.0)
-                    down = sustain + (1.0 - sustain) * np.clip(
-                        1.0 - (clock - attack) / max(0.005, decay), 0.0, 1.0
-                    )
-                    env = np.where(clock < attack, up, down)
-                    voice["env_time"] += frames / sr
-                else:
-                    clock = voice["release_time"] + t / sr
-                    env = voice["release_start"] * np.clip(
-                        1.0 - clock / max(0.005, release), 0.0, 1.0
-                    )
-                    voice["release_time"] += frames / sr
-                voice["level"] = float(env[-1])
-                mono += sound * env * voice["velocity"]
-                if not voice["gate"] and voice["release_time"] > release:
-                    del self.voices[note]
+                gate = np.array([voice["gate"] for voice in voices])[:, None]
+                held = np.array([voice["env_time"] for voice in voices])[:, None] + t / sr
+                gone = np.array([voice["release_time"] for voice in voices])[:, None] + t / sr
+                start_level = np.array([voice["release_start"] for voice in voices])[:, None]
+                up = np.clip(held / max(0.002, attack), 0.0, 1.0)
+                down = sustain + (1.0 - sustain) * np.clip(
+                    1.0 - (held - attack) / max(0.005, decay), 0.0, 1.0)
+                env = np.where(gate, np.where(held < attack, up, down),
+                               start_level * np.clip(1.0 - gone / max(0.005, release), 0.0, 1.0))
+                velocity = np.array([voice["velocity"] for voice in voices])[:, None]
+                mono += (sound * env * velocity).sum(axis=0)
+                for (note, voice), level in zip(playing, env[:, -1]):
+                    voice["level"] = float(level)
+                    if voice["gate"]:
+                        voice["env_time"] += frames / sr
+                    else:
+                        voice["release_time"] += frames / sr
+                        if voice["release_time"] > release:
+                            del self.voices[note]
             active = max(1, len(self.voices))
             mono /= max(1.5, math.sqrt(active) * 1.5)
             # Four-pole resonant subtractive filter, vintage-ladder inspired.
@@ -193,32 +214,46 @@ class Synth:
             hz = min(sr * 0.40, 55 * (2 ** (p["cutoff"] * 8.3)))
             g = min(0.94, 1.0 - math.exp(-2.0 * math.pi * hz / sr))
             feedback = p["resonance"] * 3.4
-            states = self.filter_states
-            for i in range(frames):
-                x = math.tanh(float(mono[i]) * (1 + p["drive"] * 1.5)
-                              - feedback * states[3])
-                for pole in range(4):
-                    states[pole] += g * (x - states[pole])
-                    x = states[pole]
-                mono[i] = states[3] * (1.0 + p["resonance"] * 0.7)
-            self.lowpass = float(states[3])
-            self.lfo_phase = (self.lfo_phase + frames * (0.05 + 13 * p["lfo_rate"] ** 2) / sr) % 1.0
-            lfo = math.sin(self.lfo_phase * 2 * math.pi)
+            drive = 1 + p["drive"] * 1.5
+            tanh = math.tanh
+            s0, s1, s2, s3 = self.filter_states
+            # The ladder is recursive, so it runs per sample; plain floats and
+            # a local tanh keep it about 5x faster than indexing numpy arrays.
+            filtered = []
+            store = filtered.append
+            for sample in mono.tolist():
+                x = tanh(sample * drive - feedback * s3)
+                s0 += g * (x - s0)
+                s1 += g * (s0 - s1)
+                s2 += g * (s1 - s2)
+                s3 += g * (s2 - s3)
+                store(s3)
+            self.filter_states = [s0, s1, s2, s3]
+            mono = np.asarray(filtered) * (1.0 + p["resonance"] * 0.7)
+            self.lowpass = s3
+            # LFO evaluated per sample so the tremolo has no block steps.
+            rate = (0.05 + 13 * p["lfo_rate"] ** 2) / sr
+            lfo = np.sin((self.lfo_phase + rate * t) * 2 * math.pi)
+            self.lfo_phase = (self.lfo_phase + frames * rate) % 1.0
             mono *= (1.0 - p["lfo_depth"] * 0.5) + p["lfo_depth"] * 0.5 * (1.0 + lfo)
             mono = np.tanh(mono * (1.0 + p["drive"] * 2)) * p["volume"] * 0.8
-            # Feedback delay (buffer wraps safely across blocks).
+            # Feedback delay. The shortest delay is longer than any chunk, so a
+            # chunk only reads samples written by earlier chunks and can be
+            # processed as whole arrays.
             mix = p["delay_mix"]
+            buffer = self.delay_buffer
+            size = len(buffer)
             if mix > 0.00001:
                 period = max(1, int(sr * (0.06 + p["delay_time"] * 0.65)))
-                for i in range(frames):
-                    ix = (self.delay_index - period) % len(self.delay_buffer)
-                    delayed = float(self.delay_buffer[ix])
-                    dry = mono[i]
-                    self.delay_buffer[self.delay_index] = dry + delayed * p["delay_feedback"] * 0.75
-                    mono[i] = dry * (1.0 - mix) + delayed * mix
-                    self.delay_index = (self.delay_index + 1) % len(self.delay_buffer)
+                for start in range(0, frames, period):
+                    dry = mono[start:start + period]
+                    write = (self.delay_index + np.arange(len(dry))) % size
+                    delayed = buffer[(write - period) % size].astype(np.float64)
+                    buffer[write] = dry + delayed * p["delay_feedback"] * 0.75
+                    mono[start:start + period] = dry * (1.0 - mix) + delayed * mix
+                    self.delay_index = (self.delay_index + len(dry)) % size
             else:
-                self.delay_index = (self.delay_index + frames) % len(self.delay_buffer)
+                self.delay_index = (self.delay_index + frames) % size
             mono = np.clip(mono, -0.95, 0.95).astype(np.float32)
             self.peak = float(np.max(np.abs(mono)))
             return np.column_stack((mono, mono))
