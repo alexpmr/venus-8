@@ -652,7 +652,7 @@ class App:
     def open_settings(self):
         box=tk.Toplevel(self.root)
         box.title("VENUS-8 — Audio e MIDI")
-        box.geometry("530x300")
+        box.geometry("560x370")
         box.configure(bg=PANEL)
         box.transient(self.root)
         tk.Label(box,text="DISPOSITIVOS DE ÁUDIO E MIDI",bg=PANEL,fg=GOLD,
@@ -674,6 +674,32 @@ class App:
             if midi.current()>=0:self.open_midi(self.midi_devices[midi.current()])
             box.destroy()
             self.draw()
+        def import_reference():
+            """Use the original 1600px Venus-8 panel without changing any mappings."""
+            filename=filedialog.askopenfilename(parent=box,title="Importar arte oficial do Venus-8",
+                      filetypes=[("Imagem PNG", "*.png"),("Imagem JPEG","*.jpg;*.jpeg")])
+            if not filename:
+                return
+            try:
+                from PIL import Image
+                with Image.open(filename) as img:
+                    if img.width < 1500 or img.height < 850:
+                        raise ValueError("Escolha a arte original em alta resolução (mínimo 1500 × 850).")
+                    if not (1.55 <= img.width/img.height <= 1.80):
+                        raise ValueError("A proporção da imagem não corresponde ao painel aprovado.")
+                    target=self.patch_dir.parent/"assets"/"venus-8-mockup.png"
+                    target.parent.mkdir(parents=True,exist_ok=True)
+                    img.convert("RGB").save(target,format="PNG",optimize=True)
+                self.mockup=MockupRenderer(self)
+                self.draw()
+                messagebox.showinfo("Arte do Venus-8","Arte oficial aplicada. Os controles continuam ativos nas mesmas posições.",parent=box)
+            except Exception as exc:
+                messagebox.showerror("Importar painel",str(exc),parent=box)
+
+        tk.Button(box,text="IMPORTAR MOCKUP OFICIAL (ALTA RESOLUÇÃO)",
+                  command=import_reference).pack(pady=(8,3))
+        tk.Label(box,text="Personaliza a aparência; não altera patches nem áudio.",
+                 bg=PANEL,fg=FADED).pack()
         row=tk.Frame(box,bg=PANEL);row.pack(pady=14)
         tk.Button(row,text="Reexaminar dispositivos",command=lambda:(self.scan_devices(),box.destroy(),self.open_settings())).pack(side="left",padx=8)
         tk.Button(row,text="Aplicar",command=apply).pack(side="left",padx=8)
