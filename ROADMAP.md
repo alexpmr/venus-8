@@ -280,6 +280,43 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Changelog e testes automatizados de regressão
 - [ ] Preservação de bancos, patches, preferências e mapas MIDI
 
+## v0.13 — Órgão de drawbars e piano elétrico (backlog)
+
+Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétrico (estilo Rhodes/Wurlitzer). Timbres e modelos são originais, sem amostras ou marcas de terceiros.
+
+**Integração com o Venus-8**
+- [ ] Seletor de motor por patch: Analog, Organ e E.Piano.
+- [ ] Painel muda as seções exibidas conforme o motor, mantendo teclado, master, efeitos e MIDI.
+- [ ] Patches salvam o motor e os parâmetros; patches antigos continuam abrindo como Analog.
+- [ ] Pedal de sustain (MIDI CC64) para todos os motores.
+
+**Órgão (drawbars)**
+- [ ] 9 drawbars reais (16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'), posições 0–8, com mouse, touch e MIDI CC.
+- [ ] Motor aditivo de tonewheels, com foldback nas oitavas extremas e leve vazamento entre rodas.
+- [ ] Percussão: On/Off, 2º/3º harmônico, Fast/Slow, Soft/Normal.
+- [ ] Vibrato/Chorus: V1, V2, V3, C1, C2, C3.
+- [ ] Key click ajustável.
+- [ ] Simulação de caixa rotativa (Leslie): Slow/Fast/Stop com aceleração, horn e drum separados.
+- [ ] Overdrive valvulado do órgão.
+- [ ] Velocidade da caixa rotativa pela Mod Wheel ou pedal.
+- [ ] Drawbars com cores clássicas (marrom, branco e preto) e posição visível em tempo real.
+
+**Piano elétrico**
+- [ ] Modelo de tine/tonebar (estilo Rhodes) e de palheta (estilo Wurlitzer).
+- [ ] Resposta à velocity com "bark" (brilho e saturação nas notas fortes).
+- [ ] Controles: Tone/Bell, Hammer (ataque), Decay, Release/Damper, Pickup/Drive.
+- [ ] Tremolo estéreo (Rate/Depth) e chorus/phaser integrados.
+- [ ] Ruído mecânico opcional (martelo e abafador).
+
+**Timbres Factory novos**
+- [ ] Órgão (categoria Organ): Gospel Full, Jazz Ballad (percussão no 3º), Rock Overdrive (Leslie rápido e drive), Blues Bar (percussão no 2º), Soft Combo, Church Swell.
+- [ ] Piano elétrico (categoria E.Piano): Suitcase Tine, Mellow Stage, Funky Bark, Tremolo Ballad, Reed Piano.
+
+**Validação**
+- [ ] Testes do espectro de cada drawbar, percussão, decaimento e velocity do piano elétrico.
+- [ ] Testes de desempenho com 16 vozes nos novos motores.
+- [ ] Homologação sonora com controlador MIDI no Windows real.
+
 ## v1.0 — Versão estável
 
 - [ ] Validar critérios de aceite de todos os marcos essenciais
