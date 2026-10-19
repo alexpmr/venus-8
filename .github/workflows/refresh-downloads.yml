@@ -1,12 +1,12 @@
 name: Refresh Windows download counters
+# PAUSED at user's request: no scheduled refresh or manual execution.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '13 */6 * * *'
 permissions:
   contents: write
 jobs:
   refresh:
+    if: ${{ false }} # Paused at user's request
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
