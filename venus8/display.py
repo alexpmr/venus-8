@@ -54,6 +54,15 @@ PARAM_LABELS = {
     "chorus_rate": "Chorus Rate", "phaser_on": "Phaser", "phaser_depth": "Phaser Depth",
     "phaser_rate": "Phaser Rate", "tube_drive": "Válvula (drive)",
     "ep_model": "Modelo de piano",
+    "filter_type": "Tipo de filtro", "key_track": "Key Track", "filter_env_on": "Filter Env",
+    "fenv_attack": "FEnv Attack", "fenv_decay": "FEnv Decay", "fenv_sustain": "FEnv Sustain",
+    "fenv_release": "FEnv Release", "lfo_wave": "Onda LFO 1", "lfo2_wave": "Onda LFO 2",
+    "lfo_fade": "Fade LFO 1", "lfo2_fade": "Fade LFO 2", "lfo_sync": "Sync LFO 1",
+    "lfo2_sync": "Sync LFO 2", "reverb_on": "Reverb", "reverb_size": "Reverb Size",
+    "reverb_damp": "Reverb Damp", "reverb_mix": "Reverb Mix", "width": "Width",
+    "voice_mode": "Modo de voz", "unison_detune": "Detune (unison)", "glide_time": "Glide",
+    **{f"osc{i}_pw": f"PW OSC{i}" for i in (1, 2, 3)},
+    **{f"osc{i}_pwm": f"PWM OSC{i}" for i in (1, 2, 3)},
 }
 # Classic instrument each engine is modelled on, shown in the display.
 ANALOG_STYLE = {"Bass": "Minimoog Model D", "Lead": "Minimoog Model D", "Pad": "Prophet-5",
@@ -76,7 +85,8 @@ def instrument_style(params, category=""):
     if get("ep_level") > 0.0001:
         layers.append("Yamaha CP-70" if get("ep_model") >= 0.5 else "Fender Rhodes")
     return " + ".join(layers) or "—"
-SWITCH_PARAMS = {"chorus_on", "phaser_on", "organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
+SWITCH_PARAMS = {"chorus_on", "phaser_on", "reverb_on", "filter_env_on", "lfo_sync",
+                 "lfo2_sync", "organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
                  "organ_vibrato", "organ_chorus", "leslie", "leslie_fast",
                  "osc1_fm_on", "osc2_fm_on", "osc3_fm_on"}
 
@@ -87,6 +97,15 @@ def format_value(param, value):
         return str(round(value * 8))
     if param in SWITCH_PARAMS:
         return "ON" if value >= 0.5 else "OFF"
+    if param == "filter_type":
+        from .synth import FILTER_TYPES
+        return FILTER_TYPES[round(value * 3)]
+    if param == "voice_mode":
+        from .synth import VOICE_MODES
+        return VOICE_MODES[round(value * 3)]
+    if param in ("lfo_wave", "lfo2_wave"):
+        from .synth import LFO_WAVES
+        return LFO_WAVES[round(value * 3)]
     if param.endswith("_octave"):
         return f"{round((value - 0.5) * 4):+d}"
     if param.endswith("_fine"):

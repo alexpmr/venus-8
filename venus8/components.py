@@ -29,10 +29,35 @@ KNOB_GEOMETRY = {
     "chorus_depth": (798, 662, 18), "chorus_rate": (860, 661, 18),
     "phaser_depth": (930, 661, 18), "phaser_rate": (993, 662, 18),
     "tube_drive": (442, 36, 15),
+    "key_track": (1065, 274, 23),
+    "lfo_fade": (197, 465, 20), "lfo2_fade": (434, 464, 20),
+    "reverb_size": (1226, 661, 18), "reverb_damp": (1273, 661, 18),
+    "reverb_mix": (1324, 661, 18),
+    "width": (1407, 650, 26),
+    "osc1_pw": (88, 254, 21), "osc1_pwm": (223, 254, 21),
+    "osc2_pw": (303, 254, 21), "osc2_pwm": (437, 254, 21),
+    "osc3_pw": (518, 253, 21), "osc3_pwm": (653, 253, 21),
+    "unison_detune": (339, 769, 19), "glide_time": (475, 770, 17),
 }
+# Voice mode buttons (POLY, MONO, LEGATO, UNISON).
+VOICE_MODE_BOXES = ((51, 760, 100, 791), (114, 760, 162, 791),
+                    (176, 760, 225, 791), (238, 760, 287, 791))
+VOICE_MODE_LABELS = ("POLY", "MONO", "LEGATO", "UNISON")
 # Effect on/off LEDs (painted lit; unlit until switched on) and the chorus
 # title, which reads CHORUS or FLANGER and switches between them on a click.
-FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635)}
+FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635),
+           "reverb_on": (1318, 613, 1342, 635), "filter_env_on": (1099, 263, 1119, 285),
+           "lfo_sync": (234, 446, 255, 467), "lfo2_sync": (473, 446, 494, 467)}
+# Click areas larger than the LED (LED plus its ENV / SYNC button).
+LED_CLICK = {"filter_env_on": (1095, 260, 1121, 300), "lfo_sync": (226, 444, 264, 492),
+             "lfo2_sync": (464, 444, 502, 492)}
+# Filter type selector (a dropdown) and its painted text.
+FILTER_TYPE_BOX = (953, 113, 1114, 142)
+FILTER_TYPE_TEXT = (960, 117, 1082, 137)
+# LFO waveform buttons (SINE, TRI, SAW, S&H) with their labels.
+LFO_WAVE_BOXES = {(lfo, index): (round(left + index * step), 368,
+                                 round(left + (index + 1) * step) - 2, 424)
+                  for lfo, left, step in ((1, 52, 52.5), (2, 288, 53.0)) for index in range(4)}
 CHORUS_TITLE = (826, 624)
 CHORUS_TITLE_BOX = (796, 612, 858, 636)
 # Tube in the top bar, where the "VIRTUAL ANALOG SYNTHESIZER" subtitle was.
@@ -51,18 +76,9 @@ DETENT_START, DETENT_SWEEP, DETENT_POSITIONS = 180.0, 180.0, 5
 # Painted knobs with no function yet: (cx, cy, radius incl. LED ring/scale).
 # They are greyed out so working and future controls are easy to tell apart.
 INACTIVE_KNOBS = {
-    "osc1_pw": (90, 251, 28), "osc1_pwm": (224, 251, 28),
-    "osc2_pw": (304, 252, 28), "osc2_pwm": (438, 251, 28),
-    "osc3_pw": (519, 251, 28), "osc3_pwm": (654, 252, 28),
-    "key_track": (1065, 274, 27),
-    "lfo1_fade": (197, 465, 23),
-    "lfo2_fade": (434, 464, 23),
     "arp_rate": (82, 648, 23), "arp_gate": (140, 647, 23), "arp_oct": (190, 644, 21),
     "seq_gate": (433, 601, 22), "seq_swing": (488, 600, 22),
-    "reverb_size": (1226, 661, 22), "reverb_damp": (1273, 661, 22),
-    "reverb_mix": (1324, 661, 22),
-    "width": (1407, 650, 29),
-    "detune": (341, 767, 24), "spread": (405, 767, 24), "glide_time": (476, 768, 22),
+    "spread": (405, 767, 24),
     "global_volume": (1254, 773, 28), "global_balance": (1321, 773, 28),
     "global_tune": (1429, 770, 22),
 }
@@ -107,13 +123,9 @@ INACTIVE_AREAS = {
     "osc1_sync": (52, 296, 128, 322), "osc1_ring": (182, 296, 250, 322),
     "osc2_sync": (268, 296, 342, 322), "osc2_xmod": (397, 296, 466, 322),
     "osc3_sync": (482, 296, 557, 322), "osc3_noise": (611, 296, 680, 322),
-    "lfo1_waves": (52, 370, 262, 422), "lfo1_sync": (226, 444, 264, 492),
-    "lfo2_waves": (288, 370, 500, 422), "lfo2_sync": (464, 444, 502, 492),
     "arpeggiator": (48, 568, 262, 684), "sequencer": (270, 568, 756, 684),
-    "reverb_on": (1318, 613, 1342, 635),
-    "filter_type": (953, 113, 1114, 142), "filter_env_button": (1095, 260, 1119, 300),
     "performance_tabs": (45, 697, 590, 731),
-    "voice_mode": (48, 737, 292, 797), "glide_mode": (506, 760, 554, 792),
+"glide_mode": (506, 760, 554, 792),
     "transpose": (566, 737, 670, 802), "octave": (672, 737, 770, 802),
     "arp_hold": (780, 758, 900, 794), "layer_split": (916, 737, 1207, 810),
     "bend_range": (203, 813, 260, 887), "voices": (1488, 737, 1554, 802),
@@ -122,7 +134,6 @@ INACTIVE_AREAS = {
 
 # Fader banks with no function yet (Filter Env and Mod Env): boxes.
 INACTIVE_FADER_BANKS = {
-    "filter_env": (1280, 122, 1400, 284),
 }
 
 # Central display (artwork coordinates). Its painted patch name and info
@@ -143,11 +154,13 @@ PAINTED_CAPS = {
     "noise_level": (897, 216),
     "attack": (1156, 225), "decay": (1186, 199),
     "sustain": (1215, 180), "release": (1245, 165),
+    "fenv_attack": (1296, 234), "fenv_decay": (1328, 199),
+    "fenv_sustain": (1357, 188), "fenv_release": (1388, 197),
     "mod_attack": (1442, 220), "mod_decay": (1472, 168),
     "mod_sustain": (1501, 200), "mod_release": (1532, 189),
 }
 CAP_REACH = 16
-FADER_TRACK = {"osc": (161, 285), "env": (151, 278), "mod": (151, 278)}   # slot top/bottom rows
+FADER_TRACK = {"osc": (161, 285), "env": (151, 278), "fenv": (151, 278), "mod": (151, 278)}   # slot top/bottom rows
 
 # The painted keyboard has an irregular black-key pattern and keys lit in the
 # mockup, so the key bed is rebuilt as a real piano layout (C1-C8).
@@ -204,7 +217,7 @@ class KeySprites:
 
 def _bank(ident):
     x = PAINTED_CAPS[ident][0]
-    return "osc" if x < 1000 else "env" if x < 1400 else "mod"
+    return "osc" if x < 1000 else "env" if x < 1280 else "fenv" if x < 1410 else "mod"
 
 
 def cap_half_width(ident):
@@ -296,6 +309,9 @@ def clean_artwork(art):
     blank_text(clean, (CHORUS_TITLE[0] - 26, CHORUS_TITLE[1] - 8,
                        CHORUS_TITLE[0] + 26, CHORUS_TITLE[1] + 8))
     blank_text(clean, SUBTITLE_BOX)
+    blank_text(clean, FILTER_TYPE_TEXT)
+    for left, right in ((52, 264), (288, 502)):          # painted LFO wave labels
+        blank_text(clean, (left, 404, right, 426))
     drawbar_panel(clean)
     clear_display(clean)
     # SAW is painted lit on every oscillator: show all wave buttons unlit;
@@ -338,8 +354,12 @@ def inactive_mask(size):
         draw.rectangle(box, fill=255)
     for box in INACTIVE_AREAS.values():
         draw.rectangle(box, fill=255)
-    for box in FX_LEDS.values():
+    for x1, y1, x2, y2 in FX_LEDS.values():
+        draw.rectangle((x1 - 2, y1 - 2, x2 + 2, y2 + 2), fill=255)
+    for box in LFO_WAVE_BOXES.values():
         draw.rectangle(box, fill=255)
+    for x1, y1, x2, y2 in VOICE_MODE_BOXES:
+        draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))
 
 
@@ -547,6 +567,67 @@ def render_tube(glow, scale):
                            fill=(30, 28, 26, 255), outline=(80, 76, 70, 255), width=k)
     size = (max(1, round((x2 - x1) * scale)), max(1, round((y2 - y1) * scale)))
     return image.resize(size, Image.Resampling.LANCZOS)
+
+
+LFO_LABELS = ("SINE", "TRI", "SAW", "S&H")
+
+
+def render_mode_button(label, lit, size, scale):
+    """Performance button: amber when selected, dark otherwise, RGBA."""
+    k = 4
+    w, h = size[0] * k, size[1] * k
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    if lit:
+        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(glow).rounded_rectangle((2 * k, 2 * k, w - 2 * k, h - 2 * k), radius=4 * k,
+                                               fill=(255, 120, 30, 200))
+        image = Image.alpha_composite(image, glow.filter(ImageFilter.GaussianBlur(2 * k)))
+    draw = ImageDraw.Draw(image)
+    face = ((250, 170, 70, 255), (232, 128, 36, 255)) if lit else ((44, 45, 49, 255), (26, 27, 30, 255))
+    draw.rounded_rectangle((2 * k, 2 * k, w - 3 * k, h - 3 * k), radius=3 * k, fill=face[1],
+                           outline=(12, 12, 12, 255), width=k)
+    draw.rounded_rectangle((3 * k, 3 * k, w - 4 * k, h // 2), radius=3 * k, fill=face[0])
+    draw.text((w / 2, h / 2), label, font=label_font(7 * k), anchor="mm",
+              fill=(40, 20, 6, 255) if lit else (200, 198, 194, 255))
+    return image.resize((max(1, round(size[0] * scale)), max(1, round(size[1] * scale))),
+                        Image.Resampling.LANCZOS)
+
+
+def render_lfo_button(index, lit, size, scale):
+    """LFO wave button: icon on a dark key and the label below, RGBA."""
+    k = 4
+    w, h = size[0] * k, size[1] * k
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    key_h = round(h * 0.68)
+    draw.rounded_rectangle((k, k, w - k - 1, key_h), radius=3 * k,
+                           fill=(30, 31, 34, 255) if lit else (20, 21, 23, 255),
+                           outline=(58, 60, 64, 255), width=k)
+    ink = (255, 150, 60, 255) if lit else (176, 176, 178, 255)
+    cx, cy, rx, ry = w / 2, key_h / 2 + k, w * 0.2, key_h * 0.2
+    xs = [cx - rx + 2 * rx * i / 40 for i in range(41)]
+    if index == 0:
+        points = [(x, cy - ry * math.sin(2 * math.pi * i / 40)) for i, x in enumerate(xs)]
+    elif index == 1:
+        points = [(cx - rx, cy + ry), (cx, cy - ry), (cx + rx, cy + ry)]
+    elif index == 2:
+        points = [(cx - rx, cy - ry), (cx + rx, cy + ry), (cx + rx, cy - ry)]
+    else:
+        steps = (0.3, -0.8, 0.6, -0.2)
+        points = []
+        for i, level in enumerate(steps):
+            x1, x2 = cx - rx + 2 * rx * i / 4, cx - rx + 2 * rx * (i + 1) / 4
+            points += [(x1, cy - ry * level), (x2, cy - ry * level)]
+    if lit:
+        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(glow).line(points, fill=(255, 110, 30, 200), width=5 * k)
+        image = Image.alpha_composite(image, glow.filter(ImageFilter.GaussianBlur(3 * k)))
+        draw = ImageDraw.Draw(image)
+    draw.line(points, fill=ink, width=round(1.6 * k), joint="curve")
+    draw.text((w / 2, (key_h + h) / 2 + k), LFO_LABELS[index], font=label_font(8 * k), anchor="mm",
+              fill=(255, 196, 140, 255) if lit else (196, 194, 190, 255))
+    return image.resize((max(1, round(size[0] * scale)), max(1, round(size[1] * scale))),
+                        Image.Resampling.LANCZOS)
 
 
 def relabel_fm_knobs(clean):

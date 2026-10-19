@@ -110,6 +110,17 @@ class OrganSwitchTests(unittest.TestCase):
         self.assertEqual(app.synth.get_param("leslie"), 0.0)
 
 
+class VoiceModeButtonTests(unittest.TestCase):
+    def test_mode_buttons_switch_and_silence_hanging_notes(self):
+        app = bare_app()
+        app.synth.note_on(60)
+        app.action("voicemode3")
+        self.assertEqual(round(app.synth.get_param("voice_mode") * 3), 3)
+        self.assertFalse(app.synth.voices)
+        app.action("lfowave2_3")
+        self.assertEqual(app.synth.get_param("lfo2_wave"), 1.0)
+
+
 class Msg:
     def __init__(self, control, value):
         self.type, self.control, self.value = "control_change", control, value

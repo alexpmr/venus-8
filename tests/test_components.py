@@ -193,6 +193,25 @@ class EffectsAndTubeTests(unittest.TestCase):
         self.assertGreater(warm(hot), 3 * warm(cold))
 
 
+class FilterLfoReverbPanelTests(unittest.TestCase):
+    def test_new_controls_are_live(self):
+        from venus8.components import FX_LEDS, LFO_WAVE_BOXES, render_lfo_button
+        for ident in ("key_track", "lfo_fade", "lfo2_fade", "reverb_size", "reverb_damp",
+                      "reverb_mix", "width"):
+            self.assertIn(ident, KNOB_GEOMETRY)
+        for ident in ("fenv_attack", "fenv_decay", "fenv_sustain", "fenv_release"):
+            self.assertIn(ident, PAINTED_CAPS)
+        self.assertFalse(INACTIVE_FADER_BANKS)
+        for ident in ("reverb_on", "filter_env_on", "lfo_sync", "lfo2_sync"):
+            self.assertIn(ident, FX_LEDS)
+        self.assertEqual(len(LFO_WAVE_BOXES), 8)
+        lit = lambda image: sum(amber(p) for p in image.getdata() if p[3] > 200)
+        for index in range(4):
+            off, on = (render_lfo_button(index, state, (50, 56), 1.0) for state in (False, True))
+            self.assertEqual(lit(off), 0)
+            self.assertGreater(lit(on), 5)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)
