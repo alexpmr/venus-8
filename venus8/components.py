@@ -53,6 +53,17 @@ INACTIVE_FADER_BANKS = {
     "mod_env": (1424, 122, 1546, 284),
 }
 
+# Central display (artwork coordinates). Its painted patch name and info
+# table are fictional, so they are cleared and redrawn live by the app.
+DISPLAY_SCREEN = (544, 377, 869, 545)        # wallpaper area, used by the scope
+DISPLAY_NAME_BOX = (549, 464, 859, 537)
+DISPLAY_TABLE = (870, 379, 1071, 545)
+DISPLAY_ROWS = 7
+DISPLAY_INACTIVE = (
+    (650, 347, 1066, 374),                   # MOD MATRIX, ARP/SEQ, FX, GLOBAL tabs
+    (621, 546, 1076, 571),                   # RANDOM, A/B, UNDO, REDO
+)
+
 # Fader caps painted into the artwork: (slot centre x, glowing line y).
 PAINTED_CAPS = {
     "osc1_level": (722, 190), "osc2_level": (765, 226),
@@ -187,6 +198,7 @@ def clean_artwork(art):
         mask = mask.filter(ImageFilter.GaussianBlur(2))
         clean.paste(fill, (0, 0) + clean.size, mask)
     grey_out(clean, inactive_mask(clean.size))
+    clear_display(clean)
     x1, y1, x2, y2 = KEYBOARD
     clean.paste(KEY_GAP, (x1, y1, x2, y2))
     # The mockup's lit keys also glow onto the key slip below the keyboard.
@@ -209,6 +221,25 @@ def inactive_mask(size):
     for box in INACTIVE_FADER_BANKS.values():
         draw.rectangle(box, fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))
+
+
+def clear_display(clean):
+    """Dim the display wallpaper and blank its fictional name and info table."""
+    x1, y1, x2, y2 = DISPLAY_SCREEN
+    screen = clean.crop(DISPLAY_SCREEN).point(lambda v: round(v * 0.5))
+    clean.paste(screen, (x1, y1))
+    draw = ImageDraw.Draw(clean)
+    draw.rounded_rectangle(DISPLAY_NAME_BOX, radius=4, fill=(10, 13, 19), outline=(42, 49, 62))
+    x1, y1, x2, y2 = DISPLAY_TABLE
+    draw.rectangle(DISPLAY_TABLE, fill=(13, 16, 22))
+    step = (y2 - y1) / DISPLAY_ROWS
+    for row in range(1, DISPLAY_ROWS):
+        y = round(y1 + row * step)
+        draw.line((x1 + 4, y, x2 - 4, y), fill=(30, 35, 44))
+    mask = Image.new("L", clean.size, 0)
+    for box in DISPLAY_INACTIVE:
+        ImageDraw.Draw(mask).rectangle(box, fill=255)
+    grey_out(clean, mask)
 
 
 def _mix(a, b, t):
