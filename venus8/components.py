@@ -19,18 +19,21 @@ KNOB_GEOMETRY = {
     "delay_time": (1060, 660, 18), "delay_feedback": (1115, 660, 18),
     "delay_mix": (1165, 659, 18),
     "volume": (1477, 640, 26),
+    "osc1_octave": (88, 193, 19), "osc2_octave": (304, 194, 19), "osc3_octave": (518, 193, 19),
+    "osc1_fine": (224, 193, 21), "osc2_fine": (438, 194, 21), "osc3_fine": (653, 193, 21),
+    "volume@header": (1517, 44, 26),
 }
 KNOB_START, KNOB_SWEEP = 135.0, 270.0      # degrees, clockwise from +x (screen)
 KNOB_DOTS = 31
+# Octave switches follow the painted −2..+2 scale over the top half circle.
+DETENT_KNOBS = {"osc1_octave", "osc2_octave", "osc3_octave"}
+DETENT_START, DETENT_SWEEP, DETENT_POSITIONS = 180.0, 180.0, 5
 
 # Painted knobs with no function yet: (cx, cy, radius incl. LED ring/scale).
 # They are greyed out so working and future controls are easy to tell apart.
 INACTIVE_KNOBS = {
-    "osc1_octave": (88, 193, 30), "osc1_fine": (224, 193, 25),
     "osc1_pw": (90, 251, 28), "osc1_pw2": (165, 251, 28), "osc1_pwm": (224, 251, 28),
-    "osc2_octave": (304, 194, 30), "osc2_fine": (438, 194, 25),
     "osc2_pw": (304, 252, 28), "osc2_pw2": (380, 252, 28), "osc2_pwm": (438, 251, 28),
-    "osc3_octave": (518, 193, 30), "osc3_fine": (653, 193, 25),
     "osc3_pw": (519, 251, 28), "osc3_pw2": (594, 251, 28), "osc3_pwm": (654, 252, 28),
     "key_track": (1065, 274, 27),
     "lfo1_fade": (197, 465, 23),
@@ -45,8 +48,36 @@ INACTIVE_KNOBS = {
     "detune": (341, 767, 24), "spread": (405, 767, 24), "glide_time": (476, 768, 22),
     "global_volume": (1254, 773, 28), "global_balance": (1321, 773, 28),
     "global_tune": (1429, 770, 22),
-    "header_volume": (1517, 44, 31),
 }
+# Oscillator waveform buttons: left edge of SAW per oscillator, 46 px pitch.
+WAVE_LEFT = {1: 61, 2: 277, 3: 489}
+WAVE_STEP = 46
+# Master level meter: two LED columns of 12 segments, top (red) first.
+METER_BOX = (1520, 600, 1545, 687)
+METER_COLUMNS = ((1522, 1531), (1533, 1542))
+METER_ROWS = (605, 611.5, 618, 625, 632, 639, 646, 652.5, 659.5, 666.5, 673.5, 681)
+# Top bar status area between the MIDI and VOL separators.
+STATUS_BOX = (1322, 22, 1433, 66)
+
+# Painted buttons, LEDs, selectors and bar graphs with no function yet.
+INACTIVE_AREAS = {
+    "osc1_switches": (52, 296, 250, 322), "osc2_switches": (268, 296, 466, 322),
+    "osc3_switches": (482, 296, 680, 322),
+    "lfo1_waves": (52, 370, 262, 422), "lfo1_sync": (226, 444, 264, 492),
+    "lfo2_waves": (288, 370, 500, 422), "lfo2_sync": (464, 444, 502, 492),
+    "arpeggiator": (48, 568, 262, 684), "sequencer": (270, 568, 756, 684),
+    "chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635),
+    "reverb_on": (1318, 613, 1342, 635),
+    "mod_matrix": (1103, 368, 1552, 542),
+    "filter_type": (953, 113, 1114, 142), "filter_env_button": (1095, 260, 1119, 300),
+    "performance_tabs": (45, 697, 590, 731),
+    "voice_mode": (48, 737, 292, 797), "glide_mode": (506, 760, 554, 792),
+    "transpose": (566, 737, 670, 802), "octave": (672, 737, 770, 802),
+    "arp_hold": (780, 758, 900, 794), "layer_split": (916, 737, 1207, 810),
+    "bend_range": (203, 813, 260, 887), "voices": (1488, 737, 1554, 802),
+    "search": (1211, 23, 1252, 64), "midi_leds": (1266, 38, 1312, 62),
+}
+
 # Fader banks with no function yet (Filter Env and Mod Env): boxes.
 INACTIVE_FADER_BANKS = {
     "filter_env": (1280, 122, 1400, 284),
@@ -192,13 +223,30 @@ def clean_artwork(art):
         # a feathered edge so no seam shows around the new knob.
         ring = [art.getpixel((round(cx + (r+10)*math.cos(a/8)), round(cy + (r+10)*math.sin(a/8))))
                 for a in range(0, 50)]
-        fill = tuple(round(sum(p[i] for p in ring) / len(ring)) for i in range(3))
+        fill = tuple(sorted(p[i] for p in ring)[len(ring) // 2] for i in range(3))
         mask = Image.new("L", clean.size, 0)
         ImageDraw.Draw(mask).ellipse((cx - r - 5, cy - r - 5, cx + r + 5, cy + r + 5), fill=255)
         mask = mask.filter(ImageFilter.GaussianBlur(2))
         clean.paste(fill, (0, 0) + clean.size, mask)
     grey_out(clean, inactive_mask(clean.size))
     clear_display(clean)
+    # SAW is painted lit on every oscillator: show all wave buttons unlit;
+    # the app lights the selected one.
+    for osc in WAVE_LEFT:
+        # Rebuild SAW on PULSE's unlit background with SAW's icon and label.
+        base = clean.crop(wave_box(osc, 1))
+        marks = base.convert("L").point(lambda v: 255 if v > 60 else 0).filter(ImageFilter.MaxFilter(3))
+        fill = tuple(int(np.median(np.asarray(base)[..., i])) for i in range(3))
+        base.paste(fill, (0, 0) + base.size, marks)
+        saw = clean.crop(wave_box(osc, 0)).convert("L")
+        ink = saw.point(lambda v: 255 if v > 95 else 0)
+        grey = saw.point(lambda v: min(235, round(v * 1.2)))
+        base.paste(Image.merge("RGB", (grey,) * 3), (0, 0), ink)
+        clean.paste(base, wave_box(osc, 0)[:2])
+    meter_off = clean.crop(METER_BOX).convert("L").point(lambda v: round(v * 0.25 + 8))
+    clean.paste(Image.merge("RGB", (meter_off,) * 3), METER_BOX[:2])
+    ImageDraw.Draw(clean).rounded_rectangle(STATUS_BOX, radius=3, fill=(14, 16, 20),
+                                            outline=(38, 41, 46))
     x1, y1, x2, y2 = KEYBOARD
     clean.paste(KEY_GAP, (x1, y1, x2, y2))
     # The mockup's lit keys also glow onto the key slip below the keyboard.
@@ -219,6 +267,8 @@ def inactive_mask(size):
     for cx, cy, r in INACTIVE_KNOBS.values():
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
     for box in INACTIVE_FADER_BANKS.values():
+        draw.rectangle(box, fill=255)
+    for box in INACTIVE_AREAS.values():
         draw.rectangle(box, fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))
 
@@ -242,12 +292,54 @@ def clear_display(clean):
     grey_out(clean, mask)
 
 
+def wave_box(osc, index):
+    x = WAVE_LEFT[osc] + index * WAVE_STEP
+    return (x, 110, x + WAVE_STEP - 1, 157)
+
+
+def meter_box(column, row):
+    x1, x2 = METER_COLUMNS[column]
+    y = METER_ROWS[row]
+    return (x1, round(y - 3), x2, round(y + 3))
+
+
+def panel_sprites(art, clean):
+    """Lit faces for controls whose painted state is fixed in the artwork."""
+    waves = {}
+    for osc in WAVE_LEFT:
+        for index in range(4):
+            box = wave_box(osc, index)
+            face = clean.crop(box)
+            lum = face.convert("L")
+            icon = lum.point(lambda v: 255 if v > 105 else 0)
+            icon.paste(0, (0, 28, face.width, face.height))      # icon only, not the label
+            glow = icon.filter(ImageFilter.GaussianBlur(2.5)).point(lambda v: min(255, v * 2))
+            lit = Image.new("RGBA", face.size, (255, 132, 40, 0))
+            lit.putalpha(glow)
+            core = Image.merge("RGB", [lum.point(lambda v, k=k: min(255, int(v * k)))
+                                       for k in (1.25, 0.72, 0.25)]).convert("RGBA")
+            core.putalpha(icon)
+            lit.alpha_composite(core)
+            underline = ImageDraw.Draw(lit)
+            underline.line((3, 29, face.width - 4, 29), fill=(255, 150, 60, 230), width=2)
+            waves[(osc, index)] = lit
+    meter = {(column, row): art.crop(meter_box(column, row))
+             for column in range(2) for row in range(len(METER_ROWS))}
+    return {"waves": waves, "meter": meter}
+
+
 def _mix(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(len(a)))
 
 
-def render_knob(radius, value, scale, enabled=True):
-    """Rotary knob with LED ring, RGBA, sized (2*(radius+4))*scale square."""
+def render_knob(radius, value, scale, enabled=True, detents=False):
+    """Rotary knob with LED ring, RGBA, sized (2*(radius+4))*scale square.
+
+    With ``detents`` it is a 5-position switch over the top half circle and
+    only the selected position's LED is lit.
+    """
+    start, sweep, dots = ((DETENT_START, DETENT_SWEEP, DETENT_POSITIONS) if detents
+                          else (KNOB_START, KNOB_SWEEP, KNOB_DOTS))
     k = 4                                   # supersampling for clean edges
     unit = scale * k
     size = max(8, math.ceil(2 * (radius + 4) * scale))
@@ -262,11 +354,11 @@ def render_knob(radius, value, scale, enabled=True):
     halo = ImageDraw.Draw(glow)
     dot = (1.15 if radius >= 28 else 0.95) * unit
     ring = (radius - 1.5) * unit
-    for i in range(KNOB_DOTS):
-        t = i / (KNOB_DOTS - 1)
-        angle = math.radians(KNOB_START + KNOB_SWEEP * t)
+    for i in range(dots):
+        t = i / (dots - 1)
+        angle = math.radians(start + sweep * t)
         x, y = c + ring*math.cos(angle), c + ring*math.sin(angle)
-        lit = enabled and t <= value + 1e-6
+        lit = enabled and (abs(t - value) < 0.5 / (dots - 1) if detents else t <= value + 1e-6)
         color = (255, 128, 44, 255) if lit else (150, 146, 140, 200)
         leds.ellipse((x-dot, y-dot, x+dot, y+dot), fill=color)
         if lit:
@@ -299,7 +391,7 @@ def render_knob(radius, value, scale, enabled=True):
         draw.ellipse((c-r+off, c-r+off, c+r+off, c+r+off),
                      fill=_mix((10, 11, 13), (52, 55, 60), t**1.5) + (255,))
     # Pointer.
-    angle = math.radians(KNOB_START + KNOB_SWEEP * value)
+    angle = math.radians(start + sweep * value)
     x1, y1 = c + body*0.28*math.cos(angle), c + body*0.28*math.sin(angle)
     x2, y2 = c + body*0.92*math.cos(angle), c + body*0.92*math.sin(angle)
     width = max(2, round(body * 0.15))

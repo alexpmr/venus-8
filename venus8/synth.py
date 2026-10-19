@@ -9,6 +9,8 @@ DEFAULTS = {
     "osc1_level": 0.75, "osc2_level": 0.48, "osc3_level": 0.30,
     "osc1_tune": 0.5, "osc2_tune": 0.51, "osc3_tune": 0.49,
     "osc1_wave": 0.0, "osc2_wave": 0.0, "osc3_wave": 0.0,
+    "osc1_octave": 0.5, "osc2_octave": 0.5, "osc3_octave": 0.5,
+    "osc1_fine": 0.5, "osc2_fine": 0.5, "osc3_fine": 0.5,
     "sub_level": 0.15, "noise_level": 0.0,
     "cutoff": 0.72, "resonance": 0.20, "drive": 0.12,
     "attack": 0.06, "decay": 0.40, "sustain": 0.72, "release": 0.30,
@@ -68,6 +70,7 @@ class Synth:
         self.set_param("pitch_bend", 0.5 + float(semitones) / 4)
 
     def set_param(self, name, value):
+        name = name.split("@")[0]       # "volume@header": a second control for volume
         if name not in DEFAULTS:
             raise KeyError(name)
         value = max(0.0, min(1.0, float(value)))
@@ -76,7 +79,7 @@ class Synth:
 
     def get_param(self, name):
         with self.lock:
-            return self.params[name]
+            return self.params[name.split("@")[0]]
 
     def snapshot(self):
         with self.lock:
@@ -125,6 +128,12 @@ class Synth:
             self.delay_buffer.fill(0)
             self.peak = 0.0
 
+    def detune(self, osc):
+        """Oscillator offset in semitones: tune ±12, octave −2..+2, fine ±50 cents."""
+        p = self.params
+        octave = round((p[f"osc{osc}_octave"] - 0.5) * 4)
+        return (p[f"osc{osc}_tune"] - 0.5) * 24 + octave * 12 + (p[f"osc{osc}_fine"] - 0.5)
+
     @staticmethod
     def _blep(phase, step):
         """PolyBLEP residual that rounds off each wrap of a unit-phase ramp."""
@@ -170,7 +179,7 @@ class Synth:
                                       - 69 + bend) / 12)
                 sound = np.zeros((len(voices), frames), dtype=np.float64)
                 oscillators = [(osc - 1, p[f"osc{osc}_level"],
-                                freq * 2 ** ((p[f"osc{osc}_tune"] - 0.5) * 24 / 12), osc)
+                                freq * 2 ** (self.detune(osc) / 12), osc)
                                for osc in (1, 2, 3)]
                 oscillators.append((3, p["sub_level"], freq * 0.5, None))
                 for slot, level, hz, osc in oscillators:

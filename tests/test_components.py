@@ -1,10 +1,11 @@
 import unittest
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from venus8.components import (INACTIVE_FADER_BANKS, INACTIVE_KNOBS, KEYBOARD,
-                               KNOB_GEOMETRY, PAINTED_CAPS, KeySprites,
-                               clean_artwork, keyboard_layout, render_knob)
+from venus8.components import (INACTIVE_AREAS, INACTIVE_FADER_BANKS, INACTIVE_KNOBS,
+                               KEYBOARD, KNOB_GEOMETRY, METER_BOX, PAINTED_CAPS,
+                               WAVE_LEFT, KeySprites, clean_artwork, keyboard_layout,
+                               meter_box, panel_sprites, render_knob, wave_box)
 
 
 def amber(pixel):
@@ -53,7 +54,11 @@ class CleanArtworkTests(unittest.TestCase):
     def test_painted_knob_pointers_are_removed(self):
         for ident, (cx, cy, r) in KNOB_GEOMETRY.items():
             box = self.clean.crop((cx - r, cy - r, cx + r, cy + r)).convert("L")
-            self.assertLess(box.getextrema()[1], 120, ident)
+            disc = Image.new("L", box.size, 0)
+            ImageDraw.Draw(disc).ellipse((0, 0, box.width - 1, box.height - 1), fill=255)
+            inside = Image.new("L", box.size, 0)
+            inside.paste(box, (0, 0), disc)
+            self.assertLess(inside.getextrema()[1], 120, ident)
 
 
     def test_future_controls_are_greyed_out(self):
@@ -75,6 +80,30 @@ class CleanArtworkTests(unittest.TestCase):
                 self.assertFalse(x1 <= x <= x2 and y1 <= line <= y2, (ident, bank))
 
 
+    def test_inactive_buttons_and_graphs_are_greyed_out(self):
+        for ident, box in INACTIVE_AREAS.items():
+            lit = sum(amber(p) for p in self.clean.crop(box).getdata())
+            self.assertEqual(lit, 0, ident)
+
+    def test_wave_buttons_start_unlit_and_have_lit_faces(self):
+        sprites = panel_sprites(self.art, self.clean)
+        for osc in WAVE_LEFT:
+            saw = wave_box(osc, 0)
+            self.assertGreater(sum(amber(p) for p in self.art.crop(saw).getdata()), 0, osc)
+            self.assertEqual(sum(amber(p) for p in self.clean.crop(saw).getdata()), 0, osc)
+            for index in range(4):
+                face = sprites["waves"][(osc, index)]
+                self.assertEqual(face.size, self.clean.crop(wave_box(osc, index)).size)
+                self.assertGreater(face.getchannel("A").getextrema()[1], 200)
+
+    def test_level_meter_is_dark_until_driven(self):
+        sprites = panel_sprites(self.art, self.clean)
+        self.assertEqual(len(sprites["meter"]), 24)
+        lum = lambda image: max(sum(p) / 3 for p in image.getdata())
+        self.assertLess(lum(self.clean.crop(METER_BOX)), 80)
+        self.assertGreater(lum(sprites["meter"][(0, 11)]), 150)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)
@@ -83,6 +112,14 @@ class SpriteTests(unittest.TestCase):
         self.assertNotEqual(low.tobytes(), high.tobytes())
         lit = lambda image: sum(amber(p) for p in image.getdata() if p[3] > 200)
         self.assertGreater(lit(high), lit(low))
+
+    def test_octave_switch_lights_one_detent(self):
+        def lit(image):
+            return sum(amber(p) for p in image.getdata() if p[3] > 200)
+        positions = [render_knob(19, v / 4, 2.0, detents=True) for v in range(5)]
+        self.assertEqual(len({p.tobytes() for p in positions}), 5)
+        sweep = render_knob(19, 1.0, 2.0)
+        self.assertLess(lit(positions[4]), lit(sweep))
 
     def test_keys_have_idle_and_lit_faces(self):
         with Image.open("docs/venus-8-mockup.png") as image:
