@@ -33,6 +33,7 @@ SLIDERS = {
     "pitch_bend": (76, 846, 927),
     "modwheel": (166, 846, 927),
 }
+UPDATE_BUTTON = (1390, 46, 1429, 62)
 BUTTONS = {
     "save": (893, 26, 938, 61),
     "browse": (822, 26, 881, 61),
@@ -41,7 +42,7 @@ BUTTONS = {
     "prev_patch": (528, 22, 559, 66),
     "next_patch": (778, 22, 813, 66),
     "settings": (592, 695, 728, 738),
-    "check_update": (1382, 44, 1431, 64),
+    "check_update": (1390, 46, 1429, 62),
 }
 # Four selectable waves on each of the 3 oscillators (keeps waveform order).
 for osc, left, step in ((1, 61, 45), (2, 277, 45), (3, 489, 45)):
@@ -262,17 +263,22 @@ class MockupRenderer:
         app.rect(1082,29,1199,59,"#10151c","#434850")
         app.text(1128,43,app.patch_category[:12],11,"#f0e0c9")
         app.text(1186,43,"▾",10,"#d8d5cc")
-        # Top bar: CPU and RAM, then the running version and the update button.
+        # Top bar, two aligned columns: CPU and RAM (label left, value right),
+        # then the running version above the update button.
         x1, y1, x2, y2 = STATUS_BOX
-        app.text(x1+6,y1+12,"CPU",8,"#8f9bb0","w",True)
-        app.text(x1+29,y1+12,app.cpu_text,9,"#44dfe7","w",True)
-        app.text(x1+62,y1+12,"RAM",8,"#8f9bb0","w",True)
-        app.text(x1+86,y1+12,app.ram_text.replace(" MB","M"),9,"#44dfe7","w",True)
-        app.text(x1+6,y1+32,f"v{__version__()}",9,"#e8e2d9","w",True)
-        app.rect(1382,44,1431,64,"#2b1a0c" if app.release else "#1b1f26",
+        split = x1 + 64
+        for row, (label, value) in enumerate((("CPU", app.cpu_text), ("RAM", app.ram_text))):
+            y = y1 + 13 + row * 18
+            app.text(x1+5,y,label,6,"#8f9bb0","w",True,minimum=4)
+            app.text(split-5,y,value,8,"#44dfe7","e",True,minimum=4)
+        app.line(split,y1+6,split,y2-6,fill="#2c3038",width=1)
+        app.text((split+x2)/2,y1+13,f"v{__version__()}",7,"#e8e2d9",bold=True,minimum=4)
+        bx1, by1, bx2, by2 = UPDATE_BUTTON
+        app.rect(bx1,by1,bx2,by2,"#2b1a0c" if app.release else "#1b1f26",
                  "#fca34e" if app.release else "#4a5060")
-        status = f"↑ {app.release['tag_name'].lstrip('v')}" if app.release else "UPD"
-        app.text(1406,54,status,9,"#fca34e" if app.release else "#b3b5ba",bold=True)
+        status = f"↑{app.release['tag_name'].lstrip('v')}" if app.release else "UPD"
+        app.text((bx1+bx2)/2,(by1+by2)/2,status,7,"#fca34e" if app.release else "#b3b5ba",
+                 bold=True,minimum=4)
         # MIDI: red when no controller is open, green when connected, cyan while playing.
         connected = getattr(app, "port", None) is not None
         app.text(1290,46, "●" if connected else "○", 11,

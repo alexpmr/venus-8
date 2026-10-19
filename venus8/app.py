@@ -185,10 +185,12 @@ class App:
             pts.extend((ox + self.s(x), oy + self.s(y)))
         self.canvas.create_line(*pts, fill=fill, width=self.s(width))
 
-    def text(self, x, y, value, size=13, color=WHITE, anchor="center", bold=False):
+    def text(self, x, y, value, size=13, color=WHITE, anchor="center", bold=False, minimum=7):
+        """Text in artwork units. ``minimum`` keeps small text readable; tight
+        areas pass a lower one so the text shrinks with the panel and fits."""
         ox, oy = self.offset
         self.canvas.create_text(ox + self.s(x), oy + self.s(y), text=str(value),
-                                fill=color, font=("Segoe UI", max(7, round(size * self.scale)),
+                                fill=color, font=("Segoe UI", max(minimum, round(size * self.scale)),
                                 "bold" if bold else "normal"), anchor=anchor)
 
     def panel(self, name, x1, y1, x2, y2):
@@ -489,7 +491,7 @@ class App:
     @property
     def cpu_text(self):
         try:
-            return f"{self.process.cpu_percent(None):.1f}%"
+            return f"{self.process.cpu_percent(None):.0f}%"
         except Exception:
             return "—"
 
