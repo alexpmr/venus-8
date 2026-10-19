@@ -44,6 +44,16 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.11 — MIDI reconecta sozinho
+
+- ✅ Controlador MIDI reconectado automaticamente a cada 2 s: após desligar/ligar o cabo USB ou quando a porta ainda estava ocupada ao abrir o app.
+- ✅ Reconhece o mesmo controlador mesmo quando o Windows muda o número no fim do nome da porta.
+- ✅ Notas presas liberadas quando o controlador é desconectado.
+- ✅ MIDI e áudio liberados antes de abrir o instalador ou o portátil novo na atualização (a porta MIDI do Windows é exclusiva).
+- ✅ Indicador MIDI no painel: vermelho desconectado, verde conectado, ciano tocando.
+- ✅ Testes de reconexão, renumeração de portas e liberação de dispositivos.
+- [ ] Homologar com o controlador Arturia no Windows real, inclusive na atualização seguinte.
+
 ## v0.2.10 — Motor de áudio mais leve e limpo
 
 - ✅ Vozes renderizadas em conjunto (matriz voz × amostra): 16 vozes com delay caem de ~44% para ~13% do tempo de cada bloco de áudio (medido em Linux; Windows a homologar).

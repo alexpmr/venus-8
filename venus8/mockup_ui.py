@@ -212,8 +212,10 @@ class MockupRenderer:
         app.rect(1370,43,1450,74,"#10151b")
         status = f"↑ {app.release['tag_name']}" if app.release else "UPD"
         app.text(1411,56,status,10,"#fca34e" if app.release else "#b3b5ba",bold=True)
-        app.text(1290,46, "●" if app.midi_held else "○", 11,
-                 "#37cbff" if app.midi_held else "#6a747b")
+        # MIDI: red when no controller is open, green when connected, cyan while playing.
+        connected = getattr(app, "port", None) is not None
+        app.text(1290,46, "●" if connected else "○", 11,
+                 "#37cbff" if app.midi_held else "#4fd08a" if connected else "#e0574a")
         app.text(1356,67,f"{app.cpu_text}",10,"#44dfe7",bold=True)
         # Numerical value appears only while a control is being dragged.
         if app.drag and app.drag[0] in KNOBS:
