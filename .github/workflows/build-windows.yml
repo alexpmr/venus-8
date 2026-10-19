@@ -42,8 +42,13 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Compile source
         run: python -m compileall -q venus8 tests run.py
+      - name: Generate Venus-8 multiresolution icon
+        shell: pwsh
+        run: |
+          python scripts/create_icon.py
+          if (!(Test-Path assets/venus-8.ico)) { throw "Custom icon missing" }
       - name: Build executable for Windows setup
-        run: pyinstaller --noconfirm --clean --windowed --name Venus-8 --collect-all sounddevice --collect-all rtmidi --collect-all mido --collect-all PIL --add-data 'docs/venus-8-mockup.png;docs' run.py
+        run: pyinstaller --noconfirm --clean --windowed --name Venus-8 --collect-all sounddevice --collect-all rtmidi --collect-all mido --collect-all PIL --icon assets/venus-8.ico --add-data 'assets/venus-8.ico;assets' --add-data 'docs/venus-8-mockup.png;docs' run.py
       - name: Build Inno Setup installer
         shell: pwsh
         run: |
@@ -52,7 +57,7 @@ jobs:
       - name: Build single-file portable executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name "Venus-8-$env:VENUS_TAG-Windows-Portable" --collect-all sounddevice --collect-all rtmidi --collect-all mido --collect-all PIL --add-data 'docs/venus-8-mockup.png;docs' run.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name "Venus-8-$env:VENUS_TAG-Windows-Portable" --collect-all sounddevice --collect-all rtmidi --collect-all mido --collect-all PIL --icon assets/venus-8.ico --add-data 'assets/venus-8.ico;assets' --add-data 'docs/venus-8-mockup.png;docs' run.py
           if ($LASTEXITCODE -ne 0) { throw 'Portable build failed' }
       - name: Verify files and generate SHA256SUMS
         shell: pwsh
