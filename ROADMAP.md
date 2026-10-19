@@ -196,6 +196,7 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 - [ ] Com versão nova: o botão fica **laranja piscando** com o número da nova versão.
 - [ ] Com versão nova: ao clicar, **inicia a atualização** diretamente, com o progresso no próprio botão/display.
 - [ ] Durante a verificação, indicação discreta (ex.: "…") no botão; em caso de falha de rede, o botão indica o erro sem bloquear o uso.
+- [ ] Se necessário, alargar a área de status da barra superior (reorganizando busca/MIDI/VOL) para que CPU, RAM, versão e UPD caibam com folga e boa leitura em qualquer tamanho de janela.
 - [ ] Homologar no Windows real (instalador e portátil).
 
 ## Display LCD com pixels (backlog)
