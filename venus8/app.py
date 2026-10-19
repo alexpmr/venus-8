@@ -22,6 +22,7 @@ from .synth import DEFAULTS, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
+from .display import DISPLAY_MODES
 
 def setup_windows_dpi():
     """Prevent Windows from bitmap-upscaling and blurring the UI."""
@@ -105,6 +106,9 @@ class App:
         self.release = None
         self.updating = False
         self.update_label = "VERIFICAR UPDATE"
+        # UPD button: idle, checking, current, available, downloading or error.
+        self.update_state = "idle"
+        self.update_progress = 0
         self.audio_error = ""
         self.last_midi = "MIDI: —"
         self.current_mouse_note = None
@@ -615,9 +619,9 @@ class App:
         elif ident=="panic":
             self.panic()
         elif ident=="check_update":
-            if self.release:
+            if self.release and self.update_state=="available":
                 self.install_update()
-            else:
+            elif self.update_state!="downloading":
                 self.check_update(manual=True)
         elif ident in ("prev_patch","next_patch"):
             self.cycle_patch(1 if ident=="next_patch" else -1)
@@ -755,6 +759,12 @@ class App:
         elif msg.type=="note_off" or (msg.type=="note_on" and not msg.velocity):
             self.synth.note_off(msg.note)
             self.midi_held.discard(msg.note)
+        elif msg.type=="control_change" and msg.control==64:
+            self.synth.set_sustain(msg.value>=64)
+        elif msg.type=="program_change":
+            entries=self.catalog()
+            if entries:
+                self.load_catalog_entry(entries[msg.program % len(entries)])
         elif msg.type=="pitchwheel":
             self.synth.pitch_bend=msg.pitch/8192*2
         elif msg.type=="control_change":
@@ -769,7 +779,7 @@ class App:
     def open_settings(self):
         box=tk.Toplevel(self.root)
         box.title("VENUS-8 — Audio e MIDI")
-        box.geometry("560x370")
+        box.geometry("560x430")
         box.configure(bg=PANEL)
         box.transient(self.root)
         tk.Label(box,text="DISPOSITIVOS DE ÁUDIO E MIDI",bg=PANEL,fg=GOLD,
@@ -786,9 +796,19 @@ class App:
         if self.midi_devices:
             name=self.settings.get("midi")
             midi.current(self.midi_devices.index(name) if name in self.midi_devices else 0)
+        tk.Label(box,text="Display (estilo LCD)",bg=PANEL,fg=WHITE).pack()
+        modes=list(DISPLAY_MODES)
+        display=ttk.Combobox(box,state="readonly",width=30,values=[DISPLAY_MODES[m] for m in modes])
+        display.pack(pady=7)
+        current=self.settings.get("display_mode","color")
+        display.current(modes.index(current) if current in modes else 0)
         def apply():
             if audio.current()>=0:self.open_audio(self.audio_devices[audio.current()][1])
             if midi.current()>=0:self.open_midi(self.midi_devices[midi.current()])
+            if modes[display.current()]!=self.settings.get("display_mode","color"):
+                self.settings["display_mode"]=modes[display.current()]
+                self._save_settings()
+                self.mockup.built_size=None      # rebuild the display in the new look
             box.destroy()
             self.draw()
         def import_reference():
@@ -1057,6 +1077,7 @@ class App:
     def check_update(self,manual=False):
         if self.updating:return
         self.update_label="VERIFICANDO..."
+        self.update_state="checking"
         self.draw()
         updater.start_check(lambda release,error:self.events.put(("update_check",release,error,manual)))
 
@@ -1066,16 +1087,14 @@ class App:
         portable=updater.is_portable()
         asset=updater.release_asset(release,portable)
         if not asset:
-            messagebox.showwarning("Venus-8","Esta Release não contém um EXE compatível.",parent=self.root)
+            self.update_state="error"
+            self.draw()
             return
-        msg=(f"Nova versão {release['tag_name']} disponível.\n\n"
-             f"Arquivo: {asset['name']}\n"
-             f"A atualização baixará e verificará SHA-256 antes de executar.\n"
-             f"Os patches e preferências serão preservados.\n\n"
-             f"Deseja atualizar?")
-        if not messagebox.askyesno("Atualizar Venus-8",msg,parent=self.root):return
+        # Clicking the blinking UPD button is the confirmation: start right away.
         self.updating=True
         self.update_label="DOWNLOAD 0%"
+        self.update_state="downloading"
+        self.update_progress=0
         self.draw()
         def task():
             try:
@@ -1102,28 +1121,27 @@ class App:
                 if rel and updater.is_newer(rel.get("tag_name")) and updater.release_asset(rel,updater.is_portable()):
                     self.release=rel
                     self.update_label="UPDATE "+rel["tag_name"]
+                    self.update_state="available"
                 else:
                     self.release=None
                     self.update_label="ATUALIZADO" if not error else "VERIFICAR UPDATE"
-                    if manual and error:messagebox.showwarning("Atualização",error,parent=self.root)
-                    elif manual:messagebox.showinfo("Venus-8","Você já possui a versão mais recente.",parent=self.root)
+                    # The button itself reports the result: green version or error.
+                    self.update_state="current" if not error else ("error" if manual else "idle")
                 dirty=True
             elif kind=="update_progress":
                 done,total=value
                 self.update_label=f"DOWNLOAD {100*done//total}%" if total else "BAIXANDO..."
+                self.update_progress=100*done//total if total else 0
                 dirty=True
             elif kind=="update_failed":
                 self.updating=False
                 self.update_label="TENTAR UPDATE"
-                messagebox.showerror("Atualização falhou",value[0],parent=self.root)
+                self.update_state="error"
+                self.update_error=value[0]
                 dirty=True
             elif kind=="update_ready":
                 path,portable=value
                 try:
-                    if portable:
-                        messagebox.showinfo("Portátil atualizado",
-                            "A nova versão será aberta a partir da pasta de atualizações. O EXE antigo não será sobrescrito enquanto estiver em execução.",
-                            parent=self.root)
                     # Release the controller first: the new version cannot
                     # open a MIDI port this process still holds.
                     self.release_devices()
@@ -1136,7 +1154,8 @@ class App:
                 except Exception as exc:
                     self.updating=False
                     self.scan_devices()
-                    messagebox.showerror("Iniciar atualização",str(exc),parent=self.root)
+                    self.update_state="error"
+                    self.update_error=str(exc)
                 dirty=True
         if dirty:self.draw()
         self.root.after(70,self.poll)

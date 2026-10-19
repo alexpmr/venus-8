@@ -6,6 +6,7 @@ updates itself in place when its value or state changes.
 """
 from pathlib import Path
 import math
+import time
 import sys
 
 from PIL import Image, ImageTk
@@ -184,7 +185,7 @@ class MockupRenderer:
         self.meter_lit = {key: False for key in self.meter_items}
         app.buttons.update(BUTTONS)
         self.display = LiveDisplay(app)
-        self.display.build()
+        self.display.build(chassis)
         self.built_size = size
 
     def knob_image(self, ident, value):
@@ -231,6 +232,11 @@ class MockupRenderer:
         if self.built_size:
             self.display.tick()
             self.tick_meter()
+            if getattr(self.app, "update_state", "") == "available":
+                blink = int(time.time() * 2) % 2
+                if blink != getattr(self, "blink", None):
+                    self.blink = blink
+                    self.draw_status()
         self.app.root.after(50, self.tick)
 
     def tick_meter(self):
@@ -272,13 +278,25 @@ class MockupRenderer:
             app.text(x1+5,y,label,6,"#8f9bb0","w",True,minimum=4)
             app.text(split-5,y,value,8,"#44dfe7","e",True,minimum=4)
         app.line(split,y1+6,split,y2-6,fill="#2c3038",width=1)
-        app.text((split+x2)/2,y1+13,f"v{__version__()}",7,"#e8e2d9",bold=True,minimum=4)
+        state = getattr(app, "update_state", "idle")
+        app.text((split+x2)/2,y1+13,f"v{__version__()}",7,
+                 "#59d98e" if state == "current" else "#e8e2d9",bold=True,minimum=4)
+        # UPD: green check when current, blinking orange when a new version
+        # exists (a click starts the update), progress while downloading.
+        blink_on = int(time.time() * 2) % 2 == 0
+        face = {
+            "checking": ("#1b1f26", "#4a5060", "…", "#b3b5ba"),
+            "current": ("#10251a", "#3fae6c", "✓ OK", "#59d98e"),
+            "downloading": ("#2b1a0c", "#fca34e", f"{getattr(app, 'update_progress', 0)}%", "#fca34e"),
+            "error": ("#2a1212", "#e0574a", "ERRO", "#ff8a7a"),
+        }.get(state, ("#1b1f26", "#4a5060", "UPD", "#b3b5ba"))
+        if state == "available" and app.release:
+            tag = "↑" + app.release["tag_name"].lstrip("v")
+            face = (("#3a2008", "#ffb05e", tag, "#ffd08b") if blink_on
+                    else ("#1b1f26", "#6a4a2a", tag, "#a4703c"))
         bx1, by1, bx2, by2 = UPDATE_BUTTON
-        app.rect(bx1,by1,bx2,by2,"#2b1a0c" if app.release else "#1b1f26",
-                 "#fca34e" if app.release else "#4a5060")
-        status = f"↑{app.release['tag_name'].lstrip('v')}" if app.release else "UPD"
-        app.text((bx1+bx2)/2,(by1+by2)/2,status,7,"#fca34e" if app.release else "#b3b5ba",
-                 bold=True,minimum=4)
+        app.rect(bx1,by1,bx2,by2,face[0],face[1])
+        app.text((bx1+bx2)/2,(by1+by2)/2,face[2],7,face[3],bold=True,minimum=4)
         # MIDI: red when no controller is open, green when connected, cyan while playing.
         connected = getattr(app, "port", None) is not None
         app.text(1290,46, "●" if connected else "○", 11,

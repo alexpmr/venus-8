@@ -18,6 +18,22 @@ class FactoryPresetsTest(unittest.TestCase):
             self.assertTrue(all(0.0<=v<=1.0 for v in patch["params"].values()))
             self.assertGreater(len(patch["description"]),5)
 
+    def test_library_size_and_categories(self):
+        programs=factory_programs()
+        self.assertGreaterEqual(len(programs), 48)
+        self.assertTrue({"Strings","Pluck","Bells","Organ","E.Piano","Ambient"}.issubset(
+            {p["category"] for p in programs}))
+
+    def test_every_factory_sound_is_audible_without_clipping(self):
+        for patch in factory_programs():
+            synth=Synth()
+            synth.load_params(patch["params"])
+            synth.note_on(60, 100)
+            audio=np.concatenate([synth.render(2048) for _ in range(40)])[:, 0]
+            peak=float(np.max(np.abs(audio)))
+            self.assertGreater(peak, 0.02, patch["name"])
+            self.assertLess(peak, 0.95, patch["name"])
+
     def test_snapshots_are_independent(self):
         programs=factory_programs()
         old=programs[0]["params"]["cutoff"]

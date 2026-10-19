@@ -30,6 +30,8 @@ class Synth:
         self.lowpass = 0.0
         self.filter_states = [0.0, 0.0, 0.0, 0.0]
         self.lfo_phase = 0.0
+        self.lfo2_phase = 0.0
+        self.sustain = False            # sustain pedal (MIDI CC64)
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -115,14 +117,30 @@ class Synth:
         with self.lock:
             if int(note) in self.voices:
                 voice = self.voices[int(note)]
-                if voice["gate"]:
-                    voice["release_start"] = voice["level"]
-                    voice["release_time"] = 0.0
-                    voice["gate"] = False
+                if self.sustain:
+                    voice["sustained"] = True       # released when the pedal lifts
+                elif voice["gate"]:
+                    self._release(voice)
+
+    @staticmethod
+    def _release(voice):
+        voice["release_start"] = voice["level"]
+        voice["release_time"] = 0.0
+        voice["gate"] = False
+        voice["sustained"] = False
+
+    def set_sustain(self, down):
+        with self.lock:
+            self.sustain = bool(down)
+            if not self.sustain:
+                for voice in self.voices.values():
+                    if voice.get("sustained") and voice["gate"]:
+                        self._release(voice)
 
     def panic(self):
         with self.lock:
             self.voices.clear()
+            self.sustain = False
             self.lowpass = 0.0
             self.filter_states = [0.0, 0.0, 0.0, 0.0]
             self.delay_buffer.fill(0)
@@ -172,6 +190,13 @@ class Synth:
             bend = (p["pitch_bend"] - 0.5) * 4.0
             # All voices are rendered together as (voice, sample) arrays; a
             # per-voice loop of small numpy calls costs more than the maths.
+            # LFO 2 is a vibrato, deepened by the mod wheel (up to ±0.6 semitone).
+            vibrato = min(1.0, p["lfo2_depth"] + p["modwheel"]) * 0.6
+            vib_rate = (0.1 + 9.9 * p["lfo2_rate"] ** 2) / sr
+            bend_curve = None
+            if vibrato > 1e-6:
+                bend_curve = 2 ** (vibrato * np.sin((self.lfo2_phase + vib_rate * t) * 2 * math.pi) / 12)
+            self.lfo2_phase = (self.lfo2_phase + frames * vib_rate) % 1.0
             playing = list(self.voices.items())
             if playing:
                 voices = [voice for _, voice in playing]
@@ -187,12 +212,19 @@ class Synth:
                         continue
                     step = (hz / sr)[:, None]
                     start = np.array([voice["phases"][slot] for voice in voices])[:, None]
-                    ph = (start + step * t) % 1.0
+                    if bend_curve is None:
+                        ph = (start + step * t) % 1.0
+                        end = start + step * frames
+                    else:               # vibrato: integrate the per-sample frequency
+                        step = step * bend_curve[None, :]
+                        run = np.cumsum(step, axis=1)
+                        ph = (start + run - step) % 1.0
+                        end = start + run[:, -1:]
                     if osc is None:     # sub oscillator: band-limited saw an octave down
                         sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
                     else:
                         sound += level * self._wave(ph, osc, step)
-                    for voice, phase in zip(voices, ((start + step * frames) % 1.0)[:, 0]):
+                    for voice, phase in zip(voices, (end % 1.0)[:, 0]):
                         voice["phases"][slot] = float(phase)
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5

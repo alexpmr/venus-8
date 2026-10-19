@@ -102,6 +102,38 @@ class TestOscillatorTuning(unittest.TestCase):
         self.assertEqual(s.get_param("volume@header"), 0.25)
 
 
+class TestPerformanceControls(unittest.TestCase):
+    def test_sustain_pedal_holds_released_notes(self):
+        s = Synth()
+        s.note_on(60)
+        s.render(512)
+        s.set_sustain(True)
+        s.note_off(60)
+        s.render(512)
+        self.assertTrue(s.voices[60]["gate"])
+        s.set_sustain(False)
+        self.assertFalse(s.voices[60]["gate"])
+        s.note_on(62)
+        s.note_off(62)
+        self.assertFalse(s.voices[62]["gate"])     # pedal up: normal release
+
+    def test_vibrato_from_lfo2_and_mod_wheel(self):
+        def spread(params):
+            s = Synth()
+            s.load_params(dict({"osc1_wave": 1.0, "osc2_level": 0.0, "osc3_level": 0.0,
+                                "sub_level": 0.0, "cutoff": 1.0, "drive": 0.0,
+                                "lfo2_rate": 0.5}, **params))
+            s.note_on(69)
+            audio = np.concatenate([s.render(512) for _ in range(64)])[:, 0]
+            crossings = np.flatnonzero((audio[:-1] < 0) & (audio[1:] >= 0))
+            periods = np.diff(crossings[5:])
+            return periods.std()
+        steady = spread({})
+        self.assertLess(steady, 0.6)
+        self.assertGreater(spread({"lfo2_depth": 1.0}), steady + 0.5)
+        self.assertGreater(spread({"modwheel": 1.0}), steady + 0.5)
+
+
 class TestSynthQuality(unittest.TestCase):
     def test_polyblep_reduces_aliasing(self):
         sr, f = 44100, 3001.0
