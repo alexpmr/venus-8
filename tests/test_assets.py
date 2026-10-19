@@ -15,9 +15,11 @@ class TestOfficialArtwork(unittest.TestCase):
         self.assertEqual(reference_image_path().name, "venus-8-mockup.png")
 
     def test_custom_synthesizer_taskbar_icon(self):
-        icon=draw_icon(256)
-        self.assertEqual(icon.size,(256,256))
-        self.assertGreater(icon.getpixel((128,400))[3],0)
+        size=256
+        icon=draw_icon(size)
+        self.assertEqual(icon.size,(size,size))
+        # Ivory keyboard area, given in 512px drawing units and scaled down.
+        self.assertGreater(icon.getpixel((size*256//512,size*400//512))[3],0)
 
 if __name__ == "__main__":
     unittest.main()
