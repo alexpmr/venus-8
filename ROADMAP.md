@@ -8,6 +8,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 
 **Legenda:** `✅` = implementado em nível especificado; `[ ]` = pendente, incompleto ou sem validação suficiente. Não marcar apenas por existir no mockup.
 
+## Diretriz visual — interface hiper-realista
+
+- [ ] Criar sistema de interface **hiper-realista** com elementos nativos e camadas gráficas em alta resolução, sem ampliação de miniaturas.
+- [ ] Manter a estética do mockup oficial como referência; permitir novo layout apenas quando um recurso realmente exigir evolução do painel.
+- [ ] Renderizar knobs, sliders, botões, chaves, LEDs e teclado como componentes interativos independentes, com movimento e estado visível em tempo real.
+- [ ] Suportar diferentes resoluções, dimensionamento Windows e futura operação touchscreen sem perda de nitidez.
+- [ ] Preservar compatibilidade de parâmetros, patches, mapeamentos MIDI, configuração e atualização ao evoluir o layout.
+- [ ] Elaborar e validar uma prévia visual da nova interface antes de substituir a anterior.
+- [ ] Usar ícone próprio de um sintetizador compacto com teclas e knobs no executável, janela, barra de tarefas e atalhos.
+
+**Princípio:** o mockup é uma referência estética; imagens de painel não substituem controles reais. Layout novo é permitido quando tecnicamente justificado e mantém a identidade Venus-8.
+
 ## v0.1 — Fundação, interface e Windows
 
 - ✅ Código inicial do aplicativo Windows em Python/Tkinter
