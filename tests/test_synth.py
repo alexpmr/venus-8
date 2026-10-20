@@ -269,6 +269,25 @@ class TestFM(unittest.TestCase):
             self.assertEqual(DEFAULTS[f"osc{i}_fm_on"], 0.0)
 
 
+class TestReedPiano(unittest.TestCase):
+    def play(self, model, velocity=100, seconds=1.0):
+        s = Synth()
+        s.load_params({"ep_level": 1.0, "ep_model": model, "osc1_level": 0.0, "osc2_level": 0.0,
+                       "osc3_level": 0.0, "sub_level": 0.0, "cutoff": 1.0, "attack": 0.0,
+                       "sustain": 1.0})
+        s.note_on(57, velocity)
+        return np.concatenate([s.render(512) for _ in range(int(seconds * 86))])[:, 0]
+
+    def test_three_models_differ_and_the_reed_barks_when_hard(self):
+        rhodes, wurli, grand = self.play(0.0), self.play(0.5), self.play(1.0)
+        self.assertGreater(np.abs(wurli - rhodes).max(), 0.05)
+        self.assertGreater(np.abs(wurli - grand).max(), 0.05)
+        odd = lambda a: (lambda sp: sp[round(660 * 16384 / 44100)] / sp[round(220 * 16384 / 44100)])(
+            np.abs(np.fft.rfft(a[:16384] * np.hanning(16384))))
+        self.assertGreater(odd(self.play(0.5, velocity=127)), odd(self.play(0.5, velocity=30)))
+        self.assertTrue(np.isfinite(wurli).all())
+
+
 class TestElectricGrand(unittest.TestCase):
     GRAND = {"ep_level": 1.0, "ep_model": 1.0, "osc1_level": 0.0, "osc2_level": 0.0,
              "osc3_level": 0.0, "sub_level": 0.0, "cutoff": 1.0, "drive": 0.0,

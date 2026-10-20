@@ -105,7 +105,7 @@ def instrument_style(params, category=""):
     if any(get(f"drawbar{i}") > 0 for i in range(1, 10)) or get("organ_perc") >= 0.5:
         layers.append("Hammond B-3" + (" + Leslie" if get("leslie") >= 0.5 else ""))
     if get("ep_level") > 0.0001:
-        layers.append("Yamaha CP-70" if get("ep_model") >= 0.5 else "Fender Rhodes")
+        layers.append(("Fender Rhodes", "Wurlitzer 200A", "Yamaha CP-70")[round(get("ep_model") * 2)])
     return " + ".join(layers) or "—"
 SWITCH_PARAMS = {"seq_on", "seq_rec", *(f"seq_step{i}" for i in range(1, 17)), "glide_const", "osc2_xmod", "osc3_sync", "osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise", "polymod_freq",
                  "polymod_pw", "polymod_filter", "moog_osc", "moog_filter", "osc3_lo", "arp_on", "arp_hold", "chorus_on", "phaser_on", "reverb_on", "filter_env_on", "lfo_sync",
@@ -140,6 +140,9 @@ def format_value(param, value):
     if param == "balance":
         side = round((value - 0.5) * 200)
         return "C" if side == 0 else (f"R {side}" if side > 0 else f"L {-side}")
+    if param == "ep_model":
+        from .synth import EP_MODELS
+        return EP_MODELS[round(value * 2)]
     if param == "chorus_type":
         from .synth import CHORUS_TYPES
         return CHORUS_TYPES[round(value * 4)].title()

@@ -631,8 +631,161 @@ SEQ_PROGRAMS = (
         resonance=0.3, filter_env_on=1.0, fenv_decay=0.3, fenv_sustain=0.0, attack=0.0,
         decay=0.35, sustain=0.0, release=0.2, reverb_on=1.0, reverb_mix=0.2, volume=0.8)),
 )
+# Library completion to 128 (v0.2.31): Wurlitzer, brass, keys, pads, choir,
+# chords, percussion and sweeps.
+SYNTH = dict(osc2_level=0.0, osc3_level=0.0, sub_level=0.0, noise_level=0.0)
+
+
+def merge(*parts, **values):
+    """Shared settings first, then this program's own values."""
+    out = {}
+    for part in parts:
+        out.update(part)
+    out.update(values)
+    return out
+
+
+def wurli(tone, bark, decay):
+    return dict(electric_piano(tone, bark, decay), ep_model=0.5)
+
+
+LIBRARY_PROGRAMS = (
+    # Wurlitzer (reed electric piano)
+    ("Wurli Classic", "E.Piano", "Piano de palheta clássico, nasal e quente.", dict(
+        wurli(0.5, 0.45, 0.5), volume=0.38)),
+    ("Wurli Tremolo", "E.Piano", "Wurlitzer com o tremolo do amplificador.", dict(
+        wurli(0.45, 0.4, 0.55), lfo_rate=0.45, lfo_depth=0.5, volume=0.37)),
+    ("Wurli Grit", "E.Piano", "Wurlitzer tocado forte, com drive valvulado.", dict(
+        wurli(0.7, 0.85, 0.45), tube_drive=0.5, volume=0.41)),
+    ("Wurli Phaser", "E.Piano", "Wurlitzer com phaser lento, soul dos anos 70.", dict(
+        wurli(0.5, 0.5, 0.5), phaser_on=1.0, phaser_rate=0.2, volume=0.46)),
+    # Brass
+    ("Poly Brass", "Brass", "Metais de serra com envelope de filtro (estilo Prophet).", dict(
+        SAWS, osc1_level=0.8, osc2_level=0.7, osc3_level=0.0, osc2_tune=0.506, cutoff=0.35,
+        resonance=0.15, filter_env_on=1.0, fenv_attack=0.15, fenv_decay=0.45, fenv_sustain=0.5,
+        attack=0.06, decay=0.4, sustain=0.85, release=0.25, vintage=0.3, volume=0.58)),
+    ("Jump Brass", "Brass", "Metais brilhantes e curtos, estilo Oberheim anos 80.", dict(
+        SAWS, osc1_level=0.85, osc2_level=0.8, osc3_level=0.0, osc2_tune=0.509, cutoff=0.45,
+        resonance=0.1, filter_env_on=1.0, fenv_attack=0.05, fenv_decay=0.35, fenv_sustain=0.4,
+        attack=0.02, decay=0.35, sustain=0.8, release=0.18, chorus_on=1.0, volume=0.59)),
+    ("Soft Horns", "Brass", "Trompas suaves, ataque lento.", dict(
+        SAWS, osc1_level=0.75, osc2_level=0.6, osc3_level=0.0, osc2_tune=0.504, cutoff=0.3,
+        filter_env_on=1.0, fenv_attack=0.4, fenv_decay=0.6, fenv_sustain=0.6, attack=0.25,
+        decay=0.5, sustain=0.85, release=0.35, reverb_on=1.0, reverb_mix=0.25, volume=0.75)),
+    ("Synth Trumpet", "Brass", "Trompete monofônico com vibrato que entra devagar.", merge(
+        SAWS, SYNTH, osc1_level=0.85, osc1_wave=0.0, cutoff=0.4, resonance=0.2, filter_env_on=1.0,
+        fenv_attack=0.05, fenv_decay=0.4, fenv_sustain=0.55, voice_mode=2 / 3, glide_time=0.08,
+        lfo2_depth=0.25, lfo2_rate=0.5, lfo2_fade=0.5, attack=0.03, sustain=0.9, release=0.15,
+        volume=0.73)),
+    # Keys
+    ("Clavi Funk", "Keys", "Clavinete sintético: pulso estreito e envelope curto.", merge(
+        SYNTH, osc1_wave=1 / 3, osc1_pw=0.75, osc1_level=0.85, cutoff=0.45, resonance=0.3,
+        filter_env_on=1.0, fenv_decay=0.2, fenv_sustain=0.0, attack=0.0, decay=0.3,
+        sustain=0.0, release=0.06, phaser_on=1.0, volume=1.0)),
+    ("Harpsichord", "Keys", "Cravo: pluck brilhante com oitava.", merge(
+        SYNTH, osc1_wave=1 / 3, osc1_pw=0.6, osc1_level=0.7, osc2_level=0.4, osc2_wave=0.0,
+        osc2_octave=0.75, cutoff=0.7, attack=0.0, decay=0.5, sustain=0.0, release=0.3,
+        reverb_on=1.0, reverb_mix=0.2, volume=0.89)),
+    ("Toy Piano", "Keys", "Piano de brinquedo, FM metálico e curto.", fm_voice(
+        osc1_fm=0.5, osc2_octave=1.0, osc2_tune=0.5 + 7 / 24, mod_decay=0.15, mod_sustain=0.0,
+        attack=0.0, decay=0.4, sustain=0.0, release=0.2, volume=0.89)),
+    ("Poly Keys", "Keys", "Teclado sintético polifônico versátil.", dict(
+        osc1_wave=0.0, osc2_wave=1 / 3, osc1_level=0.7, osc2_level=0.5, osc3_level=0.0,
+        osc2_tune=0.505, cutoff=0.5, resonance=0.2, filter_env_on=1.0, fenv_decay=0.4,
+        fenv_sustain=0.3, attack=0.0, decay=0.5, sustain=0.6, release=0.3, chorus_on=1.0,
+        chorus_type=0.25, volume=0.72)),
+    # Pads
+    ("Warm Analog Pad", "Pad", "Pad quente de serras com deriva vintage.", dict(
+        SAWS, osc1_level=0.7, osc2_level=0.65, osc3_level=0.0, osc2_tune=0.508, cutoff=0.42,
+        resonance=0.1, attack=0.55, decay=0.6, sustain=0.9, release=0.65, vintage=0.5,
+        reverb_on=1.0, reverb_mix=0.3, volume=1.0)),
+    ("Glass Sweep Pad", "Pad", "Pad que abre devagar pelo envelope de filtro.", dict(
+        osc1_wave=1 / 3, osc2_wave=0.0, osc1_level=0.7, osc2_level=0.5, osc3_level=0.0,
+        osc1_pwm=0.5, cutoff=0.2, resonance=0.45, filter_env_on=1.0, fenv_attack=0.75,
+        fenv_decay=0.8, fenv_sustain=0.5, fenv_release=0.7, attack=0.5, sustain=0.9, release=0.7,
+        chorus_on=1.0, chorus_type=0.75, reverb_on=1.0, reverb_mix=0.35, volume=1.0)),
+    ("Dark Drone", "Pad", "Drone escuro e grave para trilhas.", dict(
+        SAWS, osc1_level=0.8, osc2_level=0.7, osc2_octave=0.25, osc3_level=0.5, osc3_octave=0.0,
+        osc2_tune=0.503, cutoff=0.22, resonance=0.35, lfo_rate=0.1, lfo_depth=0.2, attack=0.7,
+        sustain=1.0, release=0.8, reverb_on=1.0, reverb_size=0.85, reverb_mix=0.4, volume=1.0)),
+    ("Unison Pad", "Pad", "Pad gigante em uníssono estéreo (SPREAD).", merge(
+        SAWS, SYNTH, osc1_level=0.8, voice_mode=1.0, unison_detune=0.5, unison_spread=0.9,
+        cutoff=0.5, attack=0.4, sustain=0.9, release=0.6, reverb_on=1.0, reverb_mix=0.3,
+        volume=0.88)),
+    # Ambient / sweeps
+    ("Space Wind", "Ambient", "Vento espacial de ruído filtrado.", merge(
+        SYNTH, osc1_level=0.0, noise_level=0.7, cutoff=0.35, resonance=0.7, lfo2_depth=0.0,
+        filter_env_on=1.0, fenv_attack=0.8, fenv_decay=0.9, fenv_sustain=0.4, fenv_release=0.8,
+        attack=0.6, sustain=1.0, release=0.9, reverb_on=1.0, reverb_size=0.9, reverb_mix=0.5,
+        volume=1.0)),
+    ("Shimmer Bells", "Ambient", "Sinos FM com reverb longo e eco.", fm_voice(
+        osc1_fm=0.45, osc2_octave=1.0, mod_decay=0.6, mod_sustain=0.1, attack=0.0, decay=0.8,
+        sustain=0.0, release=0.8, delay_mix=0.3, delay_time=0.45, delay_feedback=0.5,
+        reverb_on=1.0, reverb_size=0.85, reverb_mix=0.45, volume=0.6)),
+    ("Riser", "FX", "Subida de tensão: filtro e afinação crescendo.", dict(
+        SAWS, osc1_level=0.8, osc2_level=0.6, osc3_level=0.0, osc2_tune=0.51, cutoff=0.15,
+        resonance=0.6, filter_env_on=1.0, fenv_attack=0.95, fenv_decay=0.9, fenv_sustain=1.0,
+        polymod_env=0.3, polymod_freq=1.0, attack=0.8, sustain=1.0, release=0.4, noise_level=0.2,
+        reverb_on=1.0, reverb_mix=0.3, volume=1.0)),
+    ("Laser Zap", "FX", "Disparo de laser: queda rápida de afinação.", merge(
+        SYNTH, osc1_wave=0.0, osc1_level=0.8, osc1_sync=1.0, polymod_env=1.0, polymod_freq=1.0,
+        fenv_attack=0.0, fenv_decay=0.25, fenv_sustain=0.0, cutoff=0.8, attack=0.0, decay=0.3,
+        sustain=0.0, release=0.1, delay_mix=0.25, volume=1.0)),
+    # Choir / Vox
+    ("Synth Choir", "Choir", "Coro sintético: pulso suave, formante e chorus.", dict(
+        osc1_wave=1 / 3, osc2_wave=2 / 3, osc1_level=0.6, osc2_level=0.6, osc3_level=0.0,
+        osc1_pwm=0.4, filter_type=2 / 3, cutoff=0.5, resonance=0.45, attack=0.4, sustain=0.9,
+        release=0.5, chorus_on=1.0, chorus_type=0.5, reverb_on=1.0, reverb_mix=0.35, volume=0.54)),
+    ("Vox Pad", "Choir", "Vozes etéreas com vibrato lento.", dict(
+        osc1_wave=2 / 3, osc2_wave=2 / 3, osc1_level=0.7, osc2_level=0.6, osc3_level=0.0,
+        osc2_tune=0.507, filter_type=2 / 3, cutoff=0.45, resonance=0.5, lfo2_depth=0.1,
+        lfo2_rate=0.35, attack=0.5, sustain=0.95, release=0.6, reverb_on=1.0, reverb_mix=0.4,
+        volume=0.64)),
+    ("Ooh Choir", "Choir", "Coro 'ooh' escuro, passa-banda baixo.", dict(
+        osc1_wave=1.0, osc2_wave=2 / 3, osc1_level=0.8, osc2_level=0.5, osc3_level=0.0,
+        filter_type=2 / 3, cutoff=0.38, resonance=0.55, attack=0.35, sustain=0.95, release=0.55,
+        chorus_on=1.0, reverb_on=1.0, reverb_mix=0.35, volume=0.31)),
+    # Chords
+    ("Fifth Stab", "Chords", "Acorde de quinta num só dedo (OSC2 + 7).", dict(
+        SAWS, osc1_level=0.8, osc2_level=0.7, osc3_level=0.0, osc2_tune=0.5 + 7 / 24, cutoff=0.5,
+        resonance=0.25, filter_env_on=1.0, fenv_decay=0.3, fenv_sustain=0.2, attack=0.0,
+        decay=0.4, sustain=0.5, release=0.25, reverb_on=1.0, reverb_mix=0.25, volume=0.81)),
+    ("Minor Chord Stab", "Chords", "Acorde menor de um dedo (tônica, terça menor e quinta).", dict(
+        SAWS, osc1_level=0.7, osc2_level=0.6, osc3_level=0.6, osc2_tune=0.5 + 3 / 24,
+        osc3_tune=0.5 + 7 / 24, cutoff=0.45, resonance=0.2, filter_env_on=1.0, fenv_decay=0.3,
+        fenv_sustain=0.15, attack=0.0, decay=0.35, sustain=0.4, release=0.2, delay_mix=0.2,
+        volume=0.91)),
+    # Percussion
+    ("Analog Kick", "Percussion", "Bumbo analógico: seno com queda de afinação.", merge(
+        SYNTH, osc1_wave=1.0, osc1_level=1.0, osc1_octave=0.25, polymod_env=0.8,
+        polymod_freq=1.0, fenv_attack=0.0, fenv_decay=0.15, fenv_sustain=0.0, cutoff=0.6,
+        attack=0.0, decay=0.35, sustain=0.0, release=0.1, drive=0.4, volume=0.51)),
+    ("Synth Tom", "Percussion", "Tom sintético afinado, toque curto.", merge(
+        SYNTH, osc1_wave=1.0, osc1_level=0.9, polymod_env=0.4, polymod_freq=1.0,
+        fenv_attack=0.0, fenv_decay=0.25, fenv_sustain=0.0, noise_level=0.1, attack=0.0,
+        decay=0.4, sustain=0.0, release=0.15, reverb_on=1.0, reverb_mix=0.2, volume=0.93)),
+    ("Noise Snare", "Percussion", "Caixa de ruído com corpo.", merge(
+        SYNTH, osc1_wave=2 / 3, osc1_level=0.4, noise_level=0.9, filter_type=1.0, cutoff=0.55,
+        attack=0.0, decay=0.22, sustain=0.0, release=0.12, reverb_on=1.0, reverb_mix=0.2,
+        volume=1.0)),
+    # Bass and lead extras
+    ("Juno Sub Bass", "Bass", "Subgrave limpo de pulso e sub.", merge(
+        SYNTH, osc1_wave=1 / 3, osc1_level=0.6, sub_level=0.8, cutoff=0.22, resonance=0.1,
+        attack=0.0, decay=0.3, sustain=0.9, release=0.1, volume=0.66)),
+    ("Hoover Bass", "Bass", "Baixo 'hoover' rave: uníssono, PWM e glide.", dict(
+        osc1_wave=1 / 3, osc1_level=0.8, osc2_level=0.0, osc3_level=0.0, sub_level=0.3,
+        osc1_pwm=0.7, lfo_rate=0.35, voice_mode=1.0, unison_detune=0.8, unison_spread=0.6,
+        glide_time=0.2, cutoff=0.45, resonance=0.2, attack=0.0, sustain=0.9, release=0.2,
+        volume=0.48)),
+    ("Sync Scream", "Lead", "Lead agressivo de sync com poly-mod pelo OSC B.", dict(
+        SAWS, osc1_level=0.85, osc2_level=0.0, osc3_level=0.0, osc1_tune=0.5 + 12 / 24,
+        osc1_sync=1.0, polymod_osc=0.3, polymod_env=0.4, polymod_freq=1.0, fenv_decay=0.6,
+        fenv_sustain=0.4, cutoff=0.65, drive=0.5, tube_drive=0.4, voice_mode=2 / 3,
+        glide_time=0.1, attack=0.0, sustain=0.9, release=0.15, delay_mix=0.2, volume=0.45)),
+)
 PROGRAMS = (PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
-            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS + VINTAGE_PROGRAMS + SEQ_PROGRAMS)
+            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS + VINTAGE_PROGRAMS + SEQ_PROGRAMS
+            + LIBRARY_PROGRAMS)
 
 
 def factory_programs():

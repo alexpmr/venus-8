@@ -18,7 +18,7 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          LED_CLICK, FILTER_TYPE_BOX, FILTER_TYPE_TEXT, LFO_WAVE_BOXES,
                          render_lfo_button, VOICE_MODE_BOXES, VOICE_MODE_LABELS,
                          render_mode_button, ARP_MODE_BOX, ARP_MODE_TEXT, ARP_BUTTONS,
-                         EXT_W, EXT_KNOBS, EXT_SWITCHES, extend_chassis,
+                         EXT_W, EXT_KNOBS, EXT_SWITCHES, EXT_RADIOS, extend_chassis,
                          SPINNERS, TUNE_READOUT, GLIDE_CONST_BOX, SEARCH_BOX, MIDI_LEDS,
                          PANEL_TABS, SEQ_STEP_BOXES, SEQ_REC_BOX, SEQ_INFO, render_step,
                          PART_SELECTORS, SPLIT_SPINNER, SPLIT_TAB, VIEW3D_BUTTON,
@@ -263,6 +263,17 @@ class MockupRenderer:
                            faces, False]
         app.buttons["switch:glide_const"] = GLIDE_CONST_BOX
         app.buttons["search"] = SEARCH_BOX
+        # Radio buttons (electric piano model): one lit face per value.
+        self.radio_items = {}
+        for param, options in EXT_RADIOS.items():
+            for index, (label, box) in enumerate(options):
+                size_px = (box[2] - box[0], box[3] - box[1])
+                faces = tuple(self.photo(render_switch(label, lit, size_px, scale)) for lit in (False, True))
+                sx, sy = app.bounds(*box)[:2]
+                self.radio_items[(param, index)] = [canvas.create_image(round(sx), round(sy),
+                                                                        image=faces[0], anchor="nw"),
+                                                    faces, False]
+                app.buttons[f"radio:{param}:{index}"] = box
         app.buttons["view3d"] = VIEW3D_BUTTON
         # Layer / Split: patch names, split point.
         self.part_items = {}
@@ -423,6 +434,11 @@ class MockupRenderer:
             canvas.itemconfigure(item, text=format_value(ident, app.synth.get_param(ident)).split(" ")[0])
         canvas.itemconfigure(self.tune_item, text=format_value("master_tune", app.synth.get_param("master_tune")))
         self.update_steps()
+        for (param, index), entry in self.radio_items.items():
+            lit = round(app.synth.get_param(param) * (len(EXT_RADIOS[param]) - 1)) == index
+            if lit != entry[2]:
+                canvas.itemconfigure(entry[0], image=entry[1][lit])
+                entry[2] = lit
         lower = getattr(app, "lower", None)
         canvas.itemconfigure(self.part_items["lower"],
                              text=(app.lower_name[:14] if lower is not None else "— escolher —"))

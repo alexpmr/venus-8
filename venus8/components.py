@@ -814,24 +814,29 @@ def compose_preview(art, values, sliders, pressed=(), scale=1.0):
 # to the right of the original artwork, which is cut at EXT_CUT and widened.
 EXT_CUT, EXT_W = 1558, 240
 VIEW3D_BUTTON = (1600, 28, 1712, 60)        # "VISTA 3D" in the widened top bar
-EXT_SECTIONS = (("POLY-MOD", (1564, 96, 1792, 330)), ("MODULATION", (1564, 340, 1792, 560)),
-                ("CHARACTER", (1564, 570, 1792, 806)))
-EXT_KNOBS = {"polymod_env": (1620, 180, 22), "polymod_osc": (1736, 180, 22),
-             "moog_mix": (1622, 425, 22), "vintage": (1620, 664, 24), "hpf": (1736, 664, 24)}
-EXT_SWITCHES = {"polymod_freq": ("FREQ A", (1568, 256, 1638, 280)),
-                "polymod_pw": ("PW A", (1643, 256, 1713, 280)),
-                "polymod_filter": ("FILTER", (1718, 256, 1788, 280)),
-                "osc3_lo": ("OSC3 LO", (1694, 412, 1788, 436)),
-                "moog_osc": ("OSC MOD", (1568, 484, 1674, 508)),
-                "moog_filter": ("FILT MOD", (1682, 484, 1788, 508))}
-EXT_LABELS = ((1620, 216, "FILT ENV", 11, "ink"), (1736, 216, "OSC B", 11, "ink"),
-              (1678, 242, "DESTINO", 9, "dim"), (1678, 304, "OSC A = OSC 1   ·   OSC B = OSC 2", 8, "dim"),
-              (1622, 462, "MIX", 11, "ink"), (1584, 446, "OSC3", 8, "dim"), (1662, 446, "NOISE", 8, "dim"),
-              (1741, 446, "LFO LENTO", 8, "dim"), (1678, 534, "QUANTIDADE: MOD WHEEL", 9, "dim"),
-              (1620, 704, "VINTAGE", 11, "ink"), (1736, 704, "HPF", 11, "ink"),
-              (1678, 748, "DERIVA ANALÓGICA  ·  PASSA-ALTAS", 8, "dim"),
-              (1678, 768, "INSPIRADO EM MINIMOOG, PROPHET-5,", 8, "dim"),
-              (1678, 784, "JUPITER-8 E JUNO", 8, "dim"))
+EXT_SECTIONS = (("POLY-MOD", (1564, 90, 1792, 292)), ("MODULATION", (1564, 298, 1792, 478)),
+                ("CHARACTER", (1564, 484, 1792, 628)), ("E.PIANO", (1564, 634, 1792, 806)))
+EXT_KNOBS = {"polymod_env": (1620, 156, 21), "polymod_osc": (1736, 156, 21),
+             "moog_mix": (1622, 362, 21), "vintage": (1620, 550, 21), "hpf": (1736, 550, 21),
+             "ep_level": (1592, 728, 16), "ep_tone": (1650, 728, 16), "ep_bark": (1708, 728, 16),
+             "ep_decay": (1764, 728, 16)}
+EXT_SWITCHES = {"polymod_freq": ("FREQ A", (1568, 226, 1638, 250)),
+                "polymod_pw": ("PW A", (1643, 226, 1713, 250)),
+                "polymod_filter": ("FILTER", (1718, 226, 1788, 250)),
+                "osc3_lo": ("OSC3 LO", (1694, 348, 1788, 372)),
+                "moog_osc": ("OSC MOD", (1568, 420, 1674, 444)),
+                "moog_filter": ("FILT MOD", (1682, 420, 1788, 444))}
+# Radio buttons: one value of a parameter each (electric piano model).
+EXT_RADIOS = {"ep_model": (("RHODES", (1568, 666, 1640, 690)), ("WURLI", (1643, 666, 1713, 690)),
+                           ("CP-70", (1716, 666, 1788, 690)))}
+EXT_LABELS = ((1620, 190, "FILT ENV", 11, "ink"), (1736, 190, "OSC B", 11, "ink"),
+              (1678, 212, "DESTINO", 9, "dim"), (1678, 272, "OSC A = OSC 1   ·   OSC B = OSC 2", 8, "dim"),
+              (1622, 398, "MIX", 11, "ink"), (1584, 384, "OSC3", 8, "dim"), (1662, 384, "NOISE", 8, "dim"),
+              (1741, 384, "LFO LENTO", 8, "dim"), (1678, 464, "QUANTIDADE: MOD WHEEL", 9, "dim"),
+              (1620, 584, "VINTAGE", 11, "ink"), (1736, 584, "HPF", 11, "ink"),
+              (1678, 610, "DERIVA ANALÓGICA  ·  PASSA-ALTAS", 8, "dim"),
+              (1592, 758, "LEVEL", 9, "ink"), (1650, 758, "TONE", 9, "ink"), (1708, 758, "BARK", 9, "ink"),
+              (1764, 758, "DECAY", 9, "ink"), (1678, 784, "TREMOLO: LFO 1  ·  EFEITOS: CHORUS/PHASER", 8, "dim"))
 
 
 def extend_chassis(clean, art):
@@ -851,7 +856,9 @@ def extend_chassis(clean, art):
         draw.rounded_rectangle((x1, y1, x2, y2), radius=6, fill=(24, 25, 28), outline=(56, 58, 62))
         draw.rounded_rectangle((x1 + 6, y1 + 4, x2 - 6, y1 + 24), radius=3, fill=header)
         draw.text(((x1 + x2) / 2, y1 + 14), title, font=label_font(13), anchor="mm", fill=(36, 18, 8))
-    for _, (x1, y1, x2, y2) in EXT_SWITCHES.values():
+    boxes = [box for _, box in EXT_SWITCHES.values()]
+    boxes += [box for options in EXT_RADIOS.values() for _, box in options]
+    for x1, y1, x2, y2 in boxes:
         draw.rounded_rectangle((x1, y1, x2, y2), radius=3, fill=(10, 10, 12))
     x1, y1, x2, y2 = VIEW3D_BUTTON
     draw.rounded_rectangle(VIEW3D_BUTTON, radius=4, fill=(22, 24, 28), outline=(90, 94, 100))

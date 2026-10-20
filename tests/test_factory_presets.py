@@ -93,5 +93,16 @@ class FactoryPresetsTest(unittest.TestCase):
         self.assertGreater(float(np.max(np.abs(render_at(0.9)-render_at(0.1)))),1e-6)
 
 
+class LibraryTests(unittest.TestCase):
+    def test_library_reaches_128_with_unique_names_and_new_categories(self):
+        programs = factory_programs()
+        self.assertGreaterEqual(len(programs), 128)
+        self.assertEqual(len({p["name"] for p in programs}), len(programs))
+        categories = {p["category"] for p in programs}
+        self.assertTrue({"Choir", "Chords", "Percussion", "Sequence", "Arp"} <= categories)
+        wurli = [p for p in programs if p["params"]["ep_model"] == 0.5 and p["params"]["ep_level"] > 0]
+        self.assertGreaterEqual(len(wurli), 4)
+
+
 if __name__=="__main__":
     unittest.main()

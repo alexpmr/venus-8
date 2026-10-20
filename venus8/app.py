@@ -22,7 +22,7 @@ from .synth import ARP_MODES, DEFAULTS, FILTER_TYPES, GLOBAL_PARAMS, WAVES, Synt
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
-from .components import SEQ_STEP_BOXES, SPINNERS, SPINNER_STEPS
+from .components import EXT_RADIOS, SEQ_STEP_BOXES, SPINNERS, SPINNER_STEPS
 from .display import DISPLAY_MODES, PARAM_LABELS, SWITCH_PARAMS, format_value
 
 def setup_windows_dpi():
@@ -754,6 +754,10 @@ class App:
         elif ident.startswith("seqstep"):
             param=f"seq_step{int(ident[7:])+1}"
             self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)
+        elif ident.startswith("radio:"):
+            _,param,index=ident.split(":")
+            count=len(EXT_RADIOS[param])-1
+            self.change(param,int(index)/count)
         elif ident=="view3d":
             from . import view3d
             view3d.open_view(self)
