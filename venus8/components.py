@@ -39,7 +39,20 @@ KNOB_GEOMETRY = {
     "osc3_pw": (518, 253, 21), "osc3_pwm": (653, 253, 21),
     "unison_detune": (339, 769, 19), "glide_time": (475, 770, 17),
     "arp_rate": (80, 644, 18), "arp_gate": (138, 644, 18), "arp_oct": (189, 645, 15),
+    "unison_spread": (403, 769, 19), "global_volume": (1252, 778, 20),
+    "balance": (1322, 778, 20), "master_tune": (1429, 773, 14),
 }
+# Up/down value spinners: (value text box, up arrow, down arrow).
+SPINNERS = {"transpose": ((595, 766, 633, 792), (634, 765, 652, 779), (634, 780, 652, 795)),
+            "octave_shift": ((699, 766, 735, 792), (737, 765, 754, 779), (737, 780, 754, 795)),
+            "bend_range": ((209, 852, 236, 879), (238, 852, 254, 865), (238, 866, 254, 879)),
+            "polyphony": ((1496, 769, 1527, 797), (1528, 768, 1545, 782), (1528, 783, 1545, 798))}
+SPINNER_STEPS = {"transpose": 24, "octave_shift": 6, "bend_range": 23, "polyphony": 15}
+TUNE_READOUT = (1401, 794, 1457, 807)
+GLIDE_CONST_BOX = (509, 760, 553, 791)
+SEARCH_BOX = (1216, 25, 1247, 57)
+MIDI_LEDS = ((1276, 51), (1298, 51))      # activity, connection
+PANEL_TABS = {"keyboard_tab": (367, 697, 500, 731), "midi_tab": (505, 697, 587, 731)}
 # Arpeggiator: mode selector, and the ARP / HOLD buttons of the performance row.
 ARP_MODE_BOX = (135, 594, 240, 616)
 ARP_MODE_TEXT = (139, 598, 224, 613)
@@ -55,11 +68,13 @@ FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635)
            "lfo_sync": (234, 446, 255, 467), "lfo2_sync": (473, 446, 494, 467),
            "arp_on@led": (58, 577, 75, 595),
            "osc1_sync": (59, 302, 73, 316), "osc2_sync": (274, 302, 288, 316),
-           "osc1_ring": (237, 302, 249, 316), "osc3_noise": (664, 302, 679, 316)}
+           "osc1_ring": (237, 302, 249, 316), "osc3_noise": (664, 302, 679, 316),
+           "osc2_xmod": (451, 302, 464, 316), "osc3_sync": (488, 302, 502, 316)}
 # LEDs painted unlit in the artwork borrow the lit face of a twin.
-LED_DONOR = {"osc1_ring": "osc1_sync"}
+LED_DONOR = {"osc1_ring": "osc1_sync", "osc2_xmod": "osc1_sync", "osc3_sync": "osc1_sync"}
 # Click areas larger than the LED (LED plus its ENV / SYNC button).
 LED_CLICK = {"osc1_sync": (56, 297, 121, 321), "osc1_ring": (188, 297, 250, 321),
+             "osc2_xmod": (403, 297, 466, 321), "osc3_sync": (486, 297, 551, 321),
              "osc2_sync": (271, 297, 335, 321), "osc3_noise": (618, 297, 681, 321),
              "arp_on@led": (55, 574, 110, 600), "filter_env_on": (1095, 260, 1121, 300), "lfo_sync": (226, 444, 264, 492),
              "lfo2_sync": (464, 444, 502, 492)}
@@ -90,9 +105,6 @@ DETENT_START, DETENT_SWEEP, DETENT_POSITIONS = 180.0, 180.0, 5
 # They are greyed out so working and future controls are easy to tell apart.
 INACTIVE_KNOBS = {
     "seq_gate": (433, 601, 22), "seq_swing": (488, 600, 22),
-    "spread": (405, 767, 24),
-    "global_volume": (1254, 773, 28), "global_balance": (1321, 773, 28),
-    "global_tune": (1429, 770, 22),
 }
 # Drawbar organ panel, in place of the painted modulation matrix.
 DRAWBAR_PANEL = (1104, 368, 1552, 543)
@@ -132,14 +144,8 @@ STATUS_BOX = (1322, 22, 1433, 66)
 
 # Painted buttons, LEDs, selectors and bar graphs with no function yet.
 INACTIVE_AREAS = {
-    "osc2_xmod": (397, 296, 466, 322), "osc3_sync": (482, 296, 557, 322),
     "arp_sync": (207, 638, 252, 672), "sequencer": (270, 568, 756, 684),
-    "performance_tabs": (45, 697, 590, 731),
-"glide_mode": (506, 760, 554, 792),
-    "transpose": (566, 737, 670, 802), "octave": (672, 737, 770, 802),
-"layer_split": (916, 737, 1207, 810),
-    "bend_range": (203, 813, 260, 887), "voices": (1488, 737, 1554, 802),
-    "search": (1211, 23, 1252, 64), "midi_leds": (1266, 38, 1312, 62),
+    "split_tab": (210, 697, 364, 731), "layer_split": (916, 737, 1207, 810),
 }
 
 # Fader banks with no function yet (Filter Env and Mod Env): boxes.
@@ -321,6 +327,11 @@ def clean_artwork(art):
     blank_text(clean, SUBTITLE_BOX)
     blank_text(clean, FILTER_TYPE_TEXT)
     blank_text(clean, ARP_MODE_TEXT)
+    for text_box, _, _ in SPINNERS.values():               # painted "0", "2", "16"
+        blank_text(clean, text_box)
+    blank_text(clean, TUNE_READOUT)
+    x1, y1, x2, y2 = MIDI_LEDS[0][0] - 9, MIDI_LEDS[0][1] - 9, MIDI_LEDS[1][0] + 10, MIDI_LEDS[1][1] + 9
+    blank_text(clean, (x1, y1, x2, y2))                     # painted lit LEDs, drawn live now
     for left, right in ((52, 264), (288, 502)):          # painted LFO wave labels
         blank_text(clean, (left, 404, right, 426))
     drawbar_panel(clean)
@@ -371,6 +382,8 @@ def inactive_mask(size):
         draw.rectangle(box, fill=255)
     for _, (x1, y1, x2, y2) in ARP_BUTTONS.values():
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
+    x1, y1, x2, y2 = GLIDE_CONST_BOX
+    draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     for x1, y1, x2, y2 in VOICE_MODE_BOXES:
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))

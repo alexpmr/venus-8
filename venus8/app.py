@@ -22,6 +22,7 @@ from .synth import ARP_MODES, DEFAULTS, FILTER_TYPES, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
+from .components import SPINNERS, SPINNER_STEPS
 from .display import DISPLAY_MODES, PARAM_LABELS, SWITCH_PARAMS, format_value
 
 def setup_windows_dpi():
@@ -77,6 +78,18 @@ def match_midi_name(saved, names):
         return saved
     base = re.sub(r"\s+\d+$", "", saved or "")
     return next((n for n in names if base and re.sub(r"\s+\d+$", "", n) == base), None)
+
+
+# KEYBOARD tab: how hard the keys must be played (exponent on the velocity).
+VELOCITY_CURVES={"soft":("Suave (toque leve soa forte)",0.6),"normal":("Normal",1.0),
+                 "hard":("Firme (precisa tocar mais forte)",1.6),"fixed":("Fixa (sem velocity)",None)}
+
+
+def velocity_curve(velocity,curve):
+    label,power=VELOCITY_CURVES.get(curve,VELOCITY_CURVES["normal"])
+    if power is None:
+        return 100
+    return max(1,min(127,round(127*(velocity/127)**power)))
 
 
 # Ports that never carry the keys: DAW/remote ports of controllers, virtual
@@ -248,6 +261,9 @@ class App:
     def rect(self, x1, y1, x2, y2, color, outline=None, width=1):
         self.canvas.create_rectangle(*self.bounds(x1, y1, x2, y2), fill=color,
                                      outline=outline or color, width=self.s(width))
+
+    def oval(self, x1, y1, x2, y2, color, outline=None):
+        self.canvas.create_oval(*self.bounds(x1, y1, x2, y2), fill=color, outline=outline or color)
 
     def line(self, *coords, fill=EDGE, width=1):
         pts = []
@@ -652,6 +668,10 @@ class App:
 
     def mouse_wheel(self,event):
         x,y=self.coords(event)
+        for param,(text_box,up,down) in SPINNERS.items():
+            if self.inside(x,y,(text_box[0],text_box[1],up[2],down[3])):
+                self.action(f"spin:{param}:{1 if event.delta>0 else -1}")
+                return
         for ident,(style,x1,y1,x2,y2) in self.controls.items():
             if self.inside(x,y,(x1,y1,x2,y2)):
                 amount=0.125 if style=="drawbar" else 0.02
@@ -683,6 +703,9 @@ class App:
 
     @staticmethod
     def snap(ident,value):
+        if ident in SPINNER_STEPS:
+            steps=SPINNER_STEPS[ident]
+            return round(max(0.0,min(1.0,value))*steps)/steps
         if ident.endswith("_octave"):
             return round(max(0.0,min(1.0,value))*4)/4      # five detented positions
         if ident.startswith("drawbar"):
@@ -710,6 +733,15 @@ class App:
         elif ident.startswith("lfowave"):
             lfo,index=int(ident[7]),int(ident[9])
             self.change("lfo_wave" if lfo==1 else "lfo2_wave",index/3)
+        elif ident.startswith("spin:"):
+            _,param,direction=ident.split(":")
+            self.change(param,self.synth.get_param(param)+int(direction)/SPINNER_STEPS[param])
+        elif ident=="search":
+            self.browse_patches(search=True)
+        elif ident=="keyboard_tab":
+            self.open_keyboard_settings()
+        elif ident=="midi_tab":
+            self.open_settings()
         elif ident=="arp_mode":
             menu=tk.Menu(self.root,tearoff=0)
             for index,name in enumerate(ARP_MODES):
@@ -952,13 +984,14 @@ class App:
     def midi_callback(self,msg):
         """MIDI thread: notes, bend and sustain reach the synth at once (the
         synth is locked); the UI catches up from the queue."""
+        self.midi_activity=time.time()
         played=self.play_midi(msg)
         self.events.put(("midi",msg,played))
 
     def play_midi(self,msg):
         """Sound-only part of a MIDI message; True if it was handled here."""
         if msg.type=="note_on" and msg.velocity:
-            self.synth.note_on(msg.note,msg.velocity)
+            self.synth.note_on(msg.note,velocity_curve(msg.velocity,getattr(self,"settings",{}).get("velocity_curve","normal")))
         elif msg.type=="note_off" or (msg.type=="note_on" and not msg.velocity):
             self.synth.note_off(msg.note)
         elif msg.type=="pitchwheel":
@@ -987,6 +1020,28 @@ class App:
                 self.load_catalog_entry(entries[msg.program % len(entries)])
         elif msg.type=="control_change":
             self.midi_control(msg.control,msg.value)
+
+    def open_keyboard_settings(self):
+        """KEYBOARD tab: velocity response of the controller."""
+        box=tk.Toplevel(self.root)
+        box.title("VENUS-8 — Teclado")
+        box.geometry("420x220")
+        box.configure(bg=PANEL)
+        box.transient(self.root)
+        tk.Label(box,text="TECLADO",bg=PANEL,fg=GOLD,font=("Segoe UI",17,"bold")).pack(pady=12)
+        tk.Label(box,text="Resposta ao toque (velocity)",bg=PANEL,fg=WHITE).pack()
+        keys=list(VELOCITY_CURVES)
+        curve=ttk.Combobox(box,state="readonly",width=36,values=[VELOCITY_CURVES[k][0] for k in keys])
+        current=self.settings.get("velocity_curve","normal")
+        curve.current(keys.index(current) if current in keys else 1)
+        curve.pack(pady=8)
+        tk.Label(box,text="TRANSPOSE, OCTAVE e VOICES ficam na seção Performance.",
+                 bg=PANEL,fg=FADED).pack()
+        def apply():
+            self.settings["velocity_curve"]=keys[curve.current()]
+            self._save_settings()
+            box.destroy()
+        tk.Button(box,text="Aplicar",command=apply).pack(pady=12)
 
     def open_settings(self):
         box=tk.Toplevel(self.root)
@@ -1174,7 +1229,7 @@ class App:
             return
         self.draw()
 
-    def browse_patches(self,default_bank="Todos"):
+    def browse_patches(self,default_bank="Todos",search=False):
         entries=self.catalog()
         window=tk.Toplevel(self.root)
         window.title("VENUS-8 — Browser de timbres")
@@ -1197,6 +1252,12 @@ class App:
                               state="readonly",width=13)
         category.set("Todas")
         category.pack(side="left",padx=6)
+        tk.Label(bar,text="Busca",fg=WHITE,bg=PANEL).pack(side="left",padx=(10,0))
+        query=tk.StringVar()
+        query_box=tk.Entry(bar,textvariable=query,width=16)
+        query_box.pack(side="left",padx=6)
+        if search:
+            query_box.focus_set()
         columns=("bank","category","name")
         table=ttk.Treeview(window,columns=columns,show="headings",selectmode="browse",height=13)
         for key,label,width in (("bank","Banco",110),("category","Categoria",110),("name","Timbre",380)):
@@ -1214,6 +1275,9 @@ class App:
                 if bank.get() != "Todos" and entry["bank"] != bank.get():
                     continue
                 if category.get() != "Todas" and entry["category"] != category.get():
+                    continue
+                words=query.get().strip().lower()
+                if words and words not in f"{entry['name']} {entry['category']} {entry.get('description','')}".lower():
                     continue
                 visible.append(entry)
                 table.insert("", "end", iid=str(len(visible)-1),
@@ -1251,6 +1315,7 @@ class App:
         tk.Button(buttons,text="FECHAR",command=window.destroy).pack(side="right")
         bank.bind("<<ComboboxSelected>>",refresh)
         category.bind("<<ComboboxSelected>>",refresh)
+        query.trace_add("write",refresh)
         table.bind("<<TreeviewSelect>>",show_info)
         table.bind("<Double-1>",load_current)
         table.bind("<Return>",load_current)

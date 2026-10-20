@@ -19,6 +19,8 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          render_lfo_button, VOICE_MODE_BOXES, VOICE_MODE_LABELS,
                          render_mode_button, ARP_MODE_BOX, ARP_MODE_TEXT, ARP_BUTTONS,
                          EXT_W, EXT_KNOBS, EXT_SWITCHES, extend_chassis,
+                         SPINNERS, TUNE_READOUT, GLIDE_CONST_BOX, SEARCH_BOX, MIDI_LEDS,
+                         PANEL_TABS,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -240,6 +242,27 @@ class MockupRenderer:
             self.arp_items[ident] = [canvas.create_image(round(sx), round(sy), image=faces[0],
                                                          anchor="nw"), faces, False]
             app.buttons[f"switch:{ident}"] = box
+        # Value spinners (TRANSPOSE, OCTAVE, BEND RANGE, VOICES) and the tune readout.
+        self.spinner_items = {}
+        for ident, (text_box, up, down) in SPINNERS.items():
+            x1, y1, x2, y2 = text_box
+            self.spinner_items[ident] = canvas.create_text(
+                *app.bounds((x1 + x2) / 2, (y1 + y2) / 2, 0, 0)[:2], text="", fill="#f0ebe2",
+                font=("Segoe UI", max(6, round(15*scale)), "bold"))
+            app.buttons[f"spin:{ident}:1"] = up
+            app.buttons[f"spin:{ident}:-1"] = down
+        x1, y1, x2, y2 = TUNE_READOUT
+        self.tune_item = canvas.create_text(*app.bounds((x1 + x2) / 2, (y1 + y2) / 2, 0, 0)[:2],
+                                            text="", fill="#f0ebe2",
+                                            font=("Segoe UI", max(5, round(9*scale)), "bold"))
+        size_px = (GLIDE_CONST_BOX[2] - GLIDE_CONST_BOX[0], GLIDE_CONST_BOX[3] - GLIDE_CONST_BOX[1])
+        faces = tuple(self.photo(render_mode_button("CONST", lit, size_px, scale)) for lit in (False, True))
+        sx, sy = app.bounds(*GLIDE_CONST_BOX)[:2]
+        self.const_item = [canvas.create_image(round(sx), round(sy), image=faces[0], anchor="nw"),
+                           faces, False]
+        app.buttons["switch:glide_const"] = GLIDE_CONST_BOX
+        app.buttons["search"] = SEARCH_BOX
+        app.buttons.update(PANEL_TABS)
         # Voice mode buttons.
         self.mode_items = {}
         for index, box in enumerate(VOICE_MODE_BOXES):
@@ -361,6 +384,13 @@ class MockupRenderer:
                 entry[2] = lit
         canvas.itemconfigure(self.arp_mode_text,
                              text=ARP_MODES[round(app.synth.get_param("arp_mode") * 4)])
+        for ident, item in self.spinner_items.items():
+            canvas.itemconfigure(item, text=format_value(ident, app.synth.get_param(ident)).split(" ")[0])
+        canvas.itemconfigure(self.tune_item, text=format_value("master_tune", app.synth.get_param("master_tune")))
+        lit = app.synth.get_param("glide_const") >= 0.5
+        if lit != self.const_item[2]:
+            canvas.itemconfigure(self.const_item[0], image=self.const_item[1][lit])
+            self.const_item[2] = lit
         mode = round(app.synth.get_param("voice_mode") * 3)
         for index, entry in self.mode_items.items():
             if (index == mode) != entry[2]:
@@ -394,6 +424,9 @@ class MockupRenderer:
             self.display.tick()
             self.tick_meter()
             self.update_tube()
+            active = time.time() - getattr(self.app, "midi_activity", 0.0) < 0.15
+            if active != getattr(self, "midi_lit", False) and not self.app.midi_held:
+                self.draw_status()
             if getattr(self.app, "update_state", "") == "available":
                 blink = int(time.time() * 2) % 2
                 if blink != getattr(self, "blink", None):
@@ -476,10 +509,14 @@ class MockupRenderer:
         bx1, by1, bx2, by2 = UPDATE_BUTTON
         app.rect(bx1,by1,bx2,by2,face[0],face[1])
         app.text((bx1+bx2)/2,(by1+by2)/2,face[2],7,face[3],bold=True,minimum=4)
-        # MIDI: red when no controller is open, green when connected, cyan while playing.
+        # MIDI LEDs: activity (flashes on every message) and connection
+        # (blue when a controller is open, dim red when not).
         connected = getattr(app, "port", None) is not None
-        app.text(1290,46, "●" if connected else "○", 11,
-                 "#37cbff" if app.midi_held else "#4fd08a" if connected else "#e0574a")
+        active = time.time() - getattr(app, "midi_activity", 0.0) < 0.15 or bool(app.midi_held)
+        self.midi_lit = active
+        for (x, y), colour in zip(MIDI_LEDS, ("#5fd8ff" if active else "#14303c",
+                                              "#3a8dff" if connected else "#5a1a16")):
+            app.oval(x - 4.5, y - 4.5, x + 4.5, y + 4.5, colour)
         # Numerical value appears only while a control is being dragged.
         if app.drag and app.drag[0] in KNOBS:
             x, y, r = KNOBS[app.drag[0]]

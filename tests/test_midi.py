@@ -185,6 +185,29 @@ class LowLatencyTests(unittest.TestCase):
         self.assertEqual(pick_output(outputs, None), outputs[0])
 
 
+class PanelControlTests(unittest.TestCase):
+    def test_spinners_step_and_clamp(self):
+        app = bare_app()
+        app.action("spin:transpose:1")
+        self.assertAlmostEqual(app.synth.get_param("transpose"), 0.5 + 1 / 24)
+        for _ in range(30):
+            app.action("spin:polyphony:-1")
+        self.assertEqual(app.synth.voice_limit, 1)
+        app.action("spin:bend_range:1")
+        self.assertEqual(app.synth.bend_semitones(), 3)
+
+    def test_velocity_curves(self):
+        from venus8.app import velocity_curve
+        self.assertEqual(velocity_curve(64, "normal"), 64)
+        self.assertGreater(velocity_curve(64, "soft"), 64)
+        self.assertLess(velocity_curve(64, "hard"), 64)
+        self.assertEqual(velocity_curve(10, "fixed"), 100)
+        app = bare_app()
+        app.settings["velocity_curve"] = "fixed"
+        app.play_midi(mock.Mock(type="note_on", note=60, velocity=20))
+        self.assertAlmostEqual(app.synth.voices[60]["velocity"], 100 / 127)
+
+
 class VoiceModeButtonTests(unittest.TestCase):
     def test_mode_buttons_switch_and_silence_hanging_notes(self):
         app = bare_app()

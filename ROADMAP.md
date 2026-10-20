@@ -44,6 +44,29 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.27 — Painel completo (etapa 1 do plano)
+
+- ✅ TRANSPOSE (±12 semitons) e OCTAVE (±3) com setas e roda do mouse; valem para todos os sons.
+- ✅ BEND RANGE (1 a 24 semitons) e VOICES (1 a 16 vozes).
+- ✅ GLOBAL: TUNE (A = 430 a 450 Hz, com o valor em Hz), VOLUME e BALANCE. Configurações do instrumento: não mudam ao trocar de timbre.
+- ✅ SPREAD: o UNISON fica estéreo (cópias alternadas para esquerda e direita, cada lado com seu filtro).
+- ✅ CONST no GLIDE: aceso = tempo constante; apagado = taxa constante (saltos maiores levam mais tempo).
+- ✅ X-MOD no OSC2: o OSC2 modula a frequência do OSC1 (estilo Jupiter-8), profundidade no knob FM do OSC2.
+- ✅ SYNC no OSC3: sincroniza com a nota tocada.
+- ✅ LEDs MIDI ao vivo (atividade e conexão), lupa abre o browser com busca por nome, categoria e descrição.
+- ✅ Abas KEYBOARD (curva de velocity: Suave, Normal, Firme, Fixa) e MIDI (abre a configuração).
+- ✅ Testes de transposição, afinação, bend, vozes, globais, spread, balanço, glide, X-MOD, sync, spinners e velocity.
+- [ ] Homologar no Windows real.
+
+## Plano de implementação do ROADMAP (pedido do usuário)
+
+- ✅ Etapa 1 — Painel completo (v0.2.27).
+- [ ] Etapa 2 — Step Sequencer.
+- [ ] Etapa 3 — Split/Layer.
+- [ ] Etapa 4 — Vista 3D com painel traseiro.
+- [ ] Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico.
+- [ ] Etapa 6 — Diálogos vintage, sincronismo com clock MIDI e otimização do motor.
+
 ## v0.2.26 — Controlador reconhecido ao abrir
 
 - ✅ Correção: ao abrir, o app às vezes não reconhecia o controlador. Quando o Windows renumerava as portas, o app abria outra porta (por exemplo a porta DAW "MIDIIN2" do Arturia, que não envia as teclas) e ainda a salvava como escolhida. Agora abre só o controlador salvo (mesmo renumerado) e nunca troca a escolha por outra porta.
@@ -355,7 +378,7 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - ✅ Coarse/Fine Tune e ajuste de oitavas por VCO (v0.2.14).
 - ✅ FM entre osciladores (v0.2.19).
 - ✅ Hard Sync e Ring Mod (v0.2.25).
-- [ ] Cross Mod (X-MOD)
+- ✅ Cross Mod (X-MOD) (v0.2.27).
 - ✅ Suboscillator e ruído (fader NOISE e OSC3 NOISE) (v0.2.25).
 - [ ] Ruído rosa
 - [ ] Mixer individual VCO1–3, Sub e Noise
@@ -365,7 +388,8 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - [ ] Knob de Envelope Amount (hoje fixo em 4,5 oitavas)
 - ✅ Caráter vintage: deriva analógica (VINTAGE) e HPF (v0.2.25).
 - ✅ Envelopes ADSR de amplitude, filtro e modulação (v0.2.22).
-- [ ] Curvas de envelope e resposta a Velocity
+- ✅ Curvas de resposta a Velocity (v0.2.27).
+- [ ] Curvas de envelope
 - ✅ LFO 1/2 com múltiplas ondas, Sample & Hold, Fade e Retrigger (SYNC) (v0.2.22).
 - [ ] Sincronismo dos LFOs por BPM
 
@@ -373,13 +397,13 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 
 - ✅ Modos Mono, Poly, Legato, Unison (v0.2.22).
 - ✅ Unison Detune (v0.2.22).
-- [ ] Stereo Spread
+- ✅ Stereo Spread (v0.2.27).
 - ✅ Glide/Portamento com tempo (v0.2.22).
-- [ ] Modo CONST (tempo constante x taxa)
+- ✅ Modo CONST (tempo constante x taxa) (v0.2.27).
 - [ ] Pitch Bend e Mod Wheel operacionais e sincronizados na interface
 - [ ] Velocity, Channel Pressure, Poly Aftertouch
 - [ ] Voice Allocation/Stealing e prioridades Last/Low/High
-- [ ] Key Tracking, Master Tune e transposição
+- ✅ Key Tracking, Master Tune e transposição (v0.2.27).
 - [ ] Gerenciamento de notas presas, Panic/All Notes Off e consumo por voz
 
 ## v0.4 — MIDI USB e MIDI Learn
