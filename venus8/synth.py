@@ -33,6 +33,9 @@ FM_MAX_INDEX = 10.0               # radians of phase deviation at full amount
 # Electric piano layer (tine model): level, tone (bell/brightness), bark, decay.
 DEFAULTS.update({"ep_level": 0.0, "ep_tone": 0.5, "ep_bark": 0.3, "ep_decay": 0.5})
 EP_SLOT = 4 + len(DRAWBARS)
+# Electric piano models (ep_model 0 / 0.5 / 1): Rhodes-style tines,
+# Wurlitzer-style reeds, and the CP-70-style electric grand.
+EP_MODELS = ("RHODES", "WURLI", "CP-70")
 # Electric grand (CP-70 style): ep_model 1 swaps the tine for struck strings
 # with piezo pickups. Ten stiff-string partials, each with its own phase slot.
 DEFAULTS["ep_model"] = 0.0
@@ -678,6 +681,36 @@ class Synth:
         tone = np.tanh(drive * (tone + 0.2 * p["ep_bark"] * tone * tone)) / np.tanh(drive)
         return tone * (0.3 + 0.7 * velocity) * 1.1
 
+    def _reed_piano(self, voices, freq, t, bend_curve):
+        """Reed electric piano (Wurlitzer style): a struck steel reed read by an
+        electrostatic pickup, so it is nasal and odd-harmonic rich, gets
+        gritty when played hard and dies away sooner than a tine."""
+        p, sr = self.params, self.sample_rate
+        age = np.array([voice.get("age", 0.0) for voice in voices])[:, None] + t / sr
+        velocity = np.array([voice["velocity"] for voice in voices])[:, None]
+        step = (freq / sr)[:, None]
+        start = np.array([voice["phases"][EP_SLOT] for voice in voices])[:, None]
+        if bend_curve is None:
+            ph = start + step * t
+            end = start + step * len(t)
+        else:
+            step = step * bend_curve
+            run = np.cumsum(step, axis=1)
+            ph = start + run - step
+            end = start + run[:, -1:]
+        for voice, phase in zip(voices, (end % 1.0)[:, 0]):
+            voice["phases"][EP_SLOT] = float(phase)
+        angle = 2 * np.pi * ph
+        bright = (0.25 + 0.6 * p["ep_tone"]) * (0.4 + 0.6 * velocity)
+        reed = np.sin(angle) + bright * np.exp(-age / 0.35) * 0.35 * np.sin(3 * angle)
+        strike = 0.12 * velocity * np.exp(-age / 0.012) * np.sin(9 * angle)
+        decay = (0.5 + 3.0 * p["ep_decay"]) * (261.6 / freq)[:, None] ** 0.6
+        tone = (reed + strike) * np.exp(-age / decay)
+        # Electrostatic pickup: asymmetric, harder with velocity and BARK.
+        drive = 1.2 + (1.0 + 5.0 * p["ep_bark"]) * velocity ** 1.5
+        tone = np.tanh(drive * (tone + 0.35 * tone * tone)) / np.tanh(drive)
+        return tone * (0.35 + 0.65 * velocity)
+
     def _electric_grand(self, voices, freq, t, bend_curve):
         """Electric grand (CP-70 style): hammered stiff strings, so partials run
         slightly sharp; upper partials die first; paired strings beat gently;
@@ -1089,8 +1122,8 @@ class Synth:
                             organ[row] += 0.22 * noise * np.exp(-age / 0.0025)
                 keys = np.zeros_like(sound)
                 if p["ep_level"] > 0.0001:
-                    engine = (self._electric_grand if p["ep_model"] >= 0.5
-                              else self._electric_piano)
+                    engine = (self._electric_piano, self._reed_piano,
+                              self._electric_grand)[round(p["ep_model"] * 2)]
                     keys += p["ep_level"] * engine(voices, freq, t, bend_curve)
                 if p["noise_level"] > 0:
                     sound += p["noise_level"] * self.rng.standard_normal(sound.shape) * 0.5

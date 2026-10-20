@@ -44,6 +44,14 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.31 — E.Piano no painel, Wurlitzer e biblioteca de 128 timbres (etapa 5 do plano)
+
+- ✅ Seção E.PIANO na coluna nova: modelo RHODES / WURLI / CP-70 e knobs LEVEL, TONE, BARK e DECAY.
+- ✅ Novo modelo Wurlitzer (palheta): timbre nasal com harmônicos ímpares, "late" quando tocado forte (captador eletrostático) e decaimento mais curto.
+- ✅ Biblioteca Factory com 128 timbres: Wurlitzer, metais, teclados (clavinete, cravo, toy piano), pads, ambient, coro (Choir), acordes de um dedo (Chords), percussão (bumbo, tom, caixa), riser, laser, hoover e mais; volumes equilibrados.
+- ✅ Testes do Wurlitzer, dos três modelos e da biblioteca (128 nomes únicos, novas categorias).
+- [ ] Homologar no Windows real.
+
 ## v0.2.30 — Vista 3D com painel traseiro (etapa 4 do plano)
 
 - ✅ Botão VISTA 3D (no topo, à direita) e atalho F3: abre o Venus-8 como teclado físico, sem parar o som.
@@ -96,7 +104,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Etapa 2 — Step Sequencer (v0.2.28).
 - ✅ Etapa 3 — Split/Layer (v0.2.29).
 - ✅ Etapa 4 — Vista 3D com painel traseiro (v0.2.30).
-- [ ] Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico.
+- ✅ Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico (v0.2.31).
 - [ ] Etapa 6 — Diálogos vintage, sincronismo com clock MIDI e otimização do motor.
 
 ## v0.2.26 — Controlador reconhecido ao abrir
@@ -384,7 +392,7 @@ Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 jan
 
 Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Keys, FX). Meta: uma biblioteca grande, organizada e original.
 
-- [ ] Ampliar para **128 timbres ou mais**, em vários bancos (ex.: Analog Classics, Modern, Cinematic, Performance). Parcial: 52 timbres em 12 categorias na v0.2.16.
+- ✅ Ampliado para **128 timbres** (v0.2.31).
 - ✅ Novas categorias Strings, Pluck, Bells, Organ, E.Piano e Ambient (v0.2.16).
 - [ ] Demais categorias: Sequence/Arp, Synth Brass, Choir/Vox, Chords, Sweeps/Risers, Percussion e Sound FX.
 - [ ] Timbres que aproveitem cada recurso novo à medida que for implementado (envelope de filtro, LFO 2, unison/detune, glide, efeitos, órgão, piano elétrico e válvula).
@@ -587,10 +595,10 @@ Novos motores inspirados no órgão tonewheel (estilo Hammond) e no piano elétr
 
 **Piano elétrico**
 - ✅ Modelo de tine (estilo Rhodes): FM com brilho que decai, "ping" de sino, decaimento natural mais longo nos graves (v0.2.17).
-- [ ] Modelo dedicado de palheta (estilo Wurlitzer); hoje aproximado pelo timbre Reed Piano.
+- ✅ Modelo dedicado de palheta (estilo Wurlitzer) (v0.2.31).
 - ✅ Resposta à velocity com "bark" (brilho e saturação do captador nas notas fortes) (v0.2.17).
 - ✅ Parâmetros internos Tone, Bark, Decay e abafador (damper) ao soltar a tecla (v0.2.17).
-- [ ] Controles visíveis no painel para Tone, Bark e Decay.
+- ✅ Controles visíveis no painel para Tone, Bark e Decay (v0.2.31).
 - [ ] Tremolo estéreo (Rate/Depth) e chorus/phaser integrados.
 - [ ] Ruído mecânico opcional (martelo e abafador).
 
