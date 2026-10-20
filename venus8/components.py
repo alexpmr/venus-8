@@ -813,6 +813,7 @@ def compose_preview(art, values, sliders, pressed=(), scale=1.0):
 # ---- Panel extension (v0.2.25): a column of vintage-synth sections added
 # to the right of the original artwork, which is cut at EXT_CUT and widened.
 EXT_CUT, EXT_W = 1558, 240
+VIEW3D_BUTTON = (1600, 28, 1712, 60)        # "VISTA 3D" in the widened top bar
 EXT_SECTIONS = (("POLY-MOD", (1564, 96, 1792, 330)), ("MODULATION", (1564, 340, 1792, 560)),
                 ("CHARACTER", (1564, 570, 1792, 806)))
 EXT_KNOBS = {"polymod_env": (1620, 180, 22), "polymod_osc": (1736, 180, 22),
@@ -852,6 +853,10 @@ def extend_chassis(clean, art):
         draw.text(((x1 + x2) / 2, y1 + 14), title, font=label_font(13), anchor="mm", fill=(36, 18, 8))
     for _, (x1, y1, x2, y2) in EXT_SWITCHES.values():
         draw.rounded_rectangle((x1, y1, x2, y2), radius=3, fill=(10, 10, 12))
+    x1, y1, x2, y2 = VIEW3D_BUTTON
+    draw.rounded_rectangle(VIEW3D_BUTTON, radius=4, fill=(22, 24, 28), outline=(90, 94, 100))
+    draw.text(((x1 + x2) / 2, (y1 + y2) / 2), "VISTA 3D", font=label_font(13), anchor="mm",
+              fill=(255, 176, 94))
     colours = {"ink": (226, 222, 214), "dim": (140, 138, 134)}
     for x, y, text, size, colour in EXT_LABELS:
         draw.text((x, y), text, font=label_font(size), anchor="mm", fill=colours[colour])

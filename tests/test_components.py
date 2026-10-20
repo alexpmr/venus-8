@@ -246,6 +246,52 @@ class VintageColumnTests(unittest.TestCase):
             self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 5, ident)
 
 
+class View3DTests(unittest.TestCase):
+    def setUp(self):
+        from venus8.view3d import Instrument3D
+        with Image.open("docs/venus-8-mockup.png") as image:
+            self.art = image.convert("RGB")
+        self.model = Instrument3D(Image.new("RGB", (600, 313), (40, 40, 44)), self.art)
+
+    def test_perspective_maps_the_corners(self):
+        from venus8.view3d import _perspective
+        src = ((0, 0), (100, 0), (100, 50), (0, 50))
+        dst = ((10, 20), (210, 30), (200, 140), (5, 120))
+        a, b, c, d, e, f, g, h = _perspective(src, dst)
+        for (x, y), (u, v) in zip(dst, src):
+            w = g * x + h * y + 1
+            self.assertAlmostEqual((a * x + b * y + c) / w, u, places=6)
+            self.assertAlmostEqual((d * x + e * y + f) / w, v, places=6)
+
+    def test_rear_panel_shows_from_behind_only_and_explains_connectors(self):
+        from venus8.view3d import CONNECTORS, REAR_SIZE, rear_panel
+        self.assertEqual(rear_panel().size, REAR_SIZE)
+        self.assertEqual(len({c[0] for c in CONNECTORS}), len(CONNECTORS))
+        front = self.model.render((800, 500), 0, 35)
+        self.assertEqual(front.size, (800, 500))
+        self.assertIsNone(self.model.back_quad)
+        self.model.render((800, 500), 180, 25)
+        quad = self.model.back_quad
+        self.assertIsNotNone(quad)
+        # Point on the projected panel where MIDI IN sits (texture x 1420 of 1840).
+        top = (quad[0][0] + (quad[1][0] - quad[0][0]) * 1420 / 1840,
+               quad[0][1] + (quad[1][1] - quad[0][1]) * 1420 / 1840)
+        bottom = (quad[3][0] + (quad[2][0] - quad[3][0]) * 1420 / 1840,
+                  quad[3][1] + (quad[2][1] - quad[3][1]) * 1420 / 1840)
+        point = (top[0] + (bottom[0] - top[0]) * 0.47, top[1] + (bottom[1] - top[1]) * 0.47)
+        found = self.model.connector_at(*point)
+        self.assertIsNotNone(found)
+        self.assertEqual(found[0], "midi_in")
+        self.assertIsNone(self.model.connector_at(5, 5))
+
+    def test_played_keys_light_up(self):
+        from venus8.view3d import press_keys
+        top = Image.new("RGB", (1840, 959), (0, 0, 0))
+        lit = press_keys(top, {60}, 1.0)
+        self.assertNotEqual(lit.tobytes(), top.tobytes())
+        self.assertIs(press_keys(top, set(), 1.0), top)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)

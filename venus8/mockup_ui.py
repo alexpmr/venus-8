@@ -21,7 +21,7 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          EXT_W, EXT_KNOBS, EXT_SWITCHES, extend_chassis,
                          SPINNERS, TUNE_READOUT, GLIDE_CONST_BOX, SEARCH_BOX, MIDI_LEDS,
                          PANEL_TABS, SEQ_STEP_BOXES, SEQ_REC_BOX, SEQ_INFO, render_step,
-                         PART_SELECTORS, SPLIT_SPINNER, SPLIT_TAB,
+                         PART_SELECTORS, SPLIT_SPINNER, SPLIT_TAB, VIEW3D_BUTTON,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -263,6 +263,7 @@ class MockupRenderer:
                            faces, False]
         app.buttons["switch:glide_const"] = GLIDE_CONST_BOX
         app.buttons["search"] = SEARCH_BOX
+        app.buttons["view3d"] = VIEW3D_BUTTON
         # Layer / Split: patch names, split point.
         self.part_items = {}
         for part, (box, text) in PART_SELECTORS.items():
