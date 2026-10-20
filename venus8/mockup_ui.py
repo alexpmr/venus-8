@@ -18,17 +18,19 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          LED_CLICK, FILTER_TYPE_BOX, FILTER_TYPE_TEXT, LFO_WAVE_BOXES,
                          render_lfo_button, VOICE_MODE_BOXES, VOICE_MODE_LABELS,
                          render_mode_button, ARP_MODE_BOX, ARP_MODE_TEXT, ARP_BUTTONS,
+                         EXT_W, EXT_KNOBS, EXT_SWITCHES, extend_chassis,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
                          render_knob, wave_box)
 from .display import LiveDisplay, format_value
-from .synth import ARP_MODES, FILTER_TYPES
+from .synth import ARP_MODES, CHORUS_TYPES, FILTER_TYPES
 
-ART_W, ART_H = 1600, 959
+ARTWORK_W = 1600                           # the official artwork file
+ART_W, ART_H = ARTWORK_W + EXT_W, 959      # chassis: artwork plus the added vintage column
 
 # Coordinates are in the exact original 1600 x 959 PNG/JPG artwork.
-KNOBS = dict(KNOB_GEOMETRY)
+KNOBS = {**KNOB_GEOMETRY, **EXT_KNOBS}
 # Faders: (slot x, top, bottom) travel of the cap's glowing line.
 SLIDERS = {
     "osc1_level": (722, 171, 276),
@@ -104,6 +106,7 @@ class MockupRenderer:
                     self.original_size = source.size
                     art = source.convert("RGB")
                 self.original, self.caps = clean_artwork(art)
+                self.original = extend_chassis(self.original, art)
                 self.key_sprites = KeySprites(art)
                 self.sprites = panel_sprites(art, self.original)
                 self.meter_level = 0.0
@@ -284,7 +287,7 @@ class MockupRenderer:
                            fill="#c9c4bb", font=("Segoe UI", max(5, round(9*scale)), "bold"))
         # Organ tab switches: lit and unlit faces, toggled by a click.
         self.switch_items = {}
-        for ident, (label, box) in ORGAN_SWITCHES.items():
+        for ident, (label, box) in {**ORGAN_SWITCHES, **EXT_SWITCHES}.items():
             size_px = (box[2] - box[0], box[3] - box[1])
             faces = tuple(self.photo(render_switch(label, lit, size_px, scale))
                           for lit in (False, True))
@@ -371,8 +374,8 @@ class MockupRenderer:
                 entry[2] = lit
         canvas.itemconfigure(self.filter_type_text,
                              text=FILTER_TYPES[round(app.synth.get_param("filter_type") * 3)])
-        flanger = app.synth.get_param("chorus_type") >= 0.5
-        canvas.itemconfigure(self.chorus_title, text="FLANGER" if flanger else "CHORUS")
+        canvas.itemconfigure(self.chorus_title,
+                             text=CHORUS_TYPES[round(app.synth.get_param("chorus_type") * 4)])
         self.update_tube()
         for osc, item in self.fm_items.items():
             on = app.synth.get_param(f"osc{osc}_fm_on") >= 0.5

@@ -44,6 +44,21 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.25 — Síntese vintage: Prophet-5, Minimoog, Jupiter-8 e Juno
+
+- ✅ Painel alargado: nova coluna à direita com as seções POLY-MOD, MODULATION e CHARACTER (a arte original fica intacta à esquerda).
+- ✅ SYNC (hard sync) no OSC1 (segue o OSC2) e no OSC2 (segue o OSC3), no estilo Prophet-5/Jupiter-8.
+- ✅ RING no OSC1 (ring modulator OSC1 × OSC2) e NOISE no OSC3 (o OSC3 vira gerador de ruído).
+- ✅ POLY-MOD (Prophet-5): FILT ENV e OSC B (OSC2) modulam FREQ A (OSC1), PW A e/ou FILTER — inclui o clássico sync sweep.
+- ✅ MODULATION (Minimoog): OSC3 e ruído (MIX) modulam os osciladores (OSC MOD) e/ou o filtro (FILT MOD), com a quantidade na Mod Wheel; OSC3 LO transforma o OSC3 em LFO lento (0,1–25 Hz no TUNE do OSC3).
+- ✅ CHARACTER: VINTAGE (deriva analógica de afinação e de tempo de envelope por voz) e HPF (passa-altas sem ressonância, estilo Jupiter-8/Juno).
+- ✅ Chorus Juno-60/106: modos JUNO I, JUNO II e JUNO I+II, além de CHORUS e FLANGER (clique no título do chorus).
+- ✅ Display (ESTILO) reconhece Juno-60, Prophet-5, Minimoog e Jupiter-8 pelos recursos usados.
+- ✅ 10 timbres novos: Sync Sweep Lead, Poly-Mod Bells, Minimoog Lead, Minimoog Bass, Jupiter Strings, Juno Pad, Juno Strings, Juno Bass, Ring Bell e Noise Sweep (94 timbres).
+- ✅ Testes de sync, ring, noise, poly-mod, modulação Minimoog, vintage, HPF, chorus Juno, painel alargado e independência do tamanho de bloco.
+- [ ] X-MOD do OSC2 e SYNC do OSC3 (ainda apagados).
+- [ ] Homologar no Windows real.
+
 ## v0.2.24 — Baixa latência
 
 - ✅ Notas, pitch bend e sustain do controlador MIDI tocam na hora, direto na thread MIDI; antes esperavam a interface (até 70 ms a mais).
@@ -330,14 +345,16 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - ✅ Ondas sine/saw/triangle/pulse com PW e PWM (v0.2.22).
 - ✅ Coarse/Fine Tune e ajuste de oitavas por VCO (v0.2.14).
 - ✅ FM entre osciladores (v0.2.19).
-- [ ] Oscillator Sync, Hard Sync, Ring Mod e Cross Mod
-- [ ] Suboscillator e ruído branco/rosa
+- ✅ Hard Sync e Ring Mod (v0.2.25).
+- [ ] Cross Mod (X-MOD)
+- ✅ Suboscillator e ruído (fader NOISE e OSC3 NOISE) (v0.2.25).
+- [ ] Ruído rosa
 - [ ] Mixer individual VCO1–3, Sub e Noise
 - ✅ Filtros LP 24, LP 12, BP 12 e HP 12 (v0.2.22).
 - [ ] Filtro Notch
 - ✅ Cutoff, Resonance, Key Tracking e Drive com DSP real (v0.2.22).
 - [ ] Knob de Envelope Amount (hoje fixo em 4,5 oitavas)
-- [ ] Modelos de caráter analógico/vintage
+- ✅ Caráter vintage: deriva analógica (VINTAGE) e HPF (v0.2.25).
 - ✅ Envelopes ADSR de amplitude, filtro e modulação (v0.2.22).
 - [ ] Curvas de envelope e resposta a Velocity
 - ✅ LFO 1/2 com múltiplas ondas, Sample & Hold, Fade e Retrigger (SYNC) (v0.2.22).
@@ -428,7 +445,8 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 ## v0.9 — Efeitos
 
 - ✅ Chorus estéreo (v0.2.21).
-- [ ] Ensemble vintage
+- ✅ Chorus Juno I, II e I+II (v0.2.25).
+- [ ] Ensemble de cordas
 - ✅ Phaser e Flanger (v0.2.21).
 - [ ] Stereo Delay, Tape Delay e sincronismo BPM
 - ✅ Reverb estéreo com Size/Damp/Mix (v0.2.22).

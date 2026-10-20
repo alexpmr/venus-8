@@ -212,6 +212,40 @@ class FilterLfoReverbPanelTests(unittest.TestCase):
             self.assertGreater(lit(on), 5)
 
 
+class VintageColumnTests(unittest.TestCase):
+    def test_widened_chassis_keeps_the_artwork_and_holds_the_new_controls(self):
+        from venus8.components import (EXT_CUT, EXT_KNOBS, EXT_SECTIONS, EXT_SWITCHES, EXT_W,
+                                       extend_chassis)
+        with Image.open("docs/venus-8-mockup.png") as image:
+            art = image.convert("RGB")
+        clean, _ = clean_artwork(art)
+        wide = extend_chassis(clean, art)
+        self.assertEqual(wide.size, (clean.width + EXT_W, clean.height))
+        self.assertEqual(wide.crop((0, 0, EXT_CUT, 959)).tobytes(),
+                         clean.crop((0, 0, EXT_CUT, 959)).tobytes())
+        self.assertEqual(wide.crop((EXT_CUT + EXT_W, 0, wide.width, 959)).tobytes(),
+                         clean.crop((EXT_CUT, 0, clean.width, 959)).tobytes())
+        boxes = [box for _, box in EXT_SWITCHES.values()]
+        boxes += [(x - r, y - r, x + r, y + r) for x, y, r in EXT_KNOBS.values()]
+        for x1, y1, x2, y2 in boxes:
+            self.assertTrue(EXT_CUT <= x1 < x2 <= EXT_CUT + EXT_W)
+            self.assertTrue(any(sx1 <= x1 and x2 <= sx2 and sy1 <= y1 and y2 <= sy2
+                                for _, (sx1, sy1, sx2, sy2) in EXT_SECTIONS))
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1:]:
+                self.assertTrue(a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+    def test_osc_sync_ring_noise_leds_start_unlit(self):
+        from venus8.components import FX_LEDS
+        with Image.open("docs/venus-8-mockup.png") as image:
+            art = image.convert("RGB")
+        clean, _ = clean_artwork(art)
+        sprites = panel_sprites(art, clean)
+        for ident in ("osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise"):
+            self.assertEqual(sum(amber(p) for p in clean.crop(FX_LEDS[ident]).getdata()), 0, ident)
+            self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 10, ident)
+
+
 class SpriteTests(unittest.TestCase):
     def test_knob_rotates_and_lights_with_value(self):
         low, high = render_knob(30, 0.0, 1.0), render_knob(30, 1.0, 1.0)

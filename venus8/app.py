@@ -686,7 +686,8 @@ class App:
                 menu.add_command(label=name,command=lambda v=index/3:self.change("filter_type",v))
             menu.tk_popup(self.root.winfo_pointerx(),self.root.winfo_pointery())
         elif ident=="chorus_type":
-            self.change("chorus_type",0.0 if self.synth.get_param("chorus_type")>=0.5 else 1.0)
+            # Title click: CHORUS -> JUNO I -> JUNO II -> JUNO I+II -> FLANGER -> CHORUS
+            self.change("chorus_type",(round(self.synth.get_param("chorus_type")*4)+1)%5/4)
         elif ident.startswith("switch:"):
             param=ident[7:]
             self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)

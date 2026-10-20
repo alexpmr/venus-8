@@ -567,6 +567,101 @@ class TestSampleRate(unittest.TestCase):
         self.assertGreater(np.abs(audio).max(), 0.01)
 
 
+class TestVintageSynthesis(unittest.TestCase):
+    BASE = {"osc2_level": 0.0, "osc3_level": 0.0, "sub_level": 0.0, "cutoff": 1.0,
+            "resonance": 0.0, "drive": 0.0, "attack": 0.0, "sustain": 1.0}
+
+    def play(self, notes=(57,), frames=16384, block=512, **params):
+        s = Synth()
+        s.load_params(dict(self.BASE, **params))
+        for note in notes:
+            s.note_on(note)
+        return np.concatenate([s.render(block) for _ in range(frames // block)])[:, 0], s
+
+    @staticmethod
+    def spectrum(audio):
+        return np.abs(np.fft.rfft(audio[:16384] * np.hanning(16384)))
+
+    @staticmethod
+    def centroid(audio):
+        spectrum = np.abs(np.fft.rfft(audio[:16384] * np.hanning(16384)))
+        return (spectrum * np.fft.rfftfreq(16384, 1 / 44100)).sum() / spectrum.sum()
+
+    def test_hard_sync_follows_the_master_pitch(self):
+        # OSC1 a fifth above, synced to OSC2: the cycle repeats at OSC2's pitch.
+        synced, _ = self.play(osc1_tune=0.5 + 7 / 24, osc1_sync=1.0)
+        free, _ = self.play(osc1_tune=0.5 + 7 / 24)
+        peak = lambda a: np.argmax(self.spectrum(a)[:400]) * 44100 / 16384
+        self.assertAlmostEqual(peak(free), 330, delta=4)
+        self.assertAlmostEqual(peak(synced), 220, delta=4)
+
+    def test_ring_mod_makes_sum_and_difference(self):
+        ring, _ = self.play(osc1_wave=1.0, osc2_wave=1.0, osc2_tune=0.5 + 7 / 24, osc1_ring=1.0)
+        spec = self.spectrum(ring)
+        bin_ = lambda hz: spec[round(hz * 16384 / 44100) - 2:round(hz * 16384 / 44100) + 3].max()
+        self.assertGreater(bin_(110), 10 * bin_(220))       # 330 - 220 and 330 + 220
+        self.assertGreater(bin_(550), 10 * bin_(220))
+
+    def test_noise_oscillator(self):
+        noise, _ = self.play(osc1_level=0.0, osc3_level=0.8, osc3_noise=1.0)
+        self.assertGreater(self.centroid(noise), 4000)
+
+    def test_poly_mod_sweeps_osc_a(self):
+        plain, _ = self.play(osc1_sync=1.0, filter_env_on=0.0, fenv_attack=0.0,
+                             fenv_decay=0.5, fenv_sustain=0.0)
+        swept, _ = self.play(osc1_sync=1.0, polymod_env=0.8, polymod_freq=1.0,
+                             fenv_attack=0.0, fenv_decay=0.5, fenv_sustain=0.0)
+        self.assertGreater(self.centroid(swept), self.centroid(plain) + 300)
+        growl, _ = self.play(polymod_osc=0.6, polymod_freq=1.0, osc2_tune=0.5 + 3 / 24)
+        self.assertGreater(np.abs(growl - plain).max(), 0.05)
+        filt, _ = self.play(cutoff=0.4, polymod_env=0.8, polymod_filter=1.0, fenv_attack=0.0,
+                            fenv_decay=0.6, fenv_sustain=0.0)
+        closed, _ = self.play(cutoff=0.4)
+        self.assertGreater(self.centroid(filt), self.centroid(closed))
+
+    def test_minimoog_modulation_on_the_wheel(self):
+        still, _ = self.play(moog_osc=1.0, osc3_lo=1.0, osc3_tune=0.6, modwheel=0.0)
+        plain, _ = self.play()
+        np.testing.assert_allclose(still, plain, atol=1e-9)    # wheel down: no modulation
+        trill, _ = self.play(moog_osc=1.0, osc3_lo=1.0, osc3_tune=0.6, modwheel=0.9)
+        self.assertGreater(np.abs(trill - plain).max(), 0.1)
+        wobble, _ = self.play(cutoff=0.45, moog_filter=1.0, moog_mix=1.0, modwheel=0.9)
+        self.assertTrue(np.isfinite(wobble).all())
+
+    def test_vintage_drift_and_hpf(self):
+        tight, _ = self.play(notes=(57, 64))
+        loose, s = self.play(notes=(57, 64), vintage=1.0)
+        self.assertGreater(np.abs(loose - tight).max(), 0.01)
+        seeds = [tuple(v["drift"]) for v in s.voices.values()]
+        self.assertNotEqual(seeds[0], seeds[1])
+        bass, _ = self.play(notes=(33,), hpf=0.0, osc1_wave=1.0)
+        thin, _ = self.play(notes=(33,), hpf=0.7, osc1_wave=1.0)
+        rms = lambda a: float(np.sqrt((a[4096:] ** 2).mean()))
+        self.assertLess(rms(thin), rms(bass) / 3)
+
+    def test_juno_chorus_modes(self):
+        s = Synth()
+        outputs = []
+        for kind in range(5):
+            s = Synth()
+            s.load_params({"chorus_on": 1.0, "chorus_type": kind / 4})
+            s.note_on(60)
+            audio = np.concatenate([s.render(512) for _ in range(30)])
+            self.assertTrue(np.isfinite(audio).all())
+            outputs.append(audio)
+        for kind in (1, 2, 3):                                  # stereo, and distinct
+            self.assertGreater(np.abs(outputs[kind][:, 0] - outputs[kind][:, 1]).max(), 0.005)
+            self.assertGreater(np.abs(outputs[kind] - outputs[0]).max(), 0.01)
+
+    def test_new_features_do_not_depend_on_block_size(self):
+        settings = dict(osc1_sync=1.0, osc1_ring=0.0, polymod_env=0.5, polymod_osc=0.3,
+                        polymod_freq=1.0, polymod_filter=1.0, moog_osc=1.0, osc3_lo=1.0,
+                        modwheel=0.5, hpf=0.3, chorus_on=1.0, chorus_type=0.5, cutoff=0.5)
+        whole, _ = self.play(notes=(48, 55), frames=13230, block=13230, **settings)
+        split, _ = self.play(notes=(48, 55), frames=13230, block=441, **settings)
+        np.testing.assert_allclose(whole, split, atol=1e-5)
+
+
 class TestArpeggiator(unittest.TestCase):
     def run_arp(self, keys=(60, 64, 67), steps=8, block=64, **params):
         s = Synth()

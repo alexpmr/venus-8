@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image
 
 from scripts.create_icon import draw_icon
-from venus8.mockup_ui import ART_W, ART_H, reference_image_path
+from venus8.mockup_ui import ARTWORK_W, ART_H, reference_image_path
 
 
 class TestOfficialArtwork(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestOfficialArtwork(unittest.TestCase):
         artwork=Path("docs/venus-8-mockup.png")
         self.assertTrue(artwork.is_file(),"Original artwork missing")
         with Image.open(artwork) as image:
-            self.assertEqual(image.size,(ART_W,ART_H))
+            self.assertEqual(image.size,(ARTWORK_W,ART_H))
         self.assertEqual(reference_image_path().name, "venus-8-mockup.png")
 
     def test_custom_synthesizer_taskbar_icon(self):
