@@ -55,6 +55,46 @@ class MidiNameTests(unittest.TestCase):
         self.assertIsNone(match_midi_name(None, names))
 
 
+class StartupPortTests(unittest.TestCase):
+    NAMES = ["MIDIIN2 (KeyLab mkII 88) 0", "loopMIDI Port 1", "KeyLab mkII 88 2"]
+
+    def test_pick_saved_renumbered_or_a_keyboard_never_a_stand_in(self):
+        from venus8.app import pick_midi_port
+        self.assertEqual(pick_midi_port("KeyLab mkII 88 0", self.NAMES), "KeyLab mkII 88 2")
+        self.assertEqual(pick_midi_port(None, self.NAMES), "KeyLab mkII 88 2")
+        self.assertIsNone(pick_midi_port("Arturia MiniLab 0", self.NAMES))
+        self.assertEqual(pick_midi_port("loopMIDI Port 0", self.NAMES), "loopMIDI Port 1")
+        # A DAW port saved by an older version moves to the controller's keys.
+        self.assertEqual(pick_midi_port("MIDIIN2 (KeyLab mkII 88) 3", self.NAMES), "KeyLab mkII 88 2")
+
+    def test_startup_with_renumbered_ports_keeps_the_saved_controller(self):
+        fake = FakeMido()
+        fake.names = list(self.NAMES)
+        app = bare_app(saved="KeyLab mkII 88 0")
+        app.midi_devices = list(self.NAMES)
+        with mock.patch.object(app_module, "mido", fake):
+            app.open_midi(app.settings["midi"])
+        self.assertEqual(app.port.name, "KeyLab mkII 88 2")
+        busy = bare_app(saved="Arturia MiniLab 0")
+        busy.midi_devices = list(self.NAMES)
+        with mock.patch.object(app_module, "mido", fake):
+            busy.open_midi(busy.settings["midi"])
+        self.assertIsNone(busy.port)                          # nothing else grabbed
+        self.assertEqual(busy.settings["midi"], "Arturia MiniLab 0")
+        self.assertEqual(busy.midi_error, "não encontrado")
+
+    def test_busy_port_is_reported_and_retried(self):
+        fake = FakeMido()
+        fake.names = ["KeyLab mkII 88 0"]
+        fake.open_input = mock.Mock(side_effect=OSError("MMSYSERR_ALLOCATED"))
+        app = bare_app(saved="KeyLab mkII 88 0")
+        with mock.patch.object(app_module, "mido", fake):
+            app.watch_midi()
+        self.assertIsNone(app.port)
+        self.assertEqual(app.midi_error, "ocupado")
+        self.assertEqual(app.root.after.call_args[0][0], 1000)   # quick retry
+
+
 class MidiWatchdogTests(unittest.TestCase):
     def test_reconnects_after_unplug_and_busy_start(self):
         fake = FakeMido()
