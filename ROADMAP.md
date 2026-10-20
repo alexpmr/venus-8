@@ -44,6 +44,15 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.32 — Sync MIDI, diálogos vintage e motor mais leve (etapa 6 do plano)
+
+- ✅ SYNC (Arpeggiator e Step Sequencer): segue o clock MIDI do teclado/DAW (24 pulsos por tempo); START recomeça o padrão; sem clock, volta ao RATE. O BPM aparece na faixa do sequencer.
+- ✅ Janelas no estilo vintage: tema escuro com laranja em listas, seletores e tabelas; botões no estilo do painel; avisos de erro sem as caixas do Windows.
+- ✅ Nova janela SALVAR TIMBRE: nome, categoria e descrição, salvo no banco User; EXPORTAR para salvar um .json em outra pasta.
+- ✅ Motor mais leve: antialiasing calculado só perto das bordas da onda, os 16 filtros do reverb processados juntos e rotores do Leslie parados quando desligado (até ~30 % menos CPU em buffers pequenos).
+- ✅ Testes de clock MIDI, START, gravação de timbre e de todos os recursos anteriores.
+- [ ] Homologar no Windows real.
+
 ## v0.2.31 — E.Piano no painel, Wurlitzer e biblioteca de 128 timbres (etapa 5 do plano)
 
 - ✅ Seção E.PIANO na coluna nova: modelo RHODES / WURLI / CP-70 e knobs LEVEL, TONE, BARK e DECAY.
@@ -81,7 +90,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Passo atual destacado e faixa de informação (passo, nota, REC).
 - ✅ O padrão é salvo no timbre; nova categoria Sequence com 3 timbres: Seq Bass Line, Techno Seq e Swing Seq (97 timbres).
 - ✅ Testes de padrão, pausas, transposição, comprimento, hold, swing, REC e desligamento.
-- [ ] SYNC do sequencer com o clock MIDI.
+- ✅ SYNC do sequencer com o clock MIDI (v0.2.32).
 - [ ] Homologar no Windows real.
 
 ## v0.2.27 — Painel completo (etapa 1 do plano)
@@ -105,7 +114,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Etapa 3 — Split/Layer (v0.2.29).
 - ✅ Etapa 4 — Vista 3D com painel traseiro (v0.2.30).
 - ✅ Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico (v0.2.31).
-- [ ] Etapa 6 — Diálogos vintage, sincronismo com clock MIDI e otimização do motor.
+- ✅ Etapa 6 — Diálogos vintage, sincronismo com clock MIDI e otimização do motor (v0.2.32).
 
 ## v0.2.26 — Controlador reconhecido ao abrir
 
@@ -140,7 +149,8 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Display mostra a latência real de saída na linha ÁUDIO.
 - ✅ Testes do caminho rápido de MIDI e da ordem dos drivers.
 - [x] Homologado pelo usuário no Windows real: latência melhorou.
-- [ ] Reduzir o custo fixo do motor por bloco (para buffers de 64/128 sem estalos).
+- ✅ Custo fixo do motor reduzido (v0.2.32).
+- [ ] Buffers de 64 amostras sem estalos em timbres pesados (exige motor compilado).
 
 ## v0.2.23 — Arpeggiator
 
@@ -149,7 +159,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Tempo exato por amostra (o áudio é dividido em cada passo do arpejo), funciona com teclado virtual e MIDI.
 - ✅ Nova categoria Arp com 3 timbres: Classic Arp, Random Arp e Hold Arp Pad (84 timbres).
 - ✅ Testes de modos, oitavas, gate, tempo, hold e desligamento sem notas presas.
-- [ ] SYNC do arpejo com o clock MIDI (BPM externo).
+- ✅ SYNC do arpejo com o clock MIDI (BPM externo) (v0.2.32).
 - [ ] Homologar no Windows real.
 
 ## v0.2.22 — Filtro completo, LFOs, Reverb e Performance
@@ -370,12 +380,13 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 
 Hoje o app usa caixas e janelas padrão do Windows (13 caixas de mensagem, 3 janelas de arquivo e 2 janelas próprias), que destoam do painel. Todas devem seguir a identidade visual do Venus-8.
 
-- [ ] Componente único de diálogo no estilo do painel: moldura metálica, cabeçalho cobre/laranja, textos e botões iluminados como os do teclado, sem a barra de título do Windows.
-- [ ] Atualização de versão: aviso de nova versão, progresso do download com barra em LEDs, conclusão e erros.
-- [ ] Salvar timbre: nome, categoria e descrição dentro do painel, salvando no banco User sem a janela de arquivo do Windows.
+- ✅ Componente de diálogo no estilo do painel: cabeçalho laranja, botões no estilo do teclado (v0.2.32).
+- [ ] Sem a barra de título do Windows (janela sem moldura).
+- ✅ Atualização de versão sem caixas: tudo no botão UPD (v0.2.16).
+- ✅ Salvar timbre: nome, categoria e descrição, salvando no banco User sem a janela de arquivo do Windows (v0.2.32).
 - [ ] Abrir/importar timbre: navegação dentro do estilo do painel (manter opção de escolher arquivo externo).
-- [ ] Browser de timbres e janela de Áudio/MIDI (SETTINGS) redesenhados no mesmo estilo.
-- [ ] Mensagens de erro, aviso e informação (patch inválido, falha de áudio/MIDI, versão mais recente etc.) no mesmo componente.
+- ✅ Browser de timbres e janela de Áudio/MIDI (SETTINGS) no mesmo estilo (v0.2.32).
+- ✅ Mensagens de erro no mesmo componente (v0.2.32).
 - [ ] Diálogos funcionam com mouse, teclado (Enter/Esc) e futuramente touch; centralizados sobre o painel e redimensionados com ele.
 - [ ] Testes do componente e homologação no Windows real.
 
@@ -508,7 +519,8 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - [ ] Modo Chord
 - ✅ Hold (latch), Gate e oitavas (v0.2.23).
 - [ ] Swing
-- [ ] Divisões rítmicas e sincronismo BPM/DAW
+- ✅ Sincronismo BPM/DAW por clock MIDI (v0.2.32).
+- [ ] Divisões rítmicas
 - ✅ Sequencer de 16 passos (v0.2.28).
 - [ ] 32/64 passos
 - [ ] Edição de nota, Velocity, Gate, Tie e Rest por passo

@@ -1,6 +1,7 @@
 """Venus-8 v0.2 synthesis core. All note/parameter mutations share one lock."""
 import math
 import threading
+import time
 
 import numpy as np
 
@@ -122,6 +123,9 @@ DEFAULTS.update({"seq_on": 0.0, "seq_rec": 0.0, "seq_steps": 1.0, "seq_gate": 0.
 DEFAULTS.update({f"seq_step{i + 1}": 1.0 for i in range(SEQ_STEPS)})
 DEFAULTS.update({f"seq_note{i + 1}": (n + 24) / 48 for i, n in enumerate(SEQ_DEFAULT)})
 SEQ_ROOT = 60
+# SYNC (arpeggiator and sequencer): follow the tempo of incoming MIDI clock.
+DEFAULTS["clock_sync"] = 0.0
+CLOCK_TIMEOUT = 0.6                    # seconds without clock: back to RATE
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -173,6 +177,7 @@ class Synth:
         self.arp_note, self.arp_index, self.arp_clock = None, 0, 0
         self.arp_gate_left, self.arp_velocity = 0, 100
         self.seq_position, self.seq_rec_position = None, 0
+        self.clock_bpm, self.clock_seen, self.clock_intervals = None, 0.0, []
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -224,41 +229,36 @@ class Synth:
 
     def _reverb(self, left, right):
         """Freeverb-style stereo reverb: 8 damped combs and 4 all-passes per
-        side. Every delay is longer than a block chunk, so chunks run as arrays."""
+        side. The 16 combs run together as one (comb, sample) array; every
+        delay is longer than a chunk, so a chunk only reads what is written."""
         p = self.params
         x = (left + right) * 0.5 * 0.05
         frames = len(x)
         feedback = 0.75 + 0.235 * p["reverb_size"]
         damp = p["reverb_damp"] * 0.4
+        combs = self.reverb_combs
+        rows = combs["rows"]
+        sizes, delays = combs["sizes"][:, None], combs["delays"][:, None]
+        wet = np.empty((len(rows), frames))
+        for start in range(0, frames, combs["shortest"]):
+            chunk = x[start:start + combs["shortest"]]
+            read = (combs["index"][:, None] + np.arange(len(chunk))[None, :]) % sizes
+            delayed = combs["buffer"][rows[:, None], read]
+            previous = np.concatenate((combs["last"][:, None], delayed[:, :-1]), axis=1)
+            filtered = (1.0 - damp) * delayed + damp * previous
+            combs["buffer"][rows[:, None], (read + delays) % sizes] = chunk[None, :] + filtered * feedback
+            combs["last"] = delayed[:, -1].copy()
+            combs["index"] = (combs["index"] + len(chunk)) % combs["sizes"]
+            wet[:, start:start + len(chunk)] = delayed
+        half = len(rows) // 2
         out = []
         for side, lines in enumerate(self.reverb_lines):
-            wet = np.zeros(frames)
-            for c, (buffer, delay) in enumerate(lines["combs"]):
-                wet += self._comb(lines, c, buffer, delay, x, feedback, damp)
+            mixed = wet[side * half:(side + 1) * half].sum(axis=0)
             for a, (buffer, delay) in enumerate(lines["allpasses"]):
-                wet = self._allpass(lines, a, buffer, delay, wet)
-            out.append(wet)
+                mixed = self._allpass(lines, a, buffer, delay, mixed)
+            out.append(mixed)
         mix = p["reverb_mix"]
         return left * (1.0 - 0.5 * mix) + out[0] * mix, right * (1.0 - 0.5 * mix) + out[1] * mix
-
-    @staticmethod
-    def _comb(lines, c, buffer, delay, x, feedback, damp):
-        """Comb with a two-tap damping filter in its loop (block-safe: delay > chunk)."""
-        index = lines["comb_index"][c]
-        size = len(buffer)
-        out = np.empty(len(x))
-        for start in range(0, len(x), delay):
-            chunk = x[start:start + delay]
-            read = (index + np.arange(len(chunk))) % size
-            delayed = buffer[read]
-            previous = np.concatenate(([lines["comb_last"][c]], delayed[:-1]))
-            filtered = (1.0 - damp) * delayed + damp * previous
-            buffer[(read + delay) % size] = chunk + filtered * feedback
-            lines["comb_last"][c] = float(delayed[-1])
-            out[start:start + len(chunk)] = delayed
-            index = (index + len(chunk)) % size
-        lines["comb_index"][c] = index
-        return out
 
     @staticmethod
     def _allpass(lines, a, buffer, delay, x):
@@ -292,15 +292,21 @@ class Synth:
         self.mod_fx_history = np.zeros(int(MOD_FX_HISTORY * self.sample_rate) + 4)
         scale = self.sample_rate / 44100
         self.reverb_lines = []
+        comb_delays = []
         for side in range(2):
             spread = REVERB_SPREAD * side
             combs = [round((d + spread) * scale) for d in REVERB_COMBS]
             allpasses = [round((d + spread) * scale) for d in REVERB_ALLPASSES]
+            comb_delays.extend(combs)
             self.reverb_lines.append({
-                "combs": [(np.zeros(2 * d), d) for d in combs],
                 "allpasses": [(np.zeros(2 * d), d) for d in allpasses],
-                "comb_index": [0] * len(combs), "comb_last": [0.0] * len(combs),
                 "allpass_index": [0] * len(allpasses)})
+        # All 16 combs (8 per side) share one buffer row each, ring size 2 x delay.
+        delays = np.array(comb_delays)
+        self.reverb_combs = {"rows": np.arange(len(delays)), "delays": delays, "sizes": 2 * delays,
+                             "buffer": np.zeros((len(delays), int(2 * delays.max()))),
+                             "index": np.zeros(len(delays), dtype=np.int64),
+                             "last": np.zeros(len(delays)), "shortest": int(delays.min())}
 
     def _reset_organ(self):
         self.scanner_phase = 0.0
@@ -410,7 +416,30 @@ class Synth:
         return round(self.params[f"seq_note{step + 1}"] * 48) - 24
 
     def arp_bpm(self):
+        """Pattern tempo: the MIDI clock while SYNC is on and clock arrives,
+        otherwise the RATE knob (40..240 BPM)."""
+        if self.params["clock_sync"] >= 0.5 and self.clock_bpm is not None:
+            if time.perf_counter() - self.clock_seen < CLOCK_TIMEOUT:
+                return self.clock_bpm
         return 40.0 + 200.0 * self.params["arp_rate"]
+
+    def midi_clock(self, now=None):
+        """One MIDI clock pulse (24 per quarter note): tempo from the average
+        of recent pulse intervals."""
+        now = time.perf_counter() if now is None else now
+        if self.clock_seen and now - self.clock_seen < CLOCK_TIMEOUT:
+            self.clock_intervals = (self.clock_intervals + [now - self.clock_seen])[-24:]
+            average = sum(self.clock_intervals) / len(self.clock_intervals)
+            self.clock_bpm = max(20.0, min(300.0, 60.0 / (average * 24)))
+        else:
+            self.clock_intervals = []
+        self.clock_seen = now
+
+    def midi_start(self):
+        """MIDI Start: patterns restart from their first step."""
+        with self.lock:
+            self.arp_index = 0
+            self.arp_clock = 0
 
     def arp_octaves(self):
         return 1 + round(self.params["arp_oct"] * 3)
@@ -779,11 +808,17 @@ class Synth:
 
     @staticmethod
     def _blep(phase, step):
-        """PolyBLEP residual that rounds off each wrap of a unit-phase ramp."""
-        x = phase / step
-        y = (phase - 1.0) / step
-        return np.where(phase < step, x + x - x*x - 1.0,
-                        np.where(phase > 1.0 - step, y*y + y + y + 1.0, 0.0))
+        """PolyBLEP residual that rounds off each wrap of a unit-phase ramp.
+        Only the samples next to a wrap are computed (a few per cycle)."""
+        step = np.broadcast_to(step, phase.shape)
+        out = np.zeros(phase.shape)
+        low = phase < step
+        x = phase[low] / step[low]
+        out[low] = x + x - x * x - 1.0
+        high = phase > 1.0 - step
+        y = (phase[high] - 1.0) / step[high]
+        out[high] = y * y + y + y + 1.0
+        return out
 
     def _analog(self, voices, freq, t, bend_curve, mod_env, fm_on, lfo, base, fenv):
         """The three oscillators and the sub of every voice, (voice, sample),
@@ -1365,7 +1400,8 @@ class Synth:
         p, sr = self.params, self.sample_rate
         if not (x.any() or self.scanner_history.any() or self.horn_history.any()
                 or self.drum_history.any()):
-            self._spin_rotors(t)
+            if p["leslie"] >= 0.5:
+                self._spin_rotors(t)          # keep the rotors' inertia while silent
             return x, None
         frames = len(x)
         # Scanner vibrato (~6.9 Hz, about ±25 cents); chorus mixes in the dry tone.
