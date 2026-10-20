@@ -44,6 +44,15 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.26 — Controlador reconhecido ao abrir
+
+- ✅ Correção: ao abrir, o app às vezes não reconhecia o controlador. Quando o Windows renumerava as portas, o app abria outra porta (por exemplo a porta DAW "MIDIIN2" do Arturia, que não envia as teclas) e ainda a salvava como escolhida. Agora abre só o controlador salvo (mesmo renumerado) e nunca troca a escolha por outra porta.
+- ✅ Porta DAW salva por versões antigas passa automaticamente para a porta principal do teclado.
+- ✅ Se a porta estiver ocupada, o app tenta de novo a cada segundo e o display mostra "ocupado"; avisa também se outro Venus-8 ainda estiver aberto.
+- ✅ Janela de configuração sem a opção de importar layout.
+- ✅ Testes de escolha de porta na abertura, porta ocupada e migração da porta DAW.
+- [ ] Homologar no Windows real: abrir o app com o Arturia já ligado, sem desplugar.
+
 ## v0.2.25 — Síntese vintage: Prophet-5, Minimoog, Jupiter-8 e Juno
 
 - ✅ Painel alargado: nova coluna à direita com as seções POLY-MOD, MODULATION e CHARACTER (a arte original fica intacta à esquerda).
@@ -67,7 +76,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ SETTINGS: buffer de áudio ajustável (64 a 1024 amostras, com o tempo em ms).
 - ✅ Display mostra a latência real de saída na linha ÁUDIO.
 - ✅ Testes do caminho rápido de MIDI e da ordem dos drivers.
-- [ ] Homologar no Windows real: latência perceptível ao tocar e ausência de estalos com 256 amostras.
+- [x] Homologado pelo usuário no Windows real: latência melhorou.
 - [ ] Reduzir o custo fixo do motor por bloco (para buffers de 64/128 sem estalos).
 
 ## v0.2.23 — Arpeggiator

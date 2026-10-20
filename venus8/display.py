@@ -289,7 +289,12 @@ class LiveDisplay:
     def rows(self):
         app = self.app
         port = getattr(app, "port", None)
-        midi = short(getattr(port, "name", ""), 20) if port is not None else "desconectado"
+        if port is not None:
+            midi = short(getattr(port, "name", ""), 20)
+        elif getattr(app, "other_instances", 0):
+            midi = "outro Venus-8 aberto"
+        else:
+            midi = getattr(app, "midi_error", "") or "desconectado"
         audio = getattr(app, "audio_name", "") or "—"
         rate = app.synth.sample_rate / 1000
         last = getattr(app, "last_param", None)

@@ -79,6 +79,41 @@ def match_midi_name(saved, names):
     return next((n for n in names if base and re.sub(r"\s+\d+$", "", n) == base), None)
 
 
+# Ports that never carry the keys: DAW/remote ports of controllers, virtual
+# cables and the Windows synth. Used only to guess when nothing was chosen.
+NON_KEYBOARD_PORTS=re.compile(r"^(MIDIIN\d|MIDIOUT\d)|DAW|loopMIDI|Microsoft|Through|Wavetable",re.I)
+
+
+def other_instances():
+    """Other running Venus-8 executables (an old one still closing keeps the
+    MIDI port and the audio device busy). Only for the packaged app."""
+    if not getattr(sys,"frozen",False):
+        return 0
+    me=Path(sys.executable).name.lower()
+    try:
+        return sum(1 for proc in psutil.process_iter(["name","pid"])
+                   if (proc.info["name"] or "").lower()==me and proc.info["pid"]!=os.getpid())
+    except Exception:
+        return 0
+
+
+def pick_midi_port(saved,names):
+    """Port to open: the saved controller (even renumbered by Windows); with
+    nothing saved, the first port that looks like a keyboard. Never another
+    port in place of a saved one: it would take over the user's choice."""
+    if saved:
+        # Older versions could save a controller's DAW port ("MIDIIN2 (KeyLab
+        # mkII 88)"), which sends no keys: use the controller's main port.
+        daw=re.match(r"MIDI(?:IN|OUT)\d+\s*\((.*)\)",re.sub(r"\s+\d+$","",saved))
+        if daw:
+            main=next((n for n in names if re.sub(r"\s+\d+$","",n)==daw.group(1).strip()),None)
+            if main:
+                return main
+        return match_midi_name(saved,names)
+    keyboards=[n for n in names if not NON_KEYBOARD_PORTS.search(n)]
+    return (keyboards or names or [None])[0]
+
+
 # Audio buffer sizes offered in SETTINGS; 256 samples is ~5.8 ms at 44.1 kHz.
 BUFFER_SIZES=(64,128,256,512,1024)
 DEFAULT_BUFFER=256
@@ -183,7 +218,7 @@ class App:
         self.scan_devices()
         self.root.after(40, self.poll)
         self.root.after(1200, self.check_update)
-        self.root.after(2000, self.watch_midi)
+        self.root.after(500, self.watch_midi)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.draw()
         self.root.after(50, self.mockup.tick)
@@ -735,6 +770,7 @@ class App:
             self.open_audio(self.settings.get("audio"))
         if not self.port:
             self.open_midi(self.settings.get("midi"))
+        self.other_instances=other_instances()
 
     def open_audio(self,desired=None):
         if self.stream:
@@ -796,13 +832,22 @@ class App:
                 pass
             self.port=None
         if not self.midi_devices:
+            self.midi_error="nenhum teclado"
             return
-        name = name if name in self.midi_devices else self.midi_devices[0]
+        target=pick_midi_port(name,self.midi_devices)
+        if target is None:
+            self.midi_error="não encontrado"
+            return
         try:
-            self.port=mido.open_input(name,callback=self.midi_callback)
-            self.settings["midi"]=name
-            self._save_settings()
+            self.port=mido.open_input(target,callback=self.midi_callback)
+            self.midi_error=""
+            if self.settings.get("midi")!=target:
+                self.settings["midi"]=target
+                self._save_settings()
         except Exception as exc:
+            # Windows MIDI is exclusive: another program (or a Venus-8 still
+            # closing) holds it. The watchdog keeps retrying.
+            self.midi_error="ocupado"
             self.last_midi=f"MIDI ERROR: {exc}"
 
     def watch_midi(self):
@@ -826,14 +871,12 @@ class App:
             changed=True
         self.midi_devices=names
         if self.port is None and names:
-            saved=self.settings.get("midi")
-            target=match_midi_name(saved,names) if saved else names[0]
-            if target:
-                self.open_midi(target)
-                changed=changed or self.port is not None
+            self.open_midi(self.settings.get("midi"))
+            changed=changed or self.port is not None
         if changed:
             self.draw()
-        self.root.after(2000,self.watch_midi)
+        # Retry quickly while the controller is missing or busy.
+        self.root.after(2000 if self.port is not None else 1000,self.watch_midi)
 
     def release_devices(self):
         """Close MIDI and audio so another Venus-8 process can open them."""
@@ -999,33 +1042,6 @@ class App:
                 self.mockup.built_size=None      # rebuild the display in the new look
             box.destroy()
             self.draw()
-        def import_reference():
-            """Use the original 1600px Venus-8 panel without changing any mappings."""
-            filename=filedialog.askopenfilename(parent=box,title="Importar arte oficial do Venus-8",
-                      filetypes=[("Imagem PNG", "*.png"),("Imagem JPEG","*.jpg;*.jpeg")])
-            if not filename:
-                return
-            try:
-                from PIL import Image
-                with Image.open(filename) as img:
-                    if img.width < 1500 or img.height < 850:
-                        raise ValueError("Escolha a arte original em alta resolução (mínimo 1500 × 850).")
-                    if not (1.55 <= img.width/img.height <= 1.80):
-                        raise ValueError("A proporção da imagem não corresponde ao painel aprovado.")
-                    target=self.patch_dir.parent/"assets"/"venus-8-mockup.png"
-                    target.parent.mkdir(parents=True,exist_ok=True)
-                    img.convert("RGB").save(target,format="PNG",optimize=True)
-                self.mockup=MockupRenderer(self)
-                self.draw()
-                self.root.after(50,self.mockup.tick)
-                messagebox.showinfo("Arte do Venus-8","Arte oficial aplicada. Os controles continuam ativos nas mesmas posições.",parent=box)
-            except Exception as exc:
-                messagebox.showerror("Importar painel",str(exc),parent=box)
-
-        tk.Button(box,text="IMPORTAR MOCKUP OFICIAL (ALTA RESOLUÇÃO)",
-                  command=import_reference).pack(pady=(8,3))
-        tk.Label(box,text="Personaliza a aparência; não altera patches nem áudio.",
-                 bg=PANEL,fg=FADED).pack()
         row=tk.Frame(box,bg=PANEL);row.pack(pady=14)
         tk.Button(row,text="Reexaminar dispositivos",command=lambda:(self.scan_devices(),box.destroy(),self.open_settings())).pack(side="left",padx=8)
         tk.Button(row,text="Restaurar MIDI padrão",command=self.reset_midi_map).pack(side="left",padx=8)
