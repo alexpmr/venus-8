@@ -44,6 +44,15 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.29 — Layer / Split (etapa 3 do plano)
+
+- ✅ LAYER/SPLIT ativo: LOWER (LED + seletor de timbre por categoria) liga uma segunda parte com o seu próprio motor; UPPER é o timbre do painel (o LED desliga/liga cada parte).
+- ✅ SPLIT POINT (setas): LAYER (as duas partes em todas as teclas) ou de C1 a C7 (abaixo do ponto toca o LOWER, a partir dele o UPPER).
+- ✅ Pitch bend, sustain, Mod Wheel e as configurações GLOBAL valem para as duas partes; a aba SPLIT/LAYER liga/desliga o LOWER.
+- ✅ O timbre do LOWER e o ponto de divisão ficam salvos (o LOWER começa desligado).
+- ✅ Testes de roteamento por ponto de divisão, camadas, liga/desliga de partes e mixagem do áudio.
+- [ ] Homologar no Windows real.
+
 ## v0.2.28 — Step Sequencer (etapa 2 do plano)
 
 - ✅ STEP SEQUENCER ativo: ON, 16 passos liga/desliga (clique) com a nota de cada passo (roda do mouse sobre o passo: ±1 semitom), STEPS (1 a 16), GATE e SWING.
@@ -73,7 +82,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 
 - ✅ Etapa 1 — Painel completo (v0.2.27).
 - ✅ Etapa 2 — Step Sequencer (v0.2.28).
-- [ ] Etapa 3 — Split/Layer.
+- ✅ Etapa 3 — Split/Layer (v0.2.29).
 - [ ] Etapa 4 — Vista 3D com painel traseiro.
 - [ ] Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico.
 - [ ] Etapa 6 — Diálogos vintage, sincronismo com clock MIDI e otimização do motor.
@@ -505,8 +514,8 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 
 ## v0.10 — Split, Layers e performance
 
-- [ ] Layer de dois timbres, partes Upper/Lower
-- [ ] Split e ponto de divisão configurável
+- ✅ Layer de dois timbres, partes Upper/Lower (v0.2.29).
+- ✅ Split e ponto de divisão configurável (v0.2.29).
 - [ ] Volume, transposição e detune independentes
 - [ ] Faixas de Velocity e crossfade por layer
 - [ ] Zonas e canais MIDI independentes

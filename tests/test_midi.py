@@ -208,6 +208,59 @@ class PanelControlTests(unittest.TestCase):
         self.assertAlmostEqual(app.synth.voices[60]["velocity"], 100 / 127)
 
 
+class LayerSplitTests(unittest.TestCase):
+    def app_with_lower(self, split=None):
+        from venus8.factory_presets import factory_programs
+        app = bare_app()
+        program = factory_programs()[3]
+        app.set_lower({"name": program["name"], "bank": "Factory", "data": program})
+        app.split_note = split
+        return app
+
+    def test_split_routes_keys_by_the_split_point(self):
+        app = self.app_with_lower(split=60)
+        app.key_on(48)
+        app.key_on(72)
+        self.assertEqual(list(app.lower.voices), [48])
+        self.assertEqual(list(app.synth.voices), [72])
+        app.key_off(48)
+        self.assertFalse(app.lower.voices[48]["gate"])
+
+    def test_layer_plays_both_and_parts_can_be_switched_off(self):
+        app = self.app_with_lower(split=None)
+        app.key_on(60)
+        self.assertIn(60, app.lower.voices)
+        self.assertIn(60, app.synth.voices)
+        app.toggle_part("lower")
+        self.assertFalse(app.lower_on)
+        app.key_on(64)
+        self.assertNotIn(64, app.lower.voices)
+        app.toggle_part("lower")
+        app.toggle_part("upper")
+        app.key_on(67)
+        self.assertIn(67, app.lower.voices)
+        self.assertNotIn(67, app.synth.voices)
+
+    def test_split_point_steps_from_layer(self):
+        app = self.app_with_lower()
+        app.step_split(1)
+        self.assertEqual(app.split_note, 24)
+        app.step_split(-5)
+        self.assertIsNone(app.split_note)
+        self.assertIsNone(app.settings["split_note"])
+
+    def test_audio_mixes_both_parts_and_shares_the_wheels(self):
+        import numpy as np
+        app = self.app_with_lower(split=None)
+        app.dsp_load = 0.0
+        app.synth.set_param("modwheel", 0.7)
+        app.key_on(60)
+        out = np.zeros((256, 2), dtype=np.float32)
+        app.audio_callback(out, 256, None, None)
+        self.assertEqual(app.lower.params["modwheel"], 0.7)
+        self.assertGreater(np.abs(out).max(), 0.0)
+
+
 class VoiceModeButtonTests(unittest.TestCase):
     def test_mode_buttons_switch_and_silence_hanging_notes(self):
         app = bare_app()

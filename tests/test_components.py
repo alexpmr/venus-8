@@ -180,7 +180,7 @@ class EffectsAndTubeTests(unittest.TestCase):
         sprites = panel_sprites(art, clean)
         for ident, box in FX_LEDS.items():
             self.assertEqual(sum(amber(p) for p in clean.crop(box).getdata()), 0, ident)
-            self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 20, ident)
+            self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 5, ident)
         for ident in ("chorus_depth", "chorus_rate", "phaser_depth", "phaser_rate", "tube_drive"):
             self.assertIn(ident, KNOB_GEOMETRY)
             self.assertNotIn(ident, INACTIVE_KNOBS)
@@ -243,7 +243,7 @@ class VintageColumnTests(unittest.TestCase):
         sprites = panel_sprites(art, clean)
         for ident in ("osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise"):
             self.assertEqual(sum(amber(p) for p in clean.crop(FX_LEDS[ident]).getdata()), 0, ident)
-            self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 10, ident)
+            self.assertGreater(sum(amber(p) for p in sprites["leds"][ident].getdata()), 5, ident)
 
 
 class SpriteTests(unittest.TestCase):

@@ -49,6 +49,11 @@ SEQ_STEP_BOXES = tuple((round(278 + i * 29.25) + 1, 643, round(278 + (i + 1) * 2
 SEQ_ROW = (274, 638, 750, 676)
 SEQ_REC_BOX = (282, 600, 323, 622)
 SEQ_INFO = (574, 592, 748, 624)
+# Layer / Split: patch selectors (box, painted text) and the split point.
+PART_SELECTORS = {"lower": ((984, 758, 1092, 778), (987, 760, 1075, 776)),
+                  "upper": ((984, 783, 1092, 803), (987, 785, 1075, 801))}
+SPLIT_SPINNER = ((1128, 777, 1170, 799), (1179, 777, 1193, 788), (1179, 789, 1193, 800))
+SPLIT_TAB = (210, 697, 364, 731)
 # Up/down value spinners: (value text box, up arrow, down arrow).
 SPINNERS = {"transpose": ((595, 766, 633, 792), (634, 765, 652, 779), (634, 780, 652, 795)),
             "octave_shift": ((699, 766, 735, 792), (737, 765, 754, 779), (737, 780, 754, 795)),
@@ -79,11 +84,13 @@ FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635)
            "osc1_sync": (59, 302, 73, 316), "osc2_sync": (274, 302, 288, 316),
            "osc1_ring": (237, 302, 249, 316), "osc3_noise": (664, 302, 679, 316),
            "osc2_xmod": (451, 302, 464, 316), "osc3_sync": (488, 302, 502, 316),
-           "seq_on": (280, 573, 298, 592)}
+           "seq_on": (280, 573, 298, 592),
+           "part:lower": (928, 762, 942, 777), "part:upper": (928, 787, 942, 802)}
 # LEDs painted unlit in the artwork borrow the lit face of a twin.
 LED_DONOR = {"osc1_ring": "osc1_sync", "osc2_xmod": "osc1_sync", "osc3_sync": "osc1_sync"}
 # Click areas larger than the LED (LED plus its ENV / SYNC button).
-LED_CLICK = {"seq_on": (277, 570, 332, 596), "osc1_sync": (56, 297, 121, 321), "osc1_ring": (188, 297, 250, 321),
+LED_CLICK = {"part:lower": (924, 759, 981, 780), "part:upper": (924, 784, 981, 805),
+             "seq_on": (277, 570, 332, 596), "osc1_sync": (56, 297, 121, 321), "osc1_ring": (188, 297, 250, 321),
              "osc2_xmod": (403, 297, 466, 321), "osc3_sync": (486, 297, 551, 321),
              "osc2_sync": (271, 297, 335, 321), "osc3_noise": (618, 297, 681, 321),
              "arp_on@led": (55, 574, 110, 600), "filter_env_on": (1095, 260, 1121, 300), "lfo_sync": (226, 444, 264, 492),
@@ -154,7 +161,7 @@ STATUS_BOX = (1322, 22, 1433, 66)
 # Painted buttons, LEDs, selectors and bar graphs with no function yet.
 INACTIVE_AREAS = {
     "arp_sync": (207, 638, 252, 672), "seq_sync": (526, 598, 572, 624),
-    "split_tab": (210, 697, 364, 731), "layer_split": (916, 737, 1207, 810),
+    
 }
 
 # Fader banks with no function yet (Filter Env and Mod Env): boxes.
@@ -336,8 +343,10 @@ def clean_artwork(art):
     blank_text(clean, SUBTITLE_BOX)
     blank_text(clean, FILTER_TYPE_TEXT)
     blank_text(clean, ARP_MODE_TEXT)
-    for text_box, _, _ in SPINNERS.values():               # painted "0", "2", "16"
+    for text_box, _, _ in (*SPINNERS.values(), SPLIT_SPINNER):   # painted "0", "2", "16", "C4"
         blank_text(clean, text_box)
+    for _, text in PART_SELECTORS.values():                 # painted "Init Sound"
+        blank_text(clean, text)
     blank_text(clean, TUNE_READOUT)
     x1, y1, x2, y2 = MIDI_LEDS[0][0] - 9, MIDI_LEDS[0][1] - 9, MIDI_LEDS[1][0] + 10, MIDI_LEDS[1][1] + 9
     blank_text(clean, (x1, y1, x2, y2))                     # painted lit LEDs, drawn live now

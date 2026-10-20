@@ -18,7 +18,7 @@ import psutil
 import sounddevice as sd
 
 from . import __version__
-from .synth import ARP_MODES, DEFAULTS, FILTER_TYPES, WAVES, Synth
+from .synth import ARP_MODES, DEFAULTS, FILTER_TYPES, GLOBAL_PARAMS, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
@@ -216,6 +216,9 @@ class App:
         self.patch_dir.mkdir(parents=True, exist_ok=True)
         self.settings_path = self.patch_dir.parent / "settings.json"
         self.settings = self._load_settings()
+        # Layer / Split: LOWER engine (created on first use), split point.
+        self.lower, self.lower_name, self.lower_on, self.upper_on = None, "", False, True
+        self.split_note = self.settings.get("split_note")
         self.root.bind("<Escape>", lambda e: self.panic())
         self.root.bind("<F11>", self.toggle_fullscreen)
         self.root.bind("<Control-s>", lambda e: self.save_patch())
@@ -232,6 +235,12 @@ class App:
         self.root.after(40, self.poll)
         self.root.after(1200, self.check_update)
         self.root.after(500, self.watch_midi)
+        saved_lower = self.settings.get("lower_patch")
+        if saved_lower:
+            entry = next((e for e in self.catalog() if e["name"] == saved_lower), None)
+            if entry:
+                self.set_lower(entry)
+                self.lower_on = False          # remembered, but starts switched off
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.draw()
         self.root.after(50, self.mockup.tick)
@@ -613,7 +622,7 @@ class App:
         note=self.find_note(x,y)
         if note is not None:
             self.current_mouse_note=note
-            self.synth.note_on(note)
+            self.key_on(note)
             self.draw()
             return
         for ident,box in self.buttons.items():
@@ -634,8 +643,8 @@ class App:
             x,y=self.coords(event)
             next_note=self.find_note(x,y)
             if next_note != self.current_mouse_note and next_note is not None:
-                self.synth.note_off(self.current_mouse_note)
-                self.synth.note_on(next_note)
+                self.key_off(self.current_mouse_note)
+                self.key_on(next_note)
                 self.current_mouse_note=next_note
                 self.draw()
         if self.drag:
@@ -659,7 +668,7 @@ class App:
 
     def mouse_up(self,event):
         if self.current_mouse_note is not None:
-            self.synth.note_off(self.current_mouse_note)
+            self.key_off(self.current_mouse_note)
             self.current_mouse_note=None
         if self.drag is not None and self.drag[0]=="pitch_bend":
             self.synth.set_param("pitch_bend",0.5)
@@ -763,6 +772,14 @@ class App:
         elif ident=="chorus_type":
             # Title click: CHORUS -> JUNO I -> JUNO II -> JUNO I+II -> FLANGER -> CHORUS
             self.change("chorus_type",(round(self.synth.get_param("chorus_type")*4)+1)%5/4)
+        elif ident.startswith("switch:part:"):
+            self.toggle_part(ident.split(":")[2])
+        elif ident=="split_tab":
+            self.toggle_part("lower")
+        elif ident.startswith("split:"):
+            self.step_split(int(ident.split(":")[1]))
+        elif ident.startswith("partmenu:"):
+            self.part_menu(ident.split(":")[1])
         elif ident.startswith("switch:"):
             param=ident[7:]
             self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)
@@ -856,7 +873,16 @@ class App:
             self.underruns=getattr(self,"underruns",0)+1
         started=time.perf_counter()
         try:
-            outdata[:]=self.synth.render(frames)
+            sound=self.synth.render(frames)
+            lower=getattr(self,"lower",None)
+            if lower is not None and self.lower_on:
+                if lower.sample_rate!=self.synth.sample_rate:
+                    lower.set_sample_rate(self.synth.sample_rate)
+                # LOWER follows the instrument-wide settings and the wheels.
+                for name in GLOBAL_PARAMS+("modwheel",):
+                    lower.params[name]=self.synth.params[name]
+                sound=np.clip(sound+lower.render(frames),-0.95,0.95)
+            outdata[:]=sound
         except Exception:
             outdata.fill(0)
         # Engine load (share of the block's time budget) and scope samples.
@@ -905,7 +931,7 @@ class App:
                 pass
             self.port=None
             for note in list(self.midi_held):
-                self.synth.note_off(note)
+                self.key_off(note)
             self.midi_held.clear()
             self.last_midi="MIDI: desconectado"
             changed=True
@@ -999,13 +1025,15 @@ class App:
     def play_midi(self,msg):
         """Sound-only part of a MIDI message; True if it was handled here."""
         if msg.type=="note_on" and msg.velocity:
-            self.synth.note_on(msg.note,velocity_curve(msg.velocity,getattr(self,"settings",{}).get("velocity_curve","normal")))
+            self.key_on(msg.note,velocity_curve(msg.velocity,getattr(self,"settings",{}).get("velocity_curve","normal")))
         elif msg.type=="note_off" or (msg.type=="note_on" and not msg.velocity):
-            self.synth.note_off(msg.note)
+            self.key_off(msg.note)
         elif msg.type=="pitchwheel":
-            self.synth.pitch_bend=msg.pitch/8192*2
+            for part in self.all_parts():
+                part.pitch_bend=msg.pitch/8192*2
         elif msg.type=="control_change" and msg.control==64 and not getattr(self,"learning",None):
-            self.synth.set_sustain(msg.value>=64)
+            for part in self.all_parts():
+                part.set_sustain(msg.value>=64)
         else:
             return False
         return True
@@ -1125,14 +1153,20 @@ class App:
         except Exception as exc:
             messagebox.showerror("Salvar patch",str(exc),parent=self.root)
 
-    def open_patch(self,path):
-        data=json.loads(Path(path).read_text(encoding="utf-8"))
+    @staticmethod
+    def patch_params(data):
+        """Parameters of a saved patch (old formats included)."""
         if not isinstance(data,dict):raise ValueError("Invalid patch")
         params=data.get("params")
         if params is None:
             params={k:v for k,v in data.items() if k in DEFAULTS}
             if data.get("wave") in WAVES:params["osc1_wave"]=WAVES.index(data["wave"])/3
         if not isinstance(params,dict):raise ValueError("Invalid patch parameters")
+        return params
+
+    def open_patch(self,path):
+        data=json.loads(Path(path).read_text(encoding="utf-8"))
+        params=self.patch_params(data)
         self.synth.panic()
         # Parameters added after the patch was saved start from their defaults.
         self.synth.load_params({**DEFAULTS,**{k:v for k,v in params.items() if k in DEFAULTS}})
@@ -1337,7 +1371,91 @@ class App:
                        if entry["identity"]==self.patch_identity),-1)
         self.load_catalog_entry(entries[(selected+direction)%len(entries)])
 
+    # -- Layer / Split ------------------------------------------------------
+    # UPPER is the panel's sound (self.synth); LOWER is a second engine with
+    # its own patch. SPLIT POINT None = layer (both on every key).
+    def parts(self,note=None):
+        """Engines a key plays."""
+        lower=self.lower if getattr(self,"lower",None) is not None and getattr(self,"lower_on",False) else None
+        upper=self.synth if getattr(self,"upper_on",True) or lower is None else None
+        if lower is None:
+            return [self.synth]
+        split=getattr(self,"split_note",None)
+        if split is None or note is None:
+            return [part for part in (upper,lower) if part is not None]
+        if note<split:
+            return [lower]
+        return [upper] if upper is not None else []
+
+    def all_parts(self):
+        lower=getattr(self,"lower",None)
+        return [self.synth]+([lower] if lower is not None else [])
+
+    def key_on(self,note,velocity=100):
+        for part in self.parts(note):
+            part.note_on(note,velocity)
+
+    def key_off(self,note):
+        for part in self.all_parts():      # wherever it was played
+            part.note_off(note)
+
+    def set_lower(self,entry):
+        """Load a patch into LOWER (creating the second engine) and switch it on."""
+        if entry["bank"]=="Factory":
+            params=entry["data"]["params"]
+        else:
+            params=self.patch_params(json.loads(Path(entry["path"]).read_text(encoding="utf-8")))
+        lower=Synth(sample_rate=self.synth.sample_rate)
+        lower.load_params({**DEFAULTS,**{k:v for k,v in params.items() if k in DEFAULTS}})
+        self.lower,self.lower_name,self.lower_on=lower,entry["name"],True
+        self.settings["lower_patch"]=entry["name"]
+        self._save_settings()
+        self.draw()
+
+    def part_menu(self,part):
+        """Patch list by category for LOWER or UPPER."""
+        menu=tk.Menu(self.root,tearoff=0)
+        groups={}
+        for entry in self.catalog():
+            groups.setdefault(entry["category"],[]).append(entry)
+        for category in sorted(groups):
+            sub=tk.Menu(menu,tearoff=0)
+            for entry in groups[category]:
+                command=(lambda e=entry:self.set_lower(e)) if part=="lower" else (lambda e=entry:self.load_catalog_entry(e))
+                sub.add_command(label=entry["name"],command=command)
+            menu.add_cascade(label=category,menu=sub)
+        menu.tk_popup(self.root.winfo_pointerx(),self.root.winfo_pointery())
+
+    def toggle_part(self,part):
+        if part=="lower":
+            if getattr(self,"lower",None) is None:
+                entries=self.catalog()
+                if entries:
+                    self.set_lower(entries[0])
+                return
+            self.lower_on=not self.lower_on
+            if not self.lower_on:
+                self.lower.panic()
+        else:
+            self.upper_on=not getattr(self,"upper_on",True)
+            if not self.upper_on:
+                self.synth.panic()
+        self.draw()
+
+    def step_split(self,direction):
+        """SPLIT POINT: LAYER, then C1..C7 in semitone steps."""
+        points=[None]+list(range(24,97))
+        current=points.index(getattr(self,"split_note",None)) if getattr(self,"split_note",None) in points else 0
+        self.split_note=points[max(0,min(len(points)-1,current+direction))]
+        self.settings["split_note"]=self.split_note
+        self._save_settings()
+        for part in self.all_parts():
+            part.panic()
+        self.draw()
+
     def panic(self):
+        for part in self.all_parts()[1:]:
+            part.panic()
         self.synth.panic()
         self.current_mouse_note=None
         self.midi_held.clear()

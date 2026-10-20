@@ -21,6 +21,7 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          EXT_W, EXT_KNOBS, EXT_SWITCHES, extend_chassis,
                          SPINNERS, TUNE_READOUT, GLIDE_CONST_BOX, SEARCH_BOX, MIDI_LEDS,
                          PANEL_TABS, SEQ_STEP_BOXES, SEQ_REC_BOX, SEQ_INFO, render_step,
+                         PART_SELECTORS, SPLIT_SPINNER, SPLIT_TAB,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -262,6 +263,19 @@ class MockupRenderer:
                            faces, False]
         app.buttons["switch:glide_const"] = GLIDE_CONST_BOX
         app.buttons["search"] = SEARCH_BOX
+        # Layer / Split: patch names, split point.
+        self.part_items = {}
+        for part, (box, text) in PART_SELECTORS.items():
+            self.part_items[part] = canvas.create_text(
+                *app.bounds(text[0] + 3, (text[1] + text[3]) / 2, 0, 0)[:2], text="", anchor="w",
+                fill="#e8e3da", font=("Segoe UI", max(6, round(10*scale)), "normal"))
+            app.buttons[f"partmenu:{part}"] = box
+        text_box, up, down = SPLIT_SPINNER
+        self.split_item = canvas.create_text(
+            *app.bounds((text_box[0] + text_box[2]) / 2, (text_box[1] + text_box[3]) / 2, 0, 0)[:2],
+            text="", fill="#f0ebe2", font=("Segoe UI", max(6, round(13*scale)), "bold"))
+        app.buttons["split:1"], app.buttons["split:-1"] = up, down
+        app.buttons["split_tab"] = SPLIT_TAB
         # Step sequencer: step buttons (faces cached by state), REC and info.
         self.step_items, self.step_faces = [], {}
         for index, box in enumerate(SEQ_STEP_BOXES):
@@ -391,7 +405,11 @@ class MockupRenderer:
                 canvas.itemconfigure(entry[0], image=entry[1][lit])
                 entry[2] = lit
         for ident, item in self.led_items.items():
-            on = app.synth.get_param(ident) >= 0.5
+            if ident.startswith("part:"):
+                on = (getattr(app, "lower", None) is not None and app.lower_on
+                      if ident == "part:lower" else getattr(app, "upper_on", True))
+            else:
+                on = app.synth.get_param(ident) >= 0.5
             canvas.itemconfigure(item, state="normal" if on else "hidden")
         for ident, entry in self.arp_items.items():
             lit = app.synth.get_param(ident) >= 0.5
@@ -404,6 +422,14 @@ class MockupRenderer:
             canvas.itemconfigure(item, text=format_value(ident, app.synth.get_param(ident)).split(" ")[0])
         canvas.itemconfigure(self.tune_item, text=format_value("master_tune", app.synth.get_param("master_tune")))
         self.update_steps()
+        lower = getattr(app, "lower", None)
+        canvas.itemconfigure(self.part_items["lower"],
+                             text=(app.lower_name[:14] if lower is not None else "— escolher —"))
+        canvas.itemconfigure(self.part_items["upper"], text=app.patch_name[:14])
+        split = getattr(app, "split_note", None)
+        names = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        canvas.itemconfigure(self.split_item, text="LAYER" if split is None
+                             else f"{names[split % 12]}{split // 12 - 1}")
         lit = app.synth.get_param("glide_const") >= 0.5
         if lit != self.const_item[2]:
             canvas.itemconfigure(self.const_item[0], image=self.const_item[1][lit])
