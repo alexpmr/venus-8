@@ -108,6 +108,17 @@ DEFAULTS.update({"transpose": 0.5, "octave_shift": 0.5, "bend_range": 1 / 23,
 GLOBAL_PARAMS = ("transpose", "octave_shift", "polyphony", "master_tune", "global_volume",
                  "balance")
 XMOD_SEMITONES = 24.0
+# Step sequencer (v0.2.28): up to 16 steps, each on/off with a note offset
+# (-24..+24 semitones, stored as (n + 24) / 48). Holding a key plays the
+# pattern transposed from C4 (SH-101 style); tempo is the arpeggiator RATE.
+# REC writes the played notes into the steps one after the other.
+SEQ_STEPS = 16
+SEQ_DEFAULT = (0, 0, 12, 0, 7, 0, 10, 12, 0, 0, 12, 0, 7, 3, 5, 7)
+DEFAULTS.update({"seq_on": 0.0, "seq_rec": 0.0, "seq_steps": 1.0, "seq_gate": 0.5,
+                 "seq_swing": 0.0})
+DEFAULTS.update({f"seq_step{i + 1}": 1.0 for i in range(SEQ_STEPS)})
+DEFAULTS.update({f"seq_note{i + 1}": (n + 24) / 48 for i, n in enumerate(SEQ_DEFAULT)})
+SEQ_ROOT = 60
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -158,6 +169,7 @@ class Synth:
         self.arp_keys, self.arp_pressed = [], set()
         self.arp_note, self.arp_index, self.arp_clock = None, 0, 0
         self.arp_gate_left, self.arp_velocity = 0, 100
+        self.seq_position, self.seq_rec_position = None, 0
         self.rng = np.random.default_rng()
         self.delay_buffer = np.zeros(self.sample_rate * 2, dtype=np.float32)
         self.delay_index = 0
@@ -340,9 +352,12 @@ class Synth:
             self.params[name] = value
             # Switching the arpeggiator (or HOLD with no key down) off lets go
             # of the pattern, so no arpeggio note is left hanging.
-            if name == "arp_on" and value < 0.5:
+            if name in ("arp_on", "seq_on") and not self.arp_active:
                 self._arp_stop()
                 self.arp_pressed = set()
+                self.seq_position = None
+            elif name == "seq_rec" and value >= 0.5:
+                self.seq_rec_position = 0
             elif name == "arp_hold" and value < 0.5 and not self.arp_pressed:
                 self._arp_stop()
 
@@ -378,7 +393,18 @@ class Synth:
     # -- arpeggiator ----------------------------------------------------------
     @property
     def arp_active(self):
-        return self.params["arp_on"] >= 0.5
+        """Arpeggiator or step sequencer: both play patterns from held keys."""
+        return self.params["arp_on"] >= 0.5 or self.seq_active
+
+    @property
+    def seq_active(self):
+        return self.params["seq_on"] >= 0.5
+
+    def seq_length(self):
+        return 1 + round(self.params["seq_steps"] * (SEQ_STEPS - 1))
+
+    def seq_note(self, step):
+        return round(self.params[f"seq_note{step + 1}"] * 48) - 24
 
     def arp_bpm(self):
         return 40.0 + 200.0 * self.params["arp_rate"]
@@ -402,9 +428,11 @@ class Synth:
         return up
 
     def _arp_step(self):
-        """Start the next arpeggio note; returns its length in samples."""
-        sequence = self.arp_sequence()
+        """Start the next arpeggio (or sequencer) note; returns the step length."""
         step = max(1, round(self.sample_rate * 60.0 / (self.arp_bpm() * 4)))
+        if self.seq_active:
+            return self._seq_step(step)
+        sequence = self.arp_sequence()
         if self.arp_note is not None:
             self._note_off(self.arp_note)
             self.arp_note = None
@@ -419,10 +447,39 @@ class Synth:
             self.arp_gate_left = max(1, round(step * (0.05 + 0.95 * self.params["arp_gate"])))
         return step
 
+    def _seq_step(self, step):
+        """One sequencer step: the pattern note transposed by the newest key
+        (holding C4 plays the pattern as written);
+        SWING lengthens the on-beat steps and shortens the off-beat ones."""
+        if self.arp_note is not None:
+            self._note_off(self.arp_note)
+            self.arp_note = None
+        position = self.arp_index % self.seq_length()
+        self.seq_position = position
+        self.arp_index += 1
+        swing = 0.5 * self.params["seq_swing"]
+        length = max(1, round(step * (1 + swing if position % 2 == 0 else 1 - swing)))
+        if self.arp_keys and self.params[f"seq_step{position + 1}"] >= 0.5:
+            note = self.arp_keys[-1] + self.seq_note(position)
+            note = max(0, min(127, note))
+            self._note_on(note, self.arp_velocity)
+            self.arp_note = note
+            self.arp_gate_left = max(1, round(length * (0.05 + 0.95 * self.params["seq_gate"])))
+        return length
+
+    def _seq_record(self, note):
+        """REC: the played note goes into the next step (relative to C4)."""
+        position = self.seq_rec_position % self.seq_length()
+        offset = max(-24, min(24, note - SEQ_ROOT))
+        self.params[f"seq_note{position + 1}"] = (offset + 24) / 48
+        self.params[f"seq_step{position + 1}"] = 1.0
+        self.seq_rec_position = position + 1
+
     def _arp_stop(self):
         if self.arp_note is not None:
             self._note_off(self.arp_note)
         self.arp_note = None
+        self.seq_position = None
         self.arp_keys = []
         self.arp_index = 0
         self.arp_clock = 0
@@ -434,6 +491,10 @@ class Synth:
         with self.lock:
             if velocity <= 0:
                 return self.note_off(note)
+            if self.params["seq_rec"] >= 0.5:
+                self._seq_record(note)
+                self._note_on(note, velocity)             # hear what is recorded
+                return
             if self.arp_active:
                 if not self.arp_pressed:          # a fresh chord replaces a held one
                     self.arp_keys = []
@@ -449,6 +510,9 @@ class Synth:
     def note_off(self, note):
         with self.lock:
             note = int(note)
+            if self.params["seq_rec"] >= 0.5:
+                self._note_off(note)
+                return
             if self.arp_active:
                 self.arp_pressed.discard(note)
                 if self.params["arp_hold"] < 0.5:

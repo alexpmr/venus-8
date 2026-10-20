@@ -69,6 +69,10 @@ PARAM_LABELS = {
     "polyphony": "Vozes", "master_tune": "Afinação", "global_volume": "Volume global",
     "balance": "Balanço", "unison_spread": "Spread (unison)", "glide_const": "Glide CONST",
     "osc2_xmod": "X-MOD OSC2", "osc3_sync": "Sync OSC3",
+    "seq_on": "Sequencer", "seq_rec": "Seq REC", "seq_steps": "Passos", "seq_gate": "Seq Gate",
+    "seq_swing": "Swing",
+    **{f"seq_step{i}": f"Passo {i}" for i in range(1, 17)},
+    **{f"seq_note{i}": f"Nota do passo {i}" for i in range(1, 17)},
     "voice_mode": "Modo de voz", "unison_detune": "Detune (unison)", "glide_time": "Glide",
     "arp_on": "Arpeggiator", "arp_mode": "Modo do arpejo", "arp_rate": "Arp Rate",
     "arp_gate": "Arp Gate", "arp_oct": "Arp Oitavas", "arp_hold": "Arp Hold",
@@ -103,7 +107,7 @@ def instrument_style(params, category=""):
     if get("ep_level") > 0.0001:
         layers.append("Yamaha CP-70" if get("ep_model") >= 0.5 else "Fender Rhodes")
     return " + ".join(layers) or "—"
-SWITCH_PARAMS = {"glide_const", "osc2_xmod", "osc3_sync", "osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise", "polymod_freq",
+SWITCH_PARAMS = {"seq_on", "seq_rec", *(f"seq_step{i}" for i in range(1, 17)), "glide_const", "osc2_xmod", "osc3_sync", "osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise", "polymod_freq",
                  "polymod_pw", "polymod_filter", "moog_osc", "moog_filter", "osc3_lo", "arp_on", "arp_hold", "chorus_on", "phaser_on", "reverb_on", "filter_env_on", "lfo_sync",
                  "lfo2_sync", "organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
                  "organ_vibrato", "organ_chorus", "leslie", "leslie_fast",
@@ -119,6 +123,10 @@ def format_value(param, value):
     if param == "filter_type":
         from .synth import FILTER_TYPES
         return FILTER_TYPES[round(value * 3)]
+    if param == "seq_steps":
+        return f"{1 + round(value * 15)} passos"
+    if param.startswith("seq_note"):
+        return f"{round(value * 48) - 24:+d} st"
     if param == "transpose":
         return f"{round((value - 0.5) * 24):+d} st"
     if param == "octave_shift":

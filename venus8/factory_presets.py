@@ -603,8 +603,36 @@ VINTAGE_PROGRAMS = (
         fenv_sustain=0.3, moog_filter=1.0, moog_mix=1.0, attack=0.3, sustain=0.9,
         release=0.6, reverb_on=1.0, reverb_mix=0.35, volume=1.0)),
 )
+# Step sequencer (v0.2.28): hold a key and the pattern plays from it.
+def pattern(notes, rests=()):
+    """16 note offsets and the steps to leave silent (1-based)."""
+    values = {f"seq_note{i + 1}": (n + 24) / 48 for i, n in enumerate(notes)}
+    values.update({f"seq_step{i + 1}": 0.0 if i + 1 in rests else 1.0 for i in range(16)})
+    return values
+
+
+SEQ_PROGRAMS = (
+    ("Seq Bass Line", "Sequence", "Linha de baixo de 16 passos; segure uma tecla grave.", dict(
+        pattern((0, 0, 12, 0, 0, 10, 0, 7, 0, 0, 12, 0, 3, 0, 5, 7), rests=(5, 14)),
+        seq_on=1.0, seq_gate=0.45, arp_rate=0.42, osc1_wave=0.0, osc1_level=0.9,
+        osc2_level=0.4, osc2_octave=0.25, osc3_level=0.0, sub_level=0.3, cutoff=0.28,
+        resonance=0.55, drive=0.4, filter_env_on=1.0, fenv_decay=0.25, fenv_sustain=0.1,
+        attack=0.0, decay=0.3, sustain=0.6, release=0.08, volume=0.6)),
+    ("Techno Seq", "Sequence", "Sequência ácida e hipnótica, com delay.", dict(
+        pattern((0, 12, 0, 15, 0, 12, 10, 0, 0, 12, 0, 7, 0, 12, 3, 0), rests=(4, 9)),
+        seq_on=1.0, seq_gate=0.3, arp_rate=0.55, osc1_wave=0.0, osc1_level=0.9,
+        osc2_level=0.0, osc3_level=0.0, cutoff=0.3, resonance=0.78, drive=0.5,
+        filter_env_on=1.0, fenv_decay=0.2, fenv_sustain=0.0, attack=0.0, sustain=0.5,
+        release=0.05, delay_mix=0.25, delay_time=0.3, volume=0.6)),
+    ("Swing Seq", "Sequence", "Sequência com swing e pluck redondo.", dict(
+        pattern((0, 7, 12, 7, 3, 7, 10, 7, 0, 5, 12, 5, 3, 5, 10, 12)),
+        seq_on=1.0, seq_gate=0.5, seq_swing=0.55, arp_rate=0.3, osc1_wave=1 / 3,
+        osc1_level=0.8, osc2_level=0.0, osc3_level=0.0, osc1_pw=0.3, cutoff=0.5,
+        resonance=0.3, filter_env_on=1.0, fenv_decay=0.3, fenv_sustain=0.0, attack=0.0,
+        decay=0.35, sustain=0.0, release=0.2, reverb_on=1.0, reverb_mix=0.2, volume=0.8)),
+)
 PROGRAMS = (PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
-            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS + VINTAGE_PROGRAMS)
+            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS + VINTAGE_PROGRAMS + SEQ_PROGRAMS)
 
 
 def factory_programs():

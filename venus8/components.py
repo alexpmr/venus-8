@@ -41,13 +41,22 @@ KNOB_GEOMETRY = {
     "arp_rate": (80, 644, 18), "arp_gate": (138, 644, 18), "arp_oct": (189, 645, 15),
     "unison_spread": (403, 769, 19), "global_volume": (1252, 778, 20),
     "balance": (1322, 778, 20), "master_tune": (1429, 773, 14),
+    "seq_gate": (432, 598, 17), "seq_swing": (487, 598, 17),
 }
+# Step sequencer: 16 step buttons, REC (painted STEPS) and the info strip.
+SEQ_STEP_BOXES = tuple((round(278 + i * 29.25) + 1, 643, round(278 + (i + 1) * 29.25) - 2, 671)
+                       for i in range(16))
+SEQ_ROW = (274, 638, 750, 676)
+SEQ_REC_BOX = (282, 600, 323, 622)
+SEQ_INFO = (574, 592, 748, 624)
 # Up/down value spinners: (value text box, up arrow, down arrow).
 SPINNERS = {"transpose": ((595, 766, 633, 792), (634, 765, 652, 779), (634, 780, 652, 795)),
             "octave_shift": ((699, 766, 735, 792), (737, 765, 754, 779), (737, 780, 754, 795)),
             "bend_range": ((209, 852, 236, 879), (238, 852, 254, 865), (238, 866, 254, 879)),
-            "polyphony": ((1496, 769, 1527, 797), (1528, 768, 1545, 782), (1528, 783, 1545, 798))}
-SPINNER_STEPS = {"transpose": 24, "octave_shift": 6, "bend_range": 23, "polyphony": 15}
+            "polyphony": ((1496, 769, 1527, 797), (1528, 768, 1545, 782), (1528, 783, 1545, 798)),
+            "seq_steps": ((350, 594, 377, 622), (378, 595, 394, 607), (378, 608, 394, 621))}
+SPINNER_STEPS = {"transpose": 24, "octave_shift": 6, "bend_range": 23, "polyphony": 15,
+                 "seq_steps": 15}
 TUNE_READOUT = (1401, 794, 1457, 807)
 GLIDE_CONST_BOX = (509, 760, 553, 791)
 SEARCH_BOX = (1216, 25, 1247, 57)
@@ -69,11 +78,12 @@ FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635)
            "arp_on@led": (58, 577, 75, 595),
            "osc1_sync": (59, 302, 73, 316), "osc2_sync": (274, 302, 288, 316),
            "osc1_ring": (237, 302, 249, 316), "osc3_noise": (664, 302, 679, 316),
-           "osc2_xmod": (451, 302, 464, 316), "osc3_sync": (488, 302, 502, 316)}
+           "osc2_xmod": (451, 302, 464, 316), "osc3_sync": (488, 302, 502, 316),
+           "seq_on": (280, 573, 298, 592)}
 # LEDs painted unlit in the artwork borrow the lit face of a twin.
 LED_DONOR = {"osc1_ring": "osc1_sync", "osc2_xmod": "osc1_sync", "osc3_sync": "osc1_sync"}
 # Click areas larger than the LED (LED plus its ENV / SYNC button).
-LED_CLICK = {"osc1_sync": (56, 297, 121, 321), "osc1_ring": (188, 297, 250, 321),
+LED_CLICK = {"seq_on": (277, 570, 332, 596), "osc1_sync": (56, 297, 121, 321), "osc1_ring": (188, 297, 250, 321),
              "osc2_xmod": (403, 297, 466, 321), "osc3_sync": (486, 297, 551, 321),
              "osc2_sync": (271, 297, 335, 321), "osc3_noise": (618, 297, 681, 321),
              "arp_on@led": (55, 574, 110, 600), "filter_env_on": (1095, 260, 1121, 300), "lfo_sync": (226, 444, 264, 492),
@@ -104,7 +114,6 @@ DETENT_START, DETENT_SWEEP, DETENT_POSITIONS = 180.0, 180.0, 5
 # Painted knobs with no function yet: (cx, cy, radius incl. LED ring/scale).
 # They are greyed out so working and future controls are easy to tell apart.
 INACTIVE_KNOBS = {
-    "seq_gate": (433, 601, 22), "seq_swing": (488, 600, 22),
 }
 # Drawbar organ panel, in place of the painted modulation matrix.
 DRAWBAR_PANEL = (1104, 368, 1552, 543)
@@ -144,7 +153,7 @@ STATUS_BOX = (1322, 22, 1433, 66)
 
 # Painted buttons, LEDs, selectors and bar graphs with no function yet.
 INACTIVE_AREAS = {
-    "arp_sync": (207, 638, 252, 672), "sequencer": (270, 568, 756, 684),
+    "arp_sync": (207, 638, 252, 672), "seq_sync": (526, 598, 572, 624),
     "split_tab": (210, 697, 364, 731), "layer_split": (916, 737, 1207, 810),
 }
 
@@ -382,8 +391,8 @@ def inactive_mask(size):
         draw.rectangle(box, fill=255)
     for _, (x1, y1, x2, y2) in ARP_BUTTONS.values():
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
-    x1, y1, x2, y2 = GLIDE_CONST_BOX
-    draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
+    for x1, y1, x2, y2 in (GLIDE_CONST_BOX, SEQ_REC_BOX, SEQ_ROW):
+        draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     for x1, y1, x2, y2 in VOICE_MODE_BOXES:
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     return mask.filter(ImageFilter.GaussianBlur(1.2))
@@ -599,6 +608,28 @@ def render_tube(glow, scale):
 
 
 LFO_LABELS = ("SINE", "TRI", "SAW", "S&H")
+
+
+def render_step(on, playing, note, size, scale):
+    """Sequencer step: amber when on, the playing one ringed in white, with
+    its note offset printed on it."""
+    k = 4
+    w, h = size[0] * k, size[1] * k
+    image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    if on:
+        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(glow).rounded_rectangle((2 * k, 2 * k, w - 2 * k, h - 2 * k), radius=3 * k,
+                                               fill=(255, 120, 30, 170))
+        image = Image.alpha_composite(image, glow.filter(ImageFilter.GaussianBlur(2 * k)))
+    draw = ImageDraw.Draw(image)
+    face = (255, 150, 50, 255) if on else (70, 70, 72, 255)
+    draw.rounded_rectangle((2 * k, 2 * k, w - 3 * k, h - 3 * k), radius=3 * k, fill=face,
+                           outline=(250, 250, 250, 255) if playing else (14, 14, 14, 255),
+                           width=2 * k if playing else k)
+    draw.text((w / 2, h / 2), f"{note:+d}" if note else "0", font=label_font(7 * k), anchor="mm",
+              fill=(50, 22, 4, 255) if on else (170, 170, 170, 255))
+    return image.resize((max(1, round(size[0] * scale)), max(1, round(size[1] * scale))),
+                        Image.Resampling.LANCZOS)
 
 
 def render_mode_button(label, lit, size, scale):
