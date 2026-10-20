@@ -261,6 +261,33 @@ class LayerSplitTests(unittest.TestCase):
         self.assertGreater(np.abs(out).max(), 0.0)
 
 
+class ClockAndSaveTests(unittest.TestCase):
+    def test_clock_messages_reach_the_synth_without_ui_traffic(self):
+        import queue
+        app = bare_app()
+        app.events = queue.Queue()
+        app.midi_callback(mock.Mock(type="clock"))
+        app.midi_callback(mock.Mock(type="clock"))
+        self.assertTrue(app.events.empty())
+        self.assertGreater(app.synth.clock_seen, 0)
+        app.midi_callback(mock.Mock(type="start"))
+        self.assertEqual(app.synth.arp_index, 0)
+
+    def test_write_patch_saves_name_category_and_description(self):
+        import json, tempfile
+        from pathlib import Path
+        app = bare_app()
+        app.patch_name, app.patch_category, app.patch_description = "X", "Bass", "x"
+        app.patch_dirty = True
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "Meu Baixo.json"
+            app.write_patch(path, "Meu Baixo", "Bass", "Gordo")
+            data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual((data["name"], data["category"], data["description"]), ("Meu Baixo", "Bass", "Gordo"))
+        self.assertEqual(app.patch_name, "Meu Baixo")
+        self.assertFalse(app.patch_dirty)
+
+
 class VoiceModeButtonTests(unittest.TestCase):
     def test_mode_buttons_switch_and_silence_hanging_notes(self):
         app = bare_app()

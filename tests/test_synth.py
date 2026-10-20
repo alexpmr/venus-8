@@ -807,6 +807,32 @@ class TestStepSequencer(unittest.TestCase):
         self.assertIsNone(s.seq_position)
 
 
+class TestMidiClockSync(unittest.TestCase):
+    def test_clock_sets_the_pattern_tempo_only_with_sync_on(self):
+        s = Synth()
+        s.set_param("arp_rate", 0.4)                       # 120 BPM on the knob
+        now = 1000.0
+        for _ in range(30):                                # 24 ppqn at 100 BPM
+            now += 60.0 / (100 * 24)
+            s.midi_clock(now)
+        s.clock_seen = __import__("time").perf_counter()
+        self.assertAlmostEqual(s.arp_bpm(), 120.0)
+        s.set_param("clock_sync", 1.0)
+        self.assertAlmostEqual(s.arp_bpm(), 100.0, delta=0.5)
+        s.clock_seen -= 5.0                                # clock stopped
+        self.assertAlmostEqual(s.arp_bpm(), 120.0)
+
+    def test_start_restarts_the_pattern(self):
+        s = Synth()
+        s.load_params({"seq_on": 1.0})
+        s.note_on(60)
+        for _ in range(40):
+            s.render(512)
+        self.assertGreater(s.arp_index, 1)
+        s.midi_start()
+        self.assertEqual(s.arp_index, 0)
+
+
 class TestArpeggiator(unittest.TestCase):
     def run_arp(self, keys=(60, 64, 67), steps=8, block=64, **params):
         s = Synth()

@@ -21,7 +21,7 @@ from .components import (DETENT_KNOBS, DRAWBAR_CAP, DRAWBAR_HEADER, DRAWBAR_STEP
                          EXT_W, EXT_KNOBS, EXT_SWITCHES, EXT_RADIOS, extend_chassis,
                          SPINNERS, TUNE_READOUT, GLIDE_CONST_BOX, SEARCH_BOX, MIDI_LEDS,
                          PANEL_TABS, SEQ_STEP_BOXES, SEQ_REC_BOX, SEQ_INFO, render_step,
-                         PART_SELECTORS, SPLIT_SPINNER, SPLIT_TAB, VIEW3D_BUTTON,
+                         PART_SELECTORS, SPLIT_SPINNER, SPLIT_TAB, VIEW3D_BUTTON, SYNC_BUTTONS,
                          drawbar_length, render_drawbar, METER_ROWS, PAINTED_CAPS, CAP_REACH,
                          STATUS_BOX, WAVE_LEFT, KeySprites, cap_half_width,
                          clean_artwork, keyboard_layout, meter_box, panel_sprites,
@@ -300,6 +300,14 @@ class MockupRenderer:
         self.rec_item = [canvas.create_image(round(sx), round(sy), image=faces[0], anchor="nw"),
                          faces, False]
         app.buttons["switch:seq_rec"] = SEQ_REC_BOX
+        self.sync_items = []
+        for index, box in enumerate(SYNC_BUTTONS):
+            size_px = (box[2] - box[0], box[3] - box[1])
+            faces = tuple(self.photo(render_mode_button("SYNC", lit, size_px, scale)) for lit in (False, True))
+            sx, sy = app.bounds(*box)[:2]
+            self.sync_items.append([canvas.create_image(round(sx), round(sy), image=faces[0], anchor="nw"),
+                                    faces, False])
+            app.buttons[f"switch:clock_sync@{index}"] = box
         x1, y1, x2, y2 = SEQ_INFO
         self.seq_info = canvas.create_text(*app.bounds((x1 + x2) / 2, (y1 + y2) / 2, 0, 0)[:2],
                                            text="", fill="#ffb05e",
@@ -522,6 +530,11 @@ class MockupRenderer:
                         *state, (box[2] - box[0], box[3] - box[1]), app.scale))
                 app.canvas.itemconfigure(entry[0], image=self.step_faces[state])
                 entry[1] = state
+        sync = synth.get_param("clock_sync") >= 0.5
+        for entry in self.sync_items:
+            if sync != entry[2]:
+                app.canvas.itemconfigure(entry[0], image=entry[1][sync])
+                entry[2] = sync
         rec = synth.get_param("seq_rec") >= 0.5
         if rec != self.rec_item[2]:
             app.canvas.itemconfigure(self.rec_item[0], image=self.rec_item[1][rec])
@@ -529,7 +542,7 @@ class MockupRenderer:
         if rec:
             info = f"REC · PASSO {synth.seq_rec_position % length + 1}/{length}"
         elif playing is not None:
-            info = f"PASSO {playing + 1}/{length} · {synth.seq_note(playing):+d} st"
+            info = f"PASSO {playing + 1}/{length} · {synth.seq_note(playing):+d} st · {synth.arp_bpm():.0f} BPM"
         elif synth.seq_active:
             info = f"{length} PASSOS · SEGURE UMA TECLA"
         else:

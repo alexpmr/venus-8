@@ -49,6 +49,8 @@ SEQ_STEP_BOXES = tuple((round(278 + i * 29.25) + 1, 643, round(278 + (i + 1) * 2
 SEQ_ROW = (274, 638, 750, 676)
 SEQ_REC_BOX = (282, 600, 323, 622)
 SEQ_INFO = (574, 592, 748, 624)
+# SYNC buttons of the arpeggiator and the sequencer (both: MIDI clock sync).
+SYNC_BUTTONS = ((211, 644, 247, 667), (528, 600, 570, 622))
 # Layer / Split: patch selectors (box, painted text) and the split point.
 PART_SELECTORS = {"lower": ((984, 758, 1092, 778), (987, 760, 1075, 776)),
                   "upper": ((984, 783, 1092, 803), (987, 785, 1075, 801))}
@@ -160,8 +162,7 @@ STATUS_BOX = (1322, 22, 1433, 66)
 
 # Painted buttons, LEDs, selectors and bar graphs with no function yet.
 INACTIVE_AREAS = {
-    "arp_sync": (207, 638, 252, 672), "seq_sync": (526, 598, 572, 624),
-    
+
 }
 
 # Fader banks with no function yet (Filter Env and Mod Env): boxes.
@@ -400,7 +401,7 @@ def inactive_mask(size):
         draw.rectangle(box, fill=255)
     for _, (x1, y1, x2, y2) in ARP_BUTTONS.values():
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
-    for x1, y1, x2, y2 in (GLIDE_CONST_BOX, SEQ_REC_BOX, SEQ_ROW):
+    for x1, y1, x2, y2 in (GLIDE_CONST_BOX, SEQ_REC_BOX, SEQ_ROW, *SYNC_BUTTONS):
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)
     for x1, y1, x2, y2 in VOICE_MODE_BOXES:
         draw.rectangle((x1 - 3, y1 - 3, x2 + 3, y2 + 3), fill=255)

@@ -159,10 +159,71 @@ def pick_output(devices,desired):
     return devices[0]
 
 
+# Vintage look for every window: dark panel, amber accents, flat keys.
+BUTTON_FACE, BUTTON_PRIMARY, AMBER = "#24272d", "#4a2a10", "#ffb05e"
+
+
+def vbutton(parent,text,command,primary=False):
+    """Button in the style of the panel's keys."""
+    return tk.Button(parent,text=text.upper(),command=command,relief="flat",bd=0,cursor="hand2",
+                     bg=BUTTON_PRIMARY if primary else BUTTON_FACE,fg=AMBER if primary else WHITE,
+                     activebackground="#5a3414" if primary else "#30343b",activeforeground=AMBER,
+                     font=("Segoe UI",10,"bold"),padx=16,pady=6,highlightthickness=1,
+                     highlightbackground="#5a4a38" if primary else EDGE)
+
+
+def apply_vintage_theme(root):
+    """ttk widgets (lists, selectors, tables) in the panel's colours."""
+    style=ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        return
+    style.configure(".",background=PANEL,foreground=WHITE,fieldbackground="#10141a",
+                    bordercolor=EDGE,lightcolor=PANEL2,darkcolor=DARK,troughcolor=DARK)
+    style.configure("TCombobox",fieldbackground="#10141a",background=PANEL2,foreground=WHITE,
+                    arrowcolor=AMBER,selectbackground="#3a2410",selectforeground=AMBER)
+    style.map("TCombobox",fieldbackground=[("readonly","#10141a")],foreground=[("readonly",WHITE)])
+    style.configure("Treeview",background="#10141a",fieldbackground="#10141a",foreground=WHITE,
+                    rowheight=24,bordercolor=EDGE)
+    style.map("Treeview",background=[("selected","#4a2a10")],foreground=[("selected",AMBER)])
+    style.configure("Treeview.Heading",background=PANEL2,foreground=AMBER,relief="flat",
+                    font=("Segoe UI",9,"bold"))
+    style.configure("Vertical.TScrollbar",background=PANEL2,troughcolor=DARK,arrowcolor=AMBER)
+    root.option_add("*TCombobox*Listbox.background","#10141a")
+    root.option_add("*TCombobox*Listbox.foreground",WHITE)
+    root.option_add("*TCombobox*Listbox.selectBackground","#4a2a10")
+    root.option_add("*TCombobox*Listbox.selectForeground",AMBER)
+
+
+def vintage_dialog(root,title,message,buttons=(("OK",None),)):
+    """Message window in the panel's style (replaces the Windows message boxes)."""
+    box=tk.Toplevel(root)
+    box.title(f"VENUS-8 — {title}")
+    box.configure(bg=PANEL,highlightthickness=2,highlightbackground="#5a4a38")
+    box.transient(root)
+    box.resizable(False,False)
+    tk.Label(box,text=title.upper(),bg="#c8702e",fg="#241208",font=("Segoe UI",12,"bold"),
+             pady=6).pack(fill="x")
+    tk.Label(box,text=message,bg=PANEL,fg=WHITE,wraplength=420,justify="left",
+             font=("Segoe UI",10)).pack(padx=22,pady=18)
+    row=tk.Frame(box,bg=PANEL)
+    row.pack(pady=(0,16))
+    for index,(label,command) in enumerate(buttons):
+        def press(command=command):
+            box.destroy()
+            if command:
+                command()
+        vbutton(row,label,press,primary=index==0).pack(side="left",padx=6)
+    box.grab_set()
+    return box
+
+
 class App:
     def __init__(self):
         setup_windows_dpi()
         self.root = tk.Tk()
+        apply_vintage_theme(self.root)
         if sys.platform == "win32":
             icon_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
             ico = icon_root / "assets" / "venus-8.ico"
@@ -1026,6 +1087,14 @@ class App:
     def midi_callback(self,msg):
         """MIDI thread: notes, bend and sustain reach the synth at once (the
         synth is locked); the UI catches up from the queue."""
+        if msg.type=="clock":            # 24 per beat: tempo only, no UI traffic
+            for part in self.all_parts():
+                part.midi_clock()
+            return
+        if msg.type in ("start","continue"):
+            for part in self.all_parts():
+                part.midi_start()
+            return
         self.midi_activity=time.time()
         played=self.play_midi(msg)
         self.events.put(("midi",msg,played))
@@ -1085,7 +1154,7 @@ class App:
             self.settings["velocity_curve"]=keys[curve.current()]
             self._save_settings()
             box.destroy()
-        tk.Button(box,text="Aplicar",command=apply).pack(pady=12)
+        vbutton(box,"Aplicar",apply,primary=True).pack(pady=12)
 
     def open_settings(self):
         box=tk.Toplevel(self.root)
@@ -1142,24 +1211,63 @@ class App:
             box.destroy()
             self.draw()
         row=tk.Frame(box,bg=PANEL);row.pack(pady=14)
-        tk.Button(row,text="Reexaminar dispositivos",command=lambda:(self.scan_devices(),box.destroy(),self.open_settings())).pack(side="left",padx=8)
-        tk.Button(row,text="Restaurar MIDI padrão",command=self.reset_midi_map).pack(side="left",padx=8)
-        tk.Button(row,text="Aplicar",command=apply).pack(side="left",padx=8)
+        vbutton(row,"Reexaminar",lambda:(self.scan_devices(),box.destroy(),self.open_settings())).pack(side="left",padx=6)
+        vbutton(row,"MIDI padrão",self.reset_midi_map).pack(side="left",padx=6)
+        vbutton(row,"Aplicar",apply,primary=True).pack(side="left",padx=6)
 
     def save_patch(self):
-        filename=filedialog.asksaveasfilename(parent=self.root,initialdir=self.patch_dir,
-             initialfile=self.patch_name+".json",defaultextension=".json",filetypes=[("Venus Patch","*.json")])
-        if not filename:return
+        """Vintage save window: name, category and description, saved in the
+        User bank. EXPORTAR still writes a .json anywhere."""
+        box=tk.Toplevel(self.root)
+        box.title("VENUS-8 — Salvar timbre")
+        box.configure(bg=PANEL,highlightthickness=2,highlightbackground="#5a4a38")
+        box.transient(self.root)
+        box.resizable(False,False)
+        tk.Label(box,text="SALVAR TIMBRE",bg="#c8702e",fg="#241208",font=("Segoe UI",12,"bold"),
+                 pady=6).pack(fill="x")
+        form=tk.Frame(box,bg=PANEL)
+        form.pack(padx=22,pady=14)
+        name=tk.StringVar(value=self.patch_name)
+        category=tk.StringVar(value=self.patch_category if self.patch_category not in ("Init","Uncategorized") else "User")
+        description=tk.StringVar(value=self.patch_description)
+        categories=sorted({p["category"] for p in factory_programs()}|{"User"})
+        for row,(label,widget) in enumerate((
+                ("Nome",tk.Entry(form,textvariable=name,width=34,bg="#10141a",fg=WHITE,insertbackground=AMBER)),
+                ("Categoria",ttk.Combobox(form,textvariable=category,values=categories,width=31)),
+                ("Descrição",tk.Entry(form,textvariable=description,width=34,bg="#10141a",fg=WHITE,insertbackground=AMBER)))):
+            tk.Label(form,text=label,bg=PANEL,fg=FADED).grid(row=row,column=0,sticky="w",pady=4,padx=(0,10))
+            widget.grid(row=row,column=1,pady=4)
+        row=tk.Frame(box,bg=PANEL)
+        row.pack(pady=(0,16))
+        def save():
+            title=re.sub(r'[\\/:*?"<>|]+',"",name.get()).strip() or "Sem nome"
+            box.destroy()
+            self.write_patch(self.patch_dir/f"{title}.json",title,category.get() or "User",description.get())
+        def export():
+            box.destroy()
+            filename=filedialog.asksaveasfilename(parent=self.root,initialdir=self.patch_dir,
+                 initialfile=self.patch_name+".json",defaultextension=".json",filetypes=[("Venus Patch","*.json")])
+            if filename:
+                self.write_patch(Path(filename),Path(filename).stem,self.patch_category,self.patch_description)
+        vbutton(row,"Salvar",save,primary=True).pack(side="left",padx=6)
+        vbutton(row,"Exportar…",export).pack(side="left",padx=6)
+        vbutton(row,"Cancelar",box.destroy).pack(side="left",padx=6)
+        box.grab_set()
+        self.root.wait_window(box)
+
+    def write_patch(self,filename,title,category,description):
         try:
-            data={"format":"venus8-patch","schema":2,"name":Path(filename).stem,"category":self.patch_category,"description":self.patch_description,"params":self.synth.snapshot()}
+            data={"format":"venus8-patch","schema":2,"name":title,"category":category,"description":description,"params":self.synth.snapshot()}
             Path(filename).write_text(json.dumps(data,indent=2),encoding="utf-8")
-            self.patch_name=Path(filename).stem
+            self.patch_name=title
             self.patch_bank="User"
-            self.patch_category=self.patch_category if self.patch_category != "Uncategorized" else "User"
+            self.patch_category=category
+            self.patch_description=description
             self.patch_identity=("User",str(Path(filename).resolve()))
             self.patch_dirty=False
         except Exception as exc:
-            messagebox.showerror("Salvar patch",str(exc),parent=self.root)
+            vintage_dialog(self.root,"Salvar timbre",f"Não foi possível salvar: {exc}")
+        self.draw()
 
     @staticmethod
     def patch_params(data):
@@ -1237,7 +1345,7 @@ class App:
             try:
                 self.open_patch(entry["path"])
             except (OSError, ValueError, TypeError, KeyError) as exc:
-                messagebox.showerror("Abrir patch",str(exc),parent=self.root)
+                vintage_dialog(self.root,"Abrir timbre",f"Não foi possível abrir: {exc}")
                 return False
         return True
 
@@ -1356,13 +1464,12 @@ class App:
                 window.destroy()
         buttons=tk.Frame(window,bg=PANEL)
         buttons.pack(fill="x",padx=16,pady=(0,15))
-        tk.Button(buttons,text="CARREGAR TIMBRE",command=load_current,
-                  bg="#b36c3c",fg="white").pack(side="left",padx=4)
+        vbutton(buttons,"Carregar timbre",load_current,primary=True).pack(side="left",padx=4)
         def import_patch():
             window.destroy()
             self.load_patch()
-        tk.Button(buttons,text="IMPORTAR JSON",command=import_patch).pack(side="left",padx=8)
-        tk.Button(buttons,text="FECHAR",command=window.destroy).pack(side="right")
+        vbutton(buttons,"Importar JSON",import_patch).pack(side="left",padx=8)
+        vbutton(buttons,"Fechar",window.destroy).pack(side="right")
         bank.bind("<<ComboboxSelected>>",refresh)
         category.bind("<<ComboboxSelected>>",refresh)
         query.trace_add("write",refresh)
