@@ -53,9 +53,15 @@ VOICE_MODE_LABELS = ("POLY", "MONO", "LEGATO", "UNISON")
 FX_LEDS = {"chorus_on": (866, 613, 890, 635), "phaser_on": (999, 613, 1023, 635),
            "reverb_on": (1318, 613, 1342, 635), "filter_env_on": (1099, 263, 1119, 285),
            "lfo_sync": (234, 446, 255, 467), "lfo2_sync": (473, 446, 494, 467),
-           "arp_on@led": (58, 577, 75, 595)}
+           "arp_on@led": (58, 577, 75, 595),
+           "osc1_sync": (59, 302, 73, 316), "osc2_sync": (274, 302, 288, 316),
+           "osc1_ring": (237, 302, 249, 316), "osc3_noise": (664, 302, 679, 316)}
+# LEDs painted unlit in the artwork borrow the lit face of a twin.
+LED_DONOR = {"osc1_ring": "osc1_sync"}
 # Click areas larger than the LED (LED plus its ENV / SYNC button).
-LED_CLICK = {"arp_on@led": (55, 574, 110, 600), "filter_env_on": (1095, 260, 1121, 300), "lfo_sync": (226, 444, 264, 492),
+LED_CLICK = {"osc1_sync": (56, 297, 121, 321), "osc1_ring": (188, 297, 250, 321),
+             "osc2_sync": (271, 297, 335, 321), "osc3_noise": (618, 297, 681, 321),
+             "arp_on@led": (55, 574, 110, 600), "filter_env_on": (1095, 260, 1121, 300), "lfo_sync": (226, 444, 264, 492),
              "lfo2_sync": (464, 444, 502, 492)}
 # Filter type selector (a dropdown) and its painted text.
 FILTER_TYPE_BOX = (953, 113, 1114, 142)
@@ -126,9 +132,7 @@ STATUS_BOX = (1322, 22, 1433, 66)
 
 # Painted buttons, LEDs, selectors and bar graphs with no function yet.
 INACTIVE_AREAS = {
-    "osc1_sync": (52, 296, 128, 322), "osc1_ring": (182, 296, 250, 322),
-    "osc2_sync": (268, 296, 342, 322), "osc2_xmod": (397, 296, 466, 322),
-    "osc3_sync": (482, 296, 557, 322), "osc3_noise": (611, 296, 680, 322),
+    "osc2_xmod": (397, 296, 466, 322), "osc3_sync": (482, 296, 557, 322),
     "arp_sync": (207, 638, 252, 672), "sequencer": (270, 568, 756, 684),
     "performance_tabs": (45, 697, 590, 731),
 "glide_mode": (506, 760, 554, 792),
@@ -531,7 +535,10 @@ def panel_sprites(art, clean):
         ImageDraw.Draw(lit).rounded_rectangle((1, 1, lum.width - 2, lum.height - 2), radius=3,
                                               outline=(255, 128, 44, 200), width=1)
         fm[osc] = lit
-    leds = {ident: art.crop(box).convert("RGBA") for ident, box in FX_LEDS.items()}
+    leds = {}
+    for ident, box in FX_LEDS.items():
+        donor = FX_LEDS[LED_DONOR.get(ident, ident)]
+        leds[ident] = art.crop(donor).convert("RGBA").resize((box[2] - box[0], box[3] - box[1]))
     return {"waves": waves, "meter": meter, "fm": fm, "leds": leds}
 
 
@@ -748,3 +755,51 @@ def compose_preview(art, values, sliders, pressed=(), scale=1.0):
     if scale != 1.0:
         out = out.resize((round(out.width*scale), round(out.height*scale)), Image.Resampling.LANCZOS)
     return out
+
+
+# ---- Panel extension (v0.2.25): a column of vintage-synth sections added
+# to the right of the original artwork, which is cut at EXT_CUT and widened.
+EXT_CUT, EXT_W = 1558, 240
+EXT_SECTIONS = (("POLY-MOD", (1564, 96, 1792, 330)), ("MODULATION", (1564, 340, 1792, 560)),
+                ("CHARACTER", (1564, 570, 1792, 806)))
+EXT_KNOBS = {"polymod_env": (1620, 180, 22), "polymod_osc": (1736, 180, 22),
+             "moog_mix": (1622, 425, 22), "vintage": (1620, 664, 24), "hpf": (1736, 664, 24)}
+EXT_SWITCHES = {"polymod_freq": ("FREQ A", (1568, 256, 1638, 280)),
+                "polymod_pw": ("PW A", (1643, 256, 1713, 280)),
+                "polymod_filter": ("FILTER", (1718, 256, 1788, 280)),
+                "osc3_lo": ("OSC3 LO", (1694, 412, 1788, 436)),
+                "moog_osc": ("OSC MOD", (1568, 484, 1674, 508)),
+                "moog_filter": ("FILT MOD", (1682, 484, 1788, 508))}
+EXT_LABELS = ((1620, 216, "FILT ENV", 11, "ink"), (1736, 216, "OSC B", 11, "ink"),
+              (1678, 242, "DESTINO", 9, "dim"), (1678, 304, "OSC A = OSC 1   ·   OSC B = OSC 2", 8, "dim"),
+              (1622, 462, "MIX", 11, "ink"), (1584, 446, "OSC3", 8, "dim"), (1662, 446, "NOISE", 8, "dim"),
+              (1741, 446, "LFO LENTO", 8, "dim"), (1678, 534, "QUANTIDADE: MOD WHEEL", 9, "dim"),
+              (1620, 704, "VINTAGE", 11, "ink"), (1736, 704, "HPF", 11, "ink"),
+              (1678, 748, "DERIVA ANALÓGICA  ·  PASSA-ALTAS", 8, "dim"),
+              (1678, 768, "INSPIRADO EM MINIMOOG, PROPHET-5,", 8, "dim"),
+              (1678, 784, "JUPITER-8 E JUNO", 8, "dim"))
+
+
+def extend_chassis(clean, art):
+    """Widen the chassis by EXT_W at EXT_CUT and draw the new sections there.
+    Everything left of the cut keeps its coordinates."""
+    width, height = clean.size
+    wide = Image.new("RGB", (width + EXT_W, height))
+    wide.paste(clean.crop((0, 0, EXT_CUT, height)), (0, 0))
+    wide.paste(clean.crop((EXT_CUT, 0, width, height)), (EXT_CUT + EXT_W, 0))
+    # The strip continues the top bar, the panel frame and the key cheek.
+    column = clean.crop((EXT_CUT - 2, 0, EXT_CUT - 1, height)).resize((EXT_W, height))
+    wide.paste(column, (EXT_CUT, 0))
+    draw = ImageDraw.Draw(wide)
+    header = tuple(int(v) for v in np.median(np.asarray(art.crop(DRAWBAR_HEADER)).reshape(-1, 3), axis=0))
+    draw.rectangle((EXT_CUT, 88, EXT_CUT + EXT_W - 1, 812), fill=(12, 12, 14))
+    for title, (x1, y1, x2, y2) in EXT_SECTIONS:
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=6, fill=(24, 25, 28), outline=(56, 58, 62))
+        draw.rounded_rectangle((x1 + 6, y1 + 4, x2 - 6, y1 + 24), radius=3, fill=header)
+        draw.text(((x1 + x2) / 2, y1 + 14), title, font=label_font(13), anchor="mm", fill=(36, 18, 8))
+    for _, (x1, y1, x2, y2) in EXT_SWITCHES.values():
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=3, fill=(10, 10, 12))
+    colours = {"ink": (226, 222, 214), "dim": (140, 138, 134)}
+    for x, y, text, size, colour in EXT_LABELS:
+        draw.text((x, y), text, font=label_font(size), anchor="mm", fill=colours[colour])
+    return wide

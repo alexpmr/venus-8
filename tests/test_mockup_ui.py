@@ -4,7 +4,10 @@ from venus8.mockup_ui import ART_W, ART_H, KNOBS, SLIDERS, BUTTONS
 
 class MockupLayoutTests(unittest.TestCase):
     def test_reference_resolution(self):
-        self.assertEqual((ART_W, ART_H), (1600, 959))
+        from venus8.mockup_ui import ARTWORK_W
+        from venus8.components import EXT_W
+        self.assertEqual((ARTWORK_W, ART_H), (1600, 959))
+        self.assertEqual(ART_W, 1600 + EXT_W)          # widened for the vintage column
 
     def test_control_hotspots_cover_supported_synth_parameters(self):
         for ident in ("osc1_tune", "osc2_tune", "osc3_tune",

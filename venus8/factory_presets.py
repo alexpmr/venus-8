@@ -548,8 +548,63 @@ ARP_PROGRAMS = (
         "resonance": 0.2, "attack": 0.05, "decay": 0.4, "sustain": 0.7, "release": 0.4,
         "chorus_on": 1.0, "reverb_on": 1.0, "reverb_mix": 0.35, "volume": 0.6}),
 )
+# Vintage synthesis (v0.2.25): sync, ring, poly-mod, Minimoog modulation,
+# drift, HPF and the Juno chorus. Original settings in the spirit of the classics.
+SAWS = {"osc1_wave": 0.0, "osc2_wave": 0.0, "osc3_wave": 0.0}
+VINTAGE_PROGRAMS = (
+    ("Sync Sweep Lead", "Lead", "Sync clássico: o envelope varre o OSC A sincronizado (estilo Prophet).", dict(
+        SAWS, osc1_level=0.85, osc2_level=0.35, osc3_level=0.0, sub_level=0.0, osc1_tune=0.5 + 7 / 24,
+        osc1_sync=1.0, polymod_env=0.7, polymod_freq=1.0, fenv_attack=0.0, fenv_decay=0.55,
+        fenv_sustain=0.2, cutoff=0.7, resonance=0.2, drive=0.35, attack=0.0, sustain=0.9,
+        release=0.2, voice_mode=1 / 3, glide_time=0.12, volume=0.5)),
+    ("Poly-Mod Bells", "Bells", "OSC B modula o OSC A em áudio: sinos metálicos (Poly-Mod).", dict(
+        osc1_wave=2 / 3, osc2_wave=1.0, osc1_level=0.8, osc2_level=0.0, osc3_level=0.0,
+        sub_level=0.0, osc2_tune=0.5 + 5 / 24, osc2_octave=0.75, polymod_osc=0.55,
+        polymod_freq=1.0, cutoff=0.75, attack=0.0, decay=0.65, sustain=0.0, release=0.6,
+        reverb_on=1.0, reverb_mix=0.3, volume=0.95)),
+    ("Minimoog Lead", "Lead", "Três serras, glide e vibrato na Mod Wheel pelo OSC3 lento.", dict(
+        SAWS, osc1_level=0.8, osc2_level=0.7, osc3_level=0.0, osc2_tune=0.505, sub_level=0.3,
+        osc3_lo=1.0, osc3_tune=0.73, moog_osc=1.0, cutoff=0.5, resonance=0.35, drive=0.45,
+        filter_env_on=1.0, fenv_attack=0.0, fenv_decay=0.45, fenv_sustain=0.45,
+        voice_mode=2 / 3, glide_time=0.15, attack=0.0, sustain=0.95, release=0.15,
+        vintage=0.35, volume=0.42)),
+    ("Minimoog Bass", "Bass", "Baixo mono gordo: oitavas, filtro com envelope e drive.", dict(
+        SAWS, osc1_level=0.85, osc2_level=0.7, osc2_octave=0.25, osc3_level=0.5,
+        osc3_wave=1 / 3, osc3_octave=0.25, osc3_tune=0.497, cutoff=0.25, resonance=0.3,
+        drive=0.55, filter_env_on=1.0, fenv_attack=0.0, fenv_decay=0.35, fenv_sustain=0.25,
+        voice_mode=1 / 3, attack=0.0, decay=0.4, sustain=0.8, release=0.1, vintage=0.3,
+        volume=0.45)),
+    ("Jupiter Strings", "Strings", "Cordas largas com passa-altas, chorus e leve deriva.", dict(
+        SAWS, osc1_level=0.75, osc2_level=0.7, osc3_level=0.0, osc2_tune=0.508, sub_level=0.0,
+        hpf=0.28, cutoff=0.6, resonance=0.1, attack=0.45, decay=0.5, sustain=0.85, release=0.55,
+        chorus_on=1.0, chorus_depth=0.6, vintage=0.4, reverb_on=1.0, reverb_mix=0.25,
+        volume=0.7)),
+    ("Juno Pad", "Pad", "Pad de pulso com PWM e o chorus Juno II, quente e largo.", dict(
+        osc1_wave=1 / 3, osc1_level=0.8, osc2_level=0.0, osc3_level=0.0, sub_level=0.45,
+        osc1_pwm=0.55, lfo_rate=0.25, hpf=0.1, cutoff=0.5, resonance=0.15, attack=0.4,
+        decay=0.5, sustain=0.85, release=0.5, chorus_on=1.0, chorus_type=0.5, volume=0.75)),
+    ("Juno Strings", "Strings", "Cordas de serra simples com o chorus Juno I.", dict(
+        SAWS, osc1_level=0.85, osc2_level=0.0, osc3_level=0.0, sub_level=0.0, hpf=0.15,
+        cutoff=0.62, attack=0.3, decay=0.5, sustain=0.9, release=0.45, chorus_on=1.0,
+        chorus_type=0.25, volume=0.8)),
+    ("Juno Bass", "Bass", "Baixo de pulso com sub e chorus Juno I+II discreto.", dict(
+        osc1_wave=1 / 3, osc1_level=0.8, osc1_pw=0.35, osc2_level=0.0, osc3_level=0.0,
+        sub_level=0.6, cutoff=0.3, resonance=0.3, filter_env_on=1.0, fenv_attack=0.0,
+        fenv_decay=0.3, fenv_sustain=0.2, attack=0.0, sustain=0.8, release=0.1,
+        chorus_on=1.0, chorus_type=0.75, volume=0.7)),
+    ("Ring Bell", "Bells", "Sinos inarmônicos do ring modulator.", dict(
+        osc1_wave=1.0, osc2_wave=1.0, osc1_level=0.9, osc2_level=0.0, osc3_level=0.0,
+        sub_level=0.0, osc2_tune=0.5 + 11 / 24, osc2_octave=0.75, osc1_ring=1.0, cutoff=0.9,
+        attack=0.0, decay=0.6, sustain=0.0, release=0.7, delay_mix=0.2, reverb_on=1.0,
+        reverb_mix=0.3, volume=1.0)),
+    ("Noise Sweep", "FX", "Ruído do OSC3 varrido pelo filtro (Minimoog na Mod Wheel).", dict(
+        osc1_level=0.0, osc2_level=0.0, osc3_level=0.8, osc3_noise=1.0, sub_level=0.0,
+        cutoff=0.35, resonance=0.65, filter_env_on=1.0, fenv_attack=0.6, fenv_decay=0.7,
+        fenv_sustain=0.3, moog_filter=1.0, moog_mix=1.0, attack=0.3, sustain=0.9,
+        release=0.6, reverb_on=1.0, reverb_mix=0.35, volume=1.0)),
+)
 PROGRAMS = (PROGRAMS + MORE_PROGRAMS + FM_PROGRAMS + FX_PROGRAMS + FILTER_PROGRAMS
-            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS)
+            + PERFORMANCE_PROGRAMS + ARP_PROGRAMS + VINTAGE_PROGRAMS)
 
 
 def factory_programs():

@@ -50,7 +50,7 @@ PARAM_LABELS = {
     "osc1_fm_on": "FM OSC1", "osc2_fm_on": "FM OSC2", "osc3_fm_on": "FM OSC3",
     "mod_attack": "Mod Attack", "mod_decay": "Mod Decay", "mod_sustain": "Mod Sustain",
     "mod_release": "Mod Release",
-    "chorus_on": "Chorus/Flanger", "chorus_type": "Chorus/Flanger", "chorus_depth": "Chorus Depth",
+    "chorus_on": "Chorus/Flanger", "chorus_type": "Tipo de chorus", "chorus_depth": "Chorus Depth",
     "chorus_rate": "Chorus Rate", "phaser_on": "Phaser", "phaser_depth": "Phaser Depth",
     "phaser_rate": "Phaser Rate", "tube_drive": "Válvula (drive)",
     "ep_model": "Modelo de piano",
@@ -60,6 +60,11 @@ PARAM_LABELS = {
     "lfo_fade": "Fade LFO 1", "lfo2_fade": "Fade LFO 2", "lfo_sync": "Sync LFO 1",
     "lfo2_sync": "Sync LFO 2", "reverb_on": "Reverb", "reverb_size": "Reverb Size",
     "reverb_damp": "Reverb Damp", "reverb_mix": "Reverb Mix", "width": "Width",
+    "osc1_sync": "Sync OSC1", "osc2_sync": "Sync OSC2", "osc1_ring": "Ring OSC1",
+    "osc3_noise": "Noise OSC3", "polymod_env": "Poly-Mod Filt Env", "polymod_osc": "Poly-Mod Osc B",
+    "polymod_freq": "Poly-Mod Freq A", "polymod_pw": "Poly-Mod PW A",
+    "polymod_filter": "Poly-Mod Filter", "moog_mix": "Mod Mix", "moog_osc": "Osc Mod",
+    "moog_filter": "Filter Mod", "osc3_lo": "OSC3 LO", "vintage": "Vintage", "hpf": "HPF",
     "voice_mode": "Modo de voz", "unison_detune": "Detune (unison)", "glide_time": "Glide",
     "arp_on": "Arpeggiator", "arp_mode": "Modo do arpejo", "arp_rate": "Arp Rate",
     "arp_gate": "Arp Gate", "arp_oct": "Arp Oitavas", "arp_hold": "Arp Hold",
@@ -68,7 +73,7 @@ PARAM_LABELS = {
 }
 # Classic instrument each engine is modelled on, shown in the display.
 ANALOG_STYLE = {"Bass": "Minimoog Model D", "Lead": "Minimoog Model D", "Pad": "Prophet-5",
-                "Brass": "Oberheim OB-Xa", "Strings": "Roland Juno-60", "Keys": "Prophet-5",
+                "Brass": "Oberheim OB-Xa", "Strings": "Roland Jupiter-8", "Keys": "Prophet-5",
                 "Pluck": "Roland Jupiter-8", "Bells": "Prophet-5", "FX": "ARP 2600",
                 "Ambient": "Roland Jupiter-8"}
 
@@ -80,6 +85,13 @@ def instrument_style(params, category=""):
     if any(get(f"osc{i}_level") > 0.0001 for i in (1, 2, 3)) or get("sub_level") > 0.0001:
         if any(get(f"osc{i}_fm_on") >= 0.5 for i in (1, 2, 3)):
             layers.append("Yamaha DX7")
+        elif get("chorus_on") >= 0.5 and 1 <= round(get("chorus_type") * 4) <= 3:
+            layers.append("Roland Juno-60")
+        elif (get("polymod_env") > 0.001 or get("polymod_osc") > 0.001) and any(
+                get(name) >= 0.5 for name in ("polymod_freq", "polymod_pw", "polymod_filter")):
+            layers.append("Prophet-5")
+        elif get("moog_osc") >= 0.5 or get("moog_filter") >= 0.5 or get("osc3_lo") >= 0.5:
+            layers.append("Minimoog Model D")
         else:
             layers.append(ANALOG_STYLE.get(category, "Minimoog Model D"))
     if any(get(f"drawbar{i}") > 0 for i in range(1, 10)) or get("organ_perc") >= 0.5:
@@ -87,7 +99,8 @@ def instrument_style(params, category=""):
     if get("ep_level") > 0.0001:
         layers.append("Yamaha CP-70" if get("ep_model") >= 0.5 else "Fender Rhodes")
     return " + ".join(layers) or "—"
-SWITCH_PARAMS = {"arp_on", "arp_hold", "chorus_on", "phaser_on", "reverb_on", "filter_env_on", "lfo_sync",
+SWITCH_PARAMS = {"osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise", "polymod_freq",
+                 "polymod_pw", "polymod_filter", "moog_osc", "moog_filter", "osc3_lo", "arp_on", "arp_hold", "chorus_on", "phaser_on", "reverb_on", "filter_env_on", "lfo_sync",
                  "lfo2_sync", "organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
                  "organ_vibrato", "organ_chorus", "leslie", "leslie_fast",
                  "osc1_fm_on", "osc2_fm_on", "osc3_fm_on"}
@@ -102,6 +115,9 @@ def format_value(param, value):
     if param == "filter_type":
         from .synth import FILTER_TYPES
         return FILTER_TYPES[round(value * 3)]
+    if param == "chorus_type":
+        from .synth import CHORUS_TYPES
+        return CHORUS_TYPES[round(value * 4)].title()
     if param == "arp_mode":
         from .synth import ARP_MODES
         return ARP_MODES[round(value * 4)]

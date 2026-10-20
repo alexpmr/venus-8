@@ -40,7 +40,11 @@ GRAND_PARTIALS = 10
 GRAND_SLOT = EP_SLOT + 1
 UNISON_SLOT = GRAND_SLOT + 10      # 4 copies x (OSC1-3 + sub) phase slots
 PHASE_SLOTS = UNISON_SLOT + 4 * 4
-# Effects: chorus/flanger (one unit, chorus_type 0/1) and a 4-stage phaser.
+# Effects: one modulation unit (chorus_type: Chorus, the Juno-60/106 chorus
+# modes I, II and I+II, or Flanger) and a 4-stage phaser.
+CHORUS_TYPES = ("CHORUS", "JUNO I", "JUNO II", "JUNO I+II", "FLANGER")
+# Juno BBD chorus: (LFO Hz, centre delay ms, sweep ms), triangle LFO, fixed.
+JUNO_CHORUS = {1: (0.513, 3.5, 1.85), 2: (0.863, 3.5, 1.85), 3: (9.75, 3.3, 0.25)}
 DEFAULTS.update({"chorus_on": 0.0, "chorus_type": 0.0, "chorus_depth": 0.5,
                  "chorus_rate": 0.3, "phaser_on": 0.0, "phaser_depth": 0.6,
                  "phaser_rate": 0.25})
@@ -76,6 +80,22 @@ UNISON_CENTS = 30.0               # outer copies at full DETUNE
 ARP_MODES = ("Up", "Down", "Up/Down", "Random", "As Played")
 DEFAULTS.update({"arp_on": 0.0, "arp_mode": 0.0, "arp_rate": 0.4, "arp_gate": 0.5,
                  "arp_oct": 0.0, "arp_hold": 0.0})
+# Vintage synthesis (Prophet-5, Minimoog, Jupiter-8):
+# - SYNC: OSC1 hard-synced to OSC2, OSC2 to OSC3 (same chain as FM); RING on
+#   OSC1 multiplies it by OSC2; NOISE turns OSC3 into a noise source.
+# - POLY-MOD: filter envelope and OSC B (OSC2) modulate OSC A's pitch, its
+#   pulse width and/or the filter.
+# - Minimoog modulation: OSC3 (optionally LO, a slow LFO not following the
+#   keys) mixed with noise, amount on the mod wheel, to the oscillators and/or filter.
+# - VINTAGE: per-voice analog drift of pitch and envelope timing.
+# - HPF: non-resonant high-pass after the ladder (Jupiter-8 style).
+DEFAULTS.update({"osc1_sync": 0.0, "osc2_sync": 0.0, "osc1_ring": 0.0, "osc3_noise": 0.0,
+                 "polymod_env": 0.0, "polymod_osc": 0.0, "polymod_freq": 0.0,
+                 "polymod_pw": 0.0, "polymod_filter": 0.0, "moog_mix": 0.0,
+                 "moog_osc": 0.0, "moog_filter": 0.0, "osc3_lo": 0.0, "vintage": 0.0,
+                 "hpf": 0.0})
+POLYMOD_SEMITONES = 24.0
+MOOG_SEMITONES = 12.0
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -113,6 +133,7 @@ class Synth:
         self.voice_serial = 0
         self.lowpass = 0.0
         self.filter_states = [0.0, 0.0, 0.0, 0.0]
+        self.hpf_state = (0.0, 0.0)
         self.lfo_phase = 0.0
         self.lfo2_phase = 0.0
         self.lfo_hold = [0.0, 0.0]          # S&H values of LFO 1 and 2
@@ -453,6 +474,9 @@ class Synth:
                 "env_time": 0.0, "release_time": 0.0,
                 "release_start": 0.0, "mod_level": 0.0, "mod_release_start": 0.0,
                 "glide": glide, "attack_from": 0.0,
+                # Analog drift seeds: two slow rates and phases, static
+                # offsets for OSC1-3 and sub, and the envelope timing spread.
+                "drift": self.rng.uniform(0.0, 1.0, 9),
             }
             if mode:
                 # Mono and Unison retrigger from the current level (no click).
@@ -637,57 +661,139 @@ class Synth:
         return np.where(phase < step, x + x - x*x - 1.0,
                         np.where(phase > 1.0 - step, y*y + y + y + 1.0, 0.0))
 
-    def _analog(self, voices, freq, t, bend_curve, mod_env, fm_on, lfo, base):
-        """The three oscillators and the sub of every voice, (voice, sample).
-        ``base`` offsets the phase slots (unison copies keep their own)."""
+    def _analog(self, voices, freq, t, bend_curve, mod_env, fm_on, lfo, base, fenv):
+        """The three oscillators and the sub of every voice, (voice, sample),
+        plus the audio-rate filter modulation (octaves) from POLY-MOD and the
+        Minimoog modulation. ``base`` offsets the phase slots (unison copies)."""
         p, sr, frames = self.params, self.sample_rate, len(t)
+        on = lambda name: p[name] >= 0.5
         sound = np.zeros((len(voices), frames))
+        filter_mod = 0.0
         widths = {osc: (np.clip(0.5 - 0.45 * p[f"osc{osc}_pw"] - 0.4 * p[f"osc{osc}_pwm"] * lfo,
                                 0.05, 0.95)
                         if p[f"osc{osc}_pw"] > 0 or p[f"osc{osc}_pwm"] > 0 else 0.5)
                   for osc in (1, 2, 3)}
-        # OSC3 first: it can modulate OSC2, which can modulate OSC1.
-        oscillators = [(base + osc - 1, p[f"osc{osc}_level"],
-                        freq * 2 ** (self.detune(osc) / 12), osc)
-                       for osc in (3, 2, 1)]
-        oscillators.append((base + 3, p["sub_level"], freq * 0.5, None))
-        modulator = None
-        for slot, level, hz, osc in oscillators:
-            feeds = osc in (2, 3) and fm_on[osc - 2]   # next oscillator's FM is on
-            if level < 0.0001 and not feeds:
-                modulator = None
+        poly = (p["polymod_env"] > 0.001 or p["polymod_osc"] > 0.001) and (
+            on("polymod_freq") or on("polymod_pw") or on("polymod_filter"))
+        moog_amount = p["modwheel"] ** 2 if (on("moog_osc") or on("moog_filter")) else 0.0
+        # Oscillators needed as sources even when their level is down.
+        needed = {3: fm_on[1] or on("osc2_sync") or moog_amount > 0,
+                  2: fm_on[0] or on("osc1_sync") or on("osc1_ring")
+                  or (poly and p["polymod_osc"] > 0.001)}
+        drift = self._drift(voices, t) if p["vintage"] > 0.001 else None
+        multiply = lambda a, b: b if a is None else a * b
+        outputs, unwrapped, steps = {}, {}, {}
+        moog = None
+        # POLY-MOD signal: filter envelope now, OSC B added once it is computed.
+        poly_signal = p["polymod_env"] * fenv[None, :] if poly else None
+        # OSC3 first: it can modulate or sync OSC2, which can modulate or sync OSC1.
+        for osc in (3, 2, 1, None):
+            if osc is None:
+                slot, level, hz = base + 3, p["sub_level"], freq * 0.5
+            else:
+                slot, level = base + osc - 1, p[f"osc{osc}_level"]
+                hz = freq * 2 ** (self.detune(osc) / 12)
+            if level < 0.0001 and not needed.get(osc, False):
                 continue
+            lo = osc == 3 and on("osc3_lo")
+            curve = None if lo else bend_curve
+            if lo:                  # Minimoog LO range: 0.1..25 Hz on the TUNE knob
+                hz = np.full_like(freq, 0.1 * 250 ** p["osc3_tune"])
+            if drift is not None and not lo:
+                curve = multiply(curve, drift[0] * 2 ** (drift[1][:, [0, 1, 2, 3].index(osc or 0)]
+                                                         [:, None] / 1200))
+            if osc in (1, 2) and moog is not None and on("moog_osc"):
+                curve = multiply(curve, 2 ** (MOOG_SEMITONES * moog_amount * moog / 12))
+            if osc == 1 and poly_signal is not None and on("polymod_freq"):
+                curve = multiply(curve, 2 ** (POLYMOD_SEMITONES * poly_signal / 12))
             step = (hz / sr)[:, None]
             start = np.array([voice["phases"][slot] for voice in voices])[:, None]
-            if bend_curve is None:
-                ph = (start + step * t) % 1.0
+            if curve is None:
+                phase = start + step * t
                 end = start + step * frames
-            else:               # vibrato: integrate the per-sample frequency
-                step = step * bend_curve
+            else:                   # integrate the per-sample frequency
+                step = step * curve
                 run = np.cumsum(step, axis=1)
-                ph = (start + run - step) % 1.0
+                phase = start + run - step
                 end = start + run[:, -1:]
-            if osc is None:     # sub oscillator: band-limited saw an octave down
-                sound += level * (2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5)))
+            master = osc + 1 if osc in (1, 2) and on(f"osc{osc}_sync") else None
+            if master in unwrapped:
+                # Hard sync: restart with the master's cycle, at the slave's speed.
+                ph = ((unwrapped[master] % 1.0) * (step / steps[master])) % 1.0
             else:
+                ph = phase % 1.0
+            unwrapped[osc], steps[osc] = phase, step
+            if osc is None:         # sub oscillator: band-limited saw an octave down
+                out = 2 * ph - 1 - self._blep(ph, np.minimum(step, 0.5))
+            elif osc == 3 and on("osc3_noise"):
+                out = self.rng.standard_normal((len(voices), frames)) * 0.5
+            else:
+                width = widths[osc]
+                if osc == 1 and poly_signal is not None and on("polymod_pw"):
+                    width = np.clip(width + 0.4 * poly_signal, 0.05, 0.95)
+                modulator = outputs.get(osc + 1)
                 if fm_on[osc - 1]:
                     index = FM_MAX_INDEX * p[f"osc{osc}_fm"] ** 2 * mod_env / (2 * np.pi)
                     if osc == 3:    # self-feedback, unrolled twice
-                        out = self._wave(ph, osc, step, widths[osc])
+                        out = self._wave(ph, osc, step, width)
                         for _ in range(2):
-                            out = self._wave((ph + index * out) % 1.0, osc, step, widths[osc])
+                            out = self._wave((ph + index * out) % 1.0, osc, step, width)
                     elif modulator is not None:
-                        out = self._wave((ph + index * modulator) % 1.0, osc, step, widths[osc])
+                        out = self._wave((ph + index * modulator) % 1.0, osc, step, width)
                     else:
-                        out = self._wave(ph, osc, step, widths[osc])
+                        out = self._wave(ph, osc, step, width)
                 else:
-                    out = self._wave(ph, osc, step, widths[osc])
-                modulator = out
-                if level >= 0.0001:
-                    sound += level * out
-            for voice, phase in zip(voices, (end % 1.0)[:, 0]):
-                voice["phases"][slot] = float(phase)
-        return sound
+                    out = self._wave(ph, osc, step, width)
+                if osc == 1 and on("osc1_ring") and modulator is not None:
+                    out = out * modulator
+            outputs[osc] = out
+            if osc == 3 and moog_amount > 0:
+                # Modulation mix: OSC3 and (smoothed) noise.
+                noise = self.rng.standard_normal((len(voices), frames))
+                noise = np.cumsum(noise, axis=1) * 0.05
+                noise -= noise.mean(axis=1, keepdims=True)
+                moog = (1.0 - p["moog_mix"]) * out + p["moog_mix"] * np.clip(noise, -1.0, 1.0)
+                if on("moog_filter"):
+                    filter_mod = filter_mod + 3.0 * moog_amount * moog.mean(axis=0)
+            if osc == 2 and poly and p["polymod_osc"] > 0.001:
+                poly_signal = poly_signal + p["polymod_osc"] * out
+            if level >= 0.0001:
+                sound += level * out
+            for voice, value in zip(voices, (end % 1.0)[:, 0]):
+                voice["phases"][slot] = float(value)
+        if poly and on("polymod_filter"):
+            filter_mod = filter_mod + 4.0 * poly_signal.mean(axis=0)
+        return sound, filter_mod
+
+    def _drift(self, voices, t):
+        """VINTAGE: slow per-voice pitch wander (two sines, a few cents) and a
+        fixed small detune per oscillator. Evaluated at the block edges and
+        interpolated (it moves far slower than a block)."""
+        p, sr = self.params, self.sample_rate
+        seeds = np.array([voice["drift"] for voice in voices])
+        age = np.array([voice.get("age", 0.0) for voice in voices])[:, None]
+        edges = np.hstack((age, age + len(t) / sr))
+        rates = 0.05 + 0.35 * seeds[:, :2]
+        cents = p["vintage"] * (5.0 * np.sin(2 * np.pi * (rates[:, :1] * edges + seeds[:, 2:3]))
+                                + 3.0 * np.sin(2 * np.pi * (rates[:, 1:2] * edges + seeds[:, 3:4])))
+        ramp = (t / len(t))[None, :]
+        cents = cents[:, :1] + (cents[:, 1:] - cents[:, :1]) * ramp
+        static = p["vintage"] * 8.0 * (seeds[:, 4:8] - 0.5)
+        return 2 ** (cents / 1200), static
+
+    def _highpass(self, x, amount):
+        """One-pole high-pass, 20 Hz .. ~2 kHz (Jupiter-8 style, no resonance)."""
+        hz = 20.0 * 100.0 ** amount
+        a = 1.0 / (1.0 + 2.0 * math.pi * hz / self.sample_rate)
+        x_prev, y_prev = self.hpf_state
+        out = []
+        store = out.append
+        for sample in x.tolist():
+            y_prev = a * (y_prev + sample - x_prev)
+            x_prev = sample
+            store(y_prev)
+        self.hpf_state = (x_prev, y_prev)
+        return np.asarray(out)
 
     def _wave(self, phase, which, step, width=0.5):
         # Saw and pulse are band-limited with PolyBLEP so high notes do not
@@ -751,7 +857,12 @@ class Synth:
             # All voices are rendered together as (voice, sample) arrays; a
             # per-voice loop of small numpy calls costs more than the maths.
             # LFO 2 is a vibrato, deepened by the mod wheel (up to ±0.6 semitone).
-            vibrato = min(1.0, p["lfo2_depth"] + p["modwheel"]) * 0.6
+            # The mod wheel deepens the vibrato, unless it drives the Minimoog
+            # modulation (OSC MOD / FILT MOD on).
+            moog_on = p["moog_osc"] >= 0.5 or p["moog_filter"] >= 0.5
+            vibrato = min(1.0, p["lfo2_depth"] + (0.0 if moog_on else p["modwheel"])) * 0.6
+            fenv = self._filter_envelope(frames)
+            filter_mod = 0.0
             vib_rate = (0.1 + 9.9 * p["lfo2_rate"] ** 2) / sr
             bend_curve = None
             if vibrato > 1e-6:
@@ -785,6 +896,10 @@ class Synth:
                 gate = np.array([voice["gate"] for voice in voices])[:, None]
                 held = np.array([voice["env_time"] for voice in voices])[:, None] + t / sr
                 gone = np.array([voice["release_time"] for voice in voices])[:, None] + t / sr
+                if p["vintage"] > 0.001:
+                    # Each voice's envelopes run a little faster or slower.
+                    spread = 1.0 + p["vintage"] * 0.3 * (np.array([v["drift"][8] for v in voices]) - 0.5)
+                    held, gone = held * spread[:, None], gone * spread[:, None]
                 velocity = np.array([voice["velocity"] for voice in voices])[:, None]
                 fm_on = [p[f"osc{osc}_fm_on"] >= 0.5 for osc in (1, 2, 3)]
                 mod_env = None
@@ -803,10 +918,15 @@ class Synth:
                     spread = p["unison_detune"] * UNISON_CENTS / 1200
                     for copy in range(UNISON_COPIES):
                         cents = spread * (2 * copy / (UNISON_COPIES - 1) - 1)
-                        sound += 0.5 * self._analog(voices, freq * 2 ** cents, t, bend_curve,
-                                                    mod_env, fm_on, lfo, UNISON_SLOT + 4 * copy)
+                        copy_sound, copy_mod = self._analog(
+                            voices, freq * 2 ** cents, t, bend_curve, mod_env, fm_on, lfo,
+                            UNISON_SLOT + 4 * copy, fenv)
+                        sound += 0.5 * copy_sound
+                        filter_mod = filter_mod + copy_mod / UNISON_COPIES
                 else:
-                    sound += self._analog(voices, freq, t, bend_curve, mod_env, fm_on, lfo, 0)
+                    voice_sound, filter_mod = self._analog(voices, freq, t, bend_curve, mod_env,
+                                                           fm_on, lfo, 0, fenv)
+                    sound += voice_sound
                 organ = np.zeros_like(sound)
                 perc_bar, perc_amp = None, 0.0
                 if p["organ_perc"] >= 0.5:
@@ -885,9 +1005,10 @@ class Synth:
             # Cutoff in octaves: knob, key tracking (last note) and the filter
             # envelope; per sample only while the envelope is on.
             octaves = p["cutoff"] * 8.3 + p["key_track"] * (self.last_note - 60) / 12
-            fenv = self._filter_envelope(frames)
-            if p["filter_env_on"] >= 0.5:
-                hz = np.minimum(sr * 0.40, 55 * 2 ** (octaves + FILTER_ENV_OCTAVES * fenv))
+            if p["filter_env_on"] >= 0.5 or np.ndim(filter_mod):
+                if p["filter_env_on"] >= 0.5:
+                    octaves = octaves + FILTER_ENV_OCTAVES * fenv
+                hz = np.minimum(sr * 0.40, 55 * 2 ** (octaves + filter_mod))
                 coefficients = np.minimum(0.94, 1.0 - np.exp(-2.0 * np.pi * hz / sr)).tolist()
             else:
                 hz = min(sr * 0.40, 55 * (2 ** octaves))
@@ -924,6 +1045,8 @@ class Synth:
             self.filter_states = [s0, s1, s2, s3]
             mono = np.asarray(filtered) * (1.0 + p["resonance"] * 0.7)
             self.lowpass = s3
+            if p["hpf"] > 0.001:
+                mono = self._highpass(mono, p["hpf"])
             organ_mono, side = self._organ_effects(organ_mono, t)
             mono += keys_mono + organ_mono
             if p["tube_drive"] > 0.001:
@@ -1018,7 +1141,21 @@ class Synth:
             self.mod_fx_history = np.concatenate((history, x))[-len(history):]
             return x, x
         frames = len(x)
-        if p["chorus_type"] < 0.5:
+        kind = round(p["chorus_type"] * 4)
+        if kind in JUNO_CHORUS:
+            # Juno: a triangle LFO sweeps the BBD delay, opposite on each side;
+            # the modes are fixed, as on the instrument (DEPTH/RATE unused).
+            hz, centre, sweep_ms = JUNO_CHORUS[kind]
+            rate = hz / sr
+            phase = (self.mod_fx_phase + rate * t) % 1.0
+            tri = 1.0 - 4.0 * np.abs(phase - 0.5)
+            centre, depth = centre * 0.001 * sr, sweep_ms * 0.001 * sr
+            left, _ = modulated_delay(history, x, centre + depth * tri)
+            right, _ = modulated_delay(history, x, centre - depth * tri)
+            self.mod_fx_history = np.concatenate((history, x))[-len(history):]
+            self.mod_fx_phase = (self.mod_fx_phase + rate * frames) % 1.0
+            return 0.7 * x + 0.6 * left, 0.7 * x + 0.6 * right
+        if kind == 0:
             rate = (0.1 + 4.9 * p["chorus_rate"] ** 2) / sr
             sweep = 2 * np.pi * (self.mod_fx_phase + rate * t)
             centre, depth = 0.007 * sr, 0.0035 * sr * p["chorus_depth"]
