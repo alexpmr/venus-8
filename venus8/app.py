@@ -22,7 +22,7 @@ from .synth import ARP_MODES, DEFAULTS, FILTER_TYPES, WAVES, Synth
 from .factory_presets import factory_programs
 from . import updater
 from .mockup_ui import MockupRenderer
-from .components import SPINNERS, SPINNER_STEPS
+from .components import SEQ_STEP_BOXES, SPINNERS, SPINNER_STEPS
 from .display import DISPLAY_MODES, PARAM_LABELS, SWITCH_PARAMS, format_value
 
 def setup_windows_dpi():
@@ -668,6 +668,11 @@ class App:
 
     def mouse_wheel(self,event):
         x,y=self.coords(event)
+        for index,box in enumerate(SEQ_STEP_BOXES):
+            if self.inside(x,y,box):              # wheel over a step: its note ±1 semitone
+                param=f"seq_note{index+1}"
+                self.change(param,round(self.synth.get_param(param)*48+(1 if event.delta>0 else -1))/48)
+                return
         for param,(text_box,up,down) in SPINNERS.items():
             if self.inside(x,y,(text_box[0],text_box[1],up[2],down[3])):
                 self.action(f"spin:{param}:{1 if event.delta>0 else -1}")
@@ -736,6 +741,9 @@ class App:
         elif ident.startswith("spin:"):
             _,param,direction=ident.split(":")
             self.change(param,self.synth.get_param(param)+int(direction)/SPINNER_STEPS[param])
+        elif ident.startswith("seqstep"):
+            param=f"seq_step{int(ident[7:])+1}"
+            self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)
         elif ident=="search":
             self.browse_patches(search=True)
         elif ident=="keyboard_tab":

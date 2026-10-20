@@ -44,6 +44,17 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.28 — Step Sequencer (etapa 2 do plano)
+
+- ✅ STEP SEQUENCER ativo: ON, 16 passos liga/desliga (clique) com a nota de cada passo (roda do mouse sobre o passo: ±1 semitom), STEPS (1 a 16), GATE e SWING.
+- ✅ Segurar uma tecla toca o padrão transposto a partir dela (como o SH-101); HOLD mantém tocando; andamento = RATE do arpeggiator.
+- ✅ REC (botão STEPS): grava as notas tocadas passo a passo.
+- ✅ Passo atual destacado e faixa de informação (passo, nota, REC).
+- ✅ O padrão é salvo no timbre; nova categoria Sequence com 3 timbres: Seq Bass Line, Techno Seq e Swing Seq (97 timbres).
+- ✅ Testes de padrão, pausas, transposição, comprimento, hold, swing, REC e desligamento.
+- [ ] SYNC do sequencer com o clock MIDI.
+- [ ] Homologar no Windows real.
+
 ## v0.2.27 — Painel completo (etapa 1 do plano)
 
 - ✅ TRANSPOSE (±12 semitons) e OCTAVE (±3) com setas e roda do mouse; valem para todos os sons.
@@ -61,7 +72,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 ## Plano de implementação do ROADMAP (pedido do usuário)
 
 - ✅ Etapa 1 — Painel completo (v0.2.27).
-- [ ] Etapa 2 — Step Sequencer.
+- ✅ Etapa 2 — Step Sequencer (v0.2.28).
 - [ ] Etapa 3 — Split/Layer.
 - [ ] Etapa 4 — Vista 3D com painel traseiro.
 - [ ] Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico.
@@ -469,11 +480,12 @@ Hoje o banco Factory tem 14 timbres em 6 categorias (Bass, Lead, Brass, Pad, Key
 - ✅ Hold (latch), Gate e oitavas (v0.2.23).
 - [ ] Swing
 - [ ] Divisões rítmicas e sincronismo BPM/DAW
-- [ ] Sequencer 16/32/64 passos
+- ✅ Sequencer de 16 passos (v0.2.28).
+- [ ] 32/64 passos
 - [ ] Edição de nota, Velocity, Gate, Tie e Rest por passo
-- [ ] Transposição, duração, Swing, Play/Stop
+- ✅ Transposição, duração (gate), Swing, Play/Stop (v0.2.28).
 - [ ] Automação de parâmetros por passo
-- [ ] Salvar sequência no patch e exibir passo ativo
+- ✅ Salvar sequência no patch e exibir passo ativo (v0.2.28).
 
 ## v0.9 — Efeitos
 

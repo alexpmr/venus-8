@@ -730,6 +730,64 @@ class TestPanelCompletion(unittest.TestCase):
         self.assertAlmostEqual(synced, 220, delta=2)          # follows the key, not +7
 
 
+class TestStepSequencer(unittest.TestCase):
+    def run_seq(self, key=60, steps=16, block=64, **params):
+        s = Synth()
+        s.load_params(dict({"seq_on": 1.0, "arp_rate": 1.0, "attack": 0.0, "sustain": 1.0,
+                            "release": 0.01}, **params))
+        s.note_on(key)
+        played, last = [], None
+        for _ in range(8000):
+            s.render(block)
+            if s.seq_position != last:
+                last = s.seq_position
+                played.append(s.arp_note)
+            if len(played) >= steps:
+                break
+        return played, s
+
+    def test_pattern_rests_and_transpose(self):
+        played, _ = self.run_seq(seq_step2=0.0)
+        self.assertEqual(played[:5], [60, None, 72, 60, 67])
+        transposed, _ = self.run_seq(key=65, seq_step2=0.0)
+        self.assertEqual(transposed[:5], [65, None, 77, 65, 72])
+
+    def test_length_and_hold(self):
+        played, s = self.run_seq(seq_steps=2 / 15, steps=7)       # 3 steps
+        self.assertEqual(played, [60, 60, 72, 60, 60, 72, 60])
+        s.note_off(60)
+        self.assertIsNone(s.arp_note)
+        _, held = self.run_seq(steps=2, arp_hold=1.0)
+        held.note_off(60)
+        held.render(30000)
+        self.assertIsNotNone(held.seq_position)
+
+    def test_swing_alternates_step_lengths(self):
+        s = Synth()
+        s.load_params({"seq_on": 1.0, "arp_rate": 0.5, "seq_swing": 0.6})
+        s.note_on(60)
+        s.arp_clock = 0
+        lengths = [s._arp_step() for _ in range(4)]
+        self.assertGreater(lengths[0], lengths[1])
+        self.assertEqual(lengths[0], lengths[2])
+
+    def test_rec_writes_steps(self):
+        s = Synth()
+        s.set_param("seq_rec", 1.0)
+        for note in (64, 55, 72):
+            s.note_on(note)
+            s.note_off(note)
+        self.assertEqual([s.seq_note(i) for i in range(3)], [4, -5, 12])
+        self.assertEqual(s.seq_rec_position, 3)
+        self.assertFalse(s.arp_keys)                         # recording does not start the pattern
+
+    def test_sequencer_off_stops_cleanly(self):
+        _, s = self.run_seq(steps=3)
+        s.set_param("seq_on", 0.0)
+        self.assertIsNone(s.arp_note)
+        self.assertIsNone(s.seq_position)
+
+
 class TestArpeggiator(unittest.TestCase):
     def run_arp(self, keys=(60, 64, 67), steps=8, block=64, **params):
         s = Synth()
