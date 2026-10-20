@@ -561,6 +561,20 @@ Inspirada na válvula visível de pianos de palco como o Korg SV-1: uma válvula
 - [ ] Testes de harmônicos, nível de saída, aliasing e desempenho com 16 vozes.
 - [ ] Homologar no Windows real.
 
+## Vista 3D do instrumento (backlog)
+
+Ver o Venus-8 como um teclado físico real, girando em 3D, inclusive a parte de trás com todas as conexões.
+
+- [ ] Botão "3D" (ou atalho) que abre a vista 3D sem interromper o som; voltar ao painel com um clique.
+- [ ] Modelo 3D do gabinete com as proporções do painel atual: laterais de madeira, painel frontal, teclado de 61/88 teclas, rodas de pitch e modulação.
+- [ ] Girar, aproximar e afastar com o mouse (e com gestos no touch), com ângulos prontos: frente, perfil, trás e vista superior.
+- [ ] Painel traseiro realista, como seria uma versão de hardware: entrada de energia e chave liga/desliga, USB-B (MIDI/áudio), MIDI IN/OUT/THRU (DIN), saídas Main L/Mono e R, saída de fones, entradas de pedal (Sustain, Expression, Footswitch), CV/Gate e Clock, placa com nome, número de série e versão.
+- [ ] Conexões com estado ao vivo: LED do USB/MIDI piscando ao receber notas, indicação do pedal de sustain e do áudio ativo.
+- [ ] Ao passar o mouse em cada conector, mostrar o que é e como ligar (ex.: "Sustain: pedal tipo switch").
+- [ ] Teclas e controles da vista 3D acompanham o que está sendo tocado (teclas descendo, knobs girando).
+- [ ] Iluminação e materiais vintage (madeira, metal escovado, plástico), com sombras suaves; desempenho que não atrapalhe o áudio.
+- [ ] Homologar no Windows real.
+
 ## v1.0 — Versão estável
 
 - [ ] Validar critérios de aceite de todos os marcos essenciais
