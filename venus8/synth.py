@@ -38,8 +38,10 @@ EP_SLOT = 4 + len(DRAWBARS)
 DEFAULTS["ep_model"] = 0.0
 GRAND_PARTIALS = 10
 GRAND_SLOT = EP_SLOT + 1
-UNISON_SLOT = GRAND_SLOT + 10      # 4 copies x (OSC1-3 + sub) phase slots
-PHASE_SLOTS = UNISON_SLOT + 4 * 4
+UNISON_SLOT = GRAND_SLOT + 10      # 4 copies x (OSC1-3, sub, key) phase slots
+UNISON_STRIDE = 5
+KEY_SLOT = UNISON_SLOT + UNISON_STRIDE * 4    # the played key's own phase (OSC3 SYNC)
+PHASE_SLOTS = KEY_SLOT + 1
 # Effects: one modulation unit (chorus_type: Chorus, the Juno-60/106 chorus
 # modes I, II and I+II, or Flanger) and a 4-stage phaser.
 CHORUS_TYPES = ("CHORUS", "JUNO I", "JUNO II", "JUNO I+II", "FLANGER")
@@ -96,6 +98,16 @@ DEFAULTS.update({"osc1_sync": 0.0, "osc2_sync": 0.0, "osc1_ring": 0.0, "osc3_noi
                  "hpf": 0.0})
 POLYMOD_SEMITONES = 24.0
 MOOG_SEMITONES = 12.0
+# Panel completion (v0.2.27): keyboard transpose/octave, bend range, voices,
+# master tune, global volume/balance, unison stereo spread, glide mode,
+# X-MOD (OSC2 -> OSC1 pitch, Jupiter-8 style) and OSC3 sync to the key.
+DEFAULTS.update({"transpose": 0.5, "octave_shift": 0.5, "bend_range": 1 / 23,
+                 "polyphony": 1.0, "master_tune": 0.5, "global_volume": 1.0, "balance": 0.5,
+                 "unison_spread": 0.0, "glide_const": 1.0, "osc2_xmod": 0.0, "osc3_sync": 0.0})
+# Instrument-wide settings: a patch change does not touch them.
+GLOBAL_PARAMS = ("transpose", "octave_shift", "polyphony", "master_tune", "global_volume",
+                 "balance")
+XMOD_SEMITONES = 24.0
 MOD_FX_HISTORY = 0.025             # seconds of delay line for chorus and flanger
 # Organ section switches (0/1) and drive: percussion (2nd/3rd harmonic, fast or
 # slow decay, single-triggered, cancels the 1' drawbar like a B-3), key click,
@@ -134,6 +146,7 @@ class Synth:
         self.lowpass = 0.0
         self.filter_states = [0.0, 0.0, 0.0, 0.0]
         self.hpf_state = (0.0, 0.0)
+        self.side_states = [0.0, 0.0, 0.0, 0.0]
         self.lfo_phase = 0.0
         self.lfo2_phase = 0.0
         self.lfo_hold = [0.0, 0.0]          # S&H values of LFO 1 and 2
@@ -341,12 +354,26 @@ class Synth:
         with self.lock:
             return dict(self.params)
 
-    def load_params(self, values):
+    def load_params(self, values, keep_globals=True):
+        """Apply a patch; instrument-wide GLOBAL_PARAMS stay as they are."""
         if not isinstance(values, dict):
             raise ValueError("Invalid patch")
         for name, value in values.items():
-            if name in DEFAULTS:
+            if name in DEFAULTS and not (keep_globals and name in GLOBAL_PARAMS):
                 self.set_param(name, value)
+
+    @property
+    def voice_limit(self):
+        """VOICES (1..16), within the engine's maximum."""
+        return min(self.max_voices, 1 + round(self.params["polyphony"] * 15))
+
+    def bend_semitones(self):
+        return 1 + round(self.params["bend_range"] * 23)
+
+    def key_offset(self):
+        """TRANSPOSE (±12 semitones) and OCTAVE (±3) applied to every note."""
+        p = self.params
+        return round((p["transpose"] - 0.5) * 24) + 12 * round((p["octave_shift"] - 0.5) * 6)
 
     # -- arpeggiator ----------------------------------------------------------
     @property
@@ -451,7 +478,7 @@ class Synth:
                 attack_from = current["level"] if current is not None else 0.0
                 phases = list(current["phases"]) if current is not None else None
                 self.voices.clear()
-            if len(self.voices) >= self.max_voices and note not in self.voices:
+            while len(self.voices) >= self.voice_limit and note not in self.voices:
                 victim = min(self.voices, key=lambda k: self.voices[k]["serial"])
                 del self.voices[victim]
             self.voice_serial += 1
@@ -678,11 +705,22 @@ class Synth:
         moog_amount = p["modwheel"] ** 2 if (on("moog_osc") or on("moog_filter")) else 0.0
         # Oscillators needed as sources even when their level is down.
         needed = {3: fm_on[1] or on("osc2_sync") or moog_amount > 0,
-                  2: fm_on[0] or on("osc1_sync") or on("osc1_ring")
+                  2: fm_on[0] or on("osc1_sync") or on("osc1_ring") or on("osc2_xmod")
                   or (poly and p["polymod_osc"] > 0.001)}
         drift = self._drift(voices, t) if p["vintage"] > 0.001 else None
         multiply = lambda a, b: b if a is None else a * b
         outputs, unwrapped, steps = {}, {}, {}
+        if on("osc3_sync"):
+            # OSC3 SYNC follows the played key: a silent master at the note pitch.
+            key_slot = base + 4 if base else KEY_SLOT
+            key_step = (freq / sr)[:, None]
+            if bend_curve is not None:
+                key_step = key_step * bend_curve
+            key_start = np.array([voice["phases"][key_slot] for voice in voices])[:, None]
+            run = np.cumsum(np.broadcast_to(key_step, (len(voices), frames)), axis=1)
+            unwrapped["key"], steps["key"] = key_start + run - key_step, key_step
+            for voice, value in zip(voices, (key_start + run[:, -1:])[:, 0] % 1.0):
+                voice["phases"][key_slot] = float(value)
         moog = None
         # POLY-MOD signal: filter envelope now, OSC B added once it is computed.
         poly_signal = p["polymod_env"] * fenv[None, :] if poly else None
@@ -704,6 +742,8 @@ class Synth:
                                                          [:, None] / 1200))
             if osc in (1, 2) and moog is not None and on("moog_osc"):
                 curve = multiply(curve, 2 ** (MOOG_SEMITONES * moog_amount * moog / 12))
+            if osc == 1 and on("osc2_xmod") and 2 in outputs:
+                curve = multiply(curve, 2 ** (XMOD_SEMITONES * p["osc2_fm"] ** 2 * outputs[2] / 12))
             if osc == 1 and poly_signal is not None and on("polymod_freq"):
                 curve = multiply(curve, 2 ** (POLYMOD_SEMITONES * poly_signal / 12))
             step = (hz / sr)[:, None]
@@ -717,6 +757,8 @@ class Synth:
                 phase = start + run - step
                 end = start + run[:, -1:]
             master = osc + 1 if osc in (1, 2) and on(f"osc{osc}_sync") else None
+            if osc == 3 and on("osc3_sync"):
+                master = "key"
             if master in unwrapped:
                 # Hard sync: restart with the master's cycle, at the slave's speed.
                 ph = ((unwrapped[master] % 1.0) * (step / steps[master])) % 1.0
@@ -853,7 +895,8 @@ class Synth:
             p = self.params
             attack, decay, release = self.env_times(p["attack"], p["decay"], p["release"])
             sustain = p["sustain"]
-            bend = (p["pitch_bend"] - 0.5) * 4.0
+            bend = (p["pitch_bend"] - 0.5) * 2.0 * self.bend_semitones() + self.key_offset()
+            tuning = 440.0 + (p["master_tune"] - 0.5) * 20.0          # 430..450 Hz
             # All voices are rendered together as (voice, sample) arrays; a
             # per-voice loop of small numpy calls costs more than the maths.
             # LFO 2 is a vibrato, deepened by the mod wheel (up to ±0.6 semitone).
@@ -877,16 +920,19 @@ class Synth:
             # after the ladder, like the real instruments.
             keys_mono = np.zeros(frames, dtype=np.float64)
             organ_mono = np.zeros(frames, dtype=np.float64)
+            side_sound = side_voices = spread_side = None
             playing = list(self.voices.items())
             if playing:
                 voices = [voice for _, voice in playing]
-                freq = 440.0 * 2 ** ((np.array([note for note, _ in playing], dtype=np.float64)
+                freq = tuning * 2 ** ((np.array([note for note, _ in playing], dtype=np.float64)
                                       - 69 + bend) / 12)
                 # Glide: each voice starts off-pitch by "glide" semitones and
                 # settles exponentially; it multiplies into the pitch curve.
                 glides = np.array([voice.get("glide", 0.0) for voice in voices])
                 if np.any(glides):
                     tau = (0.01 + p["glide_time"] ** 2 * 1.5) * sr
+                    if p["glide_const"] < 0.5:      # constant rate: wider jumps take longer
+                        tau = tau * np.maximum(0.25, np.abs(glides) / 12)[:, None]
                     offset = glides[:, None] * np.exp(-(t + 1)[None, :] / tau)
                     glide_curve = 2 ** (offset / 12)
                     bend_curve = glide_curve if bend_curve is None else glide_curve * bend_curve
@@ -914,14 +960,19 @@ class Synth:
                         voice["mod_level"] = float(level)
                     mod_env = mod_env * (0.5 + 0.5 * velocity)
                 if self.voice_mode == 3:
-                    # Unison: four detuned copies of the oscillators per voice.
+                    # Unison: four detuned copies of the oscillators per voice;
+                    # SPREAD sends alternate copies left and right.
                     spread = p["unison_detune"] * UNISON_CENTS / 1200
+                    if p["unison_spread"] > 0.001:
+                        side_sound = np.zeros_like(sound)
                     for copy in range(UNISON_COPIES):
                         cents = spread * (2 * copy / (UNISON_COPIES - 1) - 1)
                         copy_sound, copy_mod = self._analog(
                             voices, freq * 2 ** cents, t, bend_curve, mod_env, fm_on, lfo,
-                            UNISON_SLOT + 4 * copy, fenv)
+                            UNISON_SLOT + UNISON_STRIDE * copy, fenv)
                         sound += 0.5 * copy_sound
+                        if side_sound is not None:
+                            side_sound += (0.5 if copy % 2 else -0.5) * p["unison_spread"] * copy_sound
                         filter_mod = filter_mod + copy_mod / UNISON_COPIES
                 else:
                     voice_sound, filter_mod = self._analog(voices, freq, t, bend_curve, mod_env,
@@ -985,6 +1036,8 @@ class Synth:
                 env = self._adsr(gate, held, gone, start_level, attack, decay, sustain, release,
                                  attack_from)
                 mono += (sound * env * velocity).sum(axis=0)
+                if side_sound is not None:
+                    side_voices = (side_sound * env * velocity).sum(axis=0)
                 keys_mono += (keys * env).sum(axis=0)
                 organ_mono += (organ * env).sum(axis=0)
                 for (note, voice), level in zip(playing, env[:, -1]):
@@ -998,6 +1051,8 @@ class Synth:
                             del self.voices[note]
             active = max(1, len(self.voices))
             mono /= max(1.5, math.sqrt(active) * 1.5)
+            if side_voices is not None:
+                side_voices /= max(1.5, math.sqrt(active) * 1.5)
             keys_mono /= max(1.5, math.sqrt(active) * 1.5)
             organ_mono /= max(1.5, math.sqrt(active) * 1.5)
             # Four-pole resonant subtractive filter, vintage-ladder inspired.
@@ -1016,38 +1071,22 @@ class Synth:
             g = min(0.94, 1.0 - math.exp(-2.0 * math.pi * float(np.max(hz)) / sr))
             feedback = p["resonance"] * 3.4
             drive = 1 + p["drive"] * 1.5
-            tanh = math.tanh
-            s0, s1, s2, s3 = self.filter_states
-            # The ladder is recursive, so it runs per sample; plain floats and
-            # a local tanh keep it about 5x faster than indexing numpy arrays.
-            filtered = []
-            store = filtered.append
             mode = round(p["filter_type"] * 3)
-            if mode == 0 and coefficients is None:
-                for sample in mono.tolist():
-                    x = tanh(sample * drive - feedback * s3)
-                    s0 += g * (x - s0)
-                    s1 += g * (s0 - s1)
-                    s2 += g * (s1 - s2)
-                    s3 += g * (s2 - s3)
-                    store(s3)
-            else:
-                # Stage mixes of the same ladder (Xpander style):
-                # LP12 = y2, BP12 = y1 - y2, HP12 = x - 2y1 + y2 (with make-up gain).
-                for sample, g in zip(mono.tolist(), coefficients or [g] * frames):
-                    x = tanh(sample * drive - feedback * s3)
-                    s0 += g * (x - s0)
-                    s1 += g * (s0 - s1)
-                    s2 += g * (s1 - s2)
-                    s3 += g * (s2 - s3)
-                    store(s3 if mode == 0 else s1 if mode == 1 else
-                          3.0 * (s0 - s1) if mode == 2 else 2.0 * (x - 2.0 * s0 + s1))
-            self.filter_states = [s0, s1, s2, s3]
+            filtered, self.filter_states = self._ladder(mono, g, coefficients, feedback, drive,
+                                                        mode, self.filter_states)
+            s3 = self.filter_states[3]
+            if side_voices is not None:
+                # SPREAD: the unison's stereo difference gets its own ladder.
+                side_filtered, self.side_states = self._ladder(
+                    side_voices, g, coefficients, feedback, drive, mode, self.side_states)
+                spread_side = np.asarray(side_filtered) * (1.0 + p["resonance"] * 0.7)
             mono = np.asarray(filtered) * (1.0 + p["resonance"] * 0.7)
             self.lowpass = s3
             if p["hpf"] > 0.001:
                 mono = self._highpass(mono, p["hpf"])
             organ_mono, side = self._organ_effects(organ_mono, t)
+            if spread_side is not None:
+                side = spread_side if side is None else side + spread_side
             mono += keys_mono + organ_mono
             if p["tube_drive"] > 0.001:
                 mono = self._tube(mono, p["tube_drive"])
@@ -1079,7 +1118,8 @@ class Synth:
             left, right = self._chorus(mono, t)
             if p["reverb_on"] >= 0.5:
                 left, right = self._reverb(left, right)
-            if side is None and left is right:
+            gain, pan = p["global_volume"], p["balance"]
+            if side is None and left is right and gain == 1.0 and pan == 0.5:
                 mono = np.clip(left, -0.95, 0.95).astype(np.float32)
                 self.peak = float(np.max(np.abs(mono)))
                 return np.column_stack((mono, mono))
@@ -1091,10 +1131,43 @@ class Synth:
                 # WIDTH: 0 = mono, 0.5 = as produced, 1 = twice as wide.
                 mid, spread = (left + right) * 0.5, (left - right) * p["width"]
                 left, right = mid + spread, mid - spread
+            if gain != 1.0 or pan != 0.5:
+                # GLOBAL VOLUME and BALANCE (equal level at the centre).
+                left = left * gain * min(1.0, 2.0 * (1.0 - pan))
+                right = right * gain * min(1.0, 2.0 * pan)
             stereo = np.clip(np.column_stack((left, right)), -0.95, 0.95)
             stereo = stereo.astype(np.float32)
             self.peak = float(np.max(np.abs(stereo)))
             return stereo
+
+    @staticmethod
+    def _ladder(signal, g, coefficients, feedback, drive, mode, states):
+        """Four-pole resonant ladder, per sample (recursive): plain floats and a
+        local tanh are about 5x faster than indexing numpy arrays."""
+        tanh = math.tanh
+        s0, s1, s2, s3 = states
+        filtered = []
+        store = filtered.append
+        if mode == 0 and coefficients is None:
+            for sample in signal.tolist():
+                x = tanh(sample * drive - feedback * s3)
+                s0 += g * (x - s0)
+                s1 += g * (s0 - s1)
+                s2 += g * (s1 - s2)
+                s3 += g * (s2 - s3)
+                store(s3)
+        else:
+            # Stage mixes of the same ladder (Xpander style):
+            # LP12 = y2, BP12 = y1 - y2, HP12 = x - 2y1 + y2 (with make-up gain).
+            for sample, g in zip(signal.tolist(), coefficients or [g] * len(signal)):
+                x = tanh(sample * drive - feedback * s3)
+                s0 += g * (x - s0)
+                s1 += g * (s0 - s1)
+                s2 += g * (s1 - s2)
+                s3 += g * (s2 - s3)
+                store(s3 if mode == 0 else s1 if mode == 1 else
+                      3.0 * (s0 - s1) if mode == 2 else 2.0 * (x - 2.0 * s0 + s1))
+        return filtered, [s0, s1, s2, s3]
 
     @staticmethod
     def _tube(x, amount):

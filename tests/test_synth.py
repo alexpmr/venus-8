@@ -662,6 +662,74 @@ class TestVintageSynthesis(unittest.TestCase):
         np.testing.assert_allclose(whole, split, atol=1e-5)
 
 
+class TestPanelCompletion(unittest.TestCase):
+    SINE = {"osc1_wave": 1.0, "osc2_level": 0.0, "osc3_level": 0.0, "sub_level": 0.0,
+            "cutoff": 1.0, "resonance": 0.0, "attack": 0.0, "sustain": 1.0}
+
+    def pitch(self, note=57, **params):
+        s = Synth()
+        s.load_params(dict(self.SINE, **params), keep_globals=False)
+        s.note_on(note)
+        s.render(2048)
+        audio = s.render(32768)[:, 0]
+        spectrum = np.abs(np.fft.rfft(audio * np.hanning(len(audio))))
+        return np.argmax(spectrum) * 44100 / len(audio)
+
+    def test_transpose_octave_tune_and_bend_range(self):
+        self.assertAlmostEqual(self.pitch(transpose=0.5 + 7 / 24), 329.6, delta=2)
+        self.assertAlmostEqual(self.pitch(octave_shift=0.5 - 1 / 6), 110, delta=1.5)
+        self.assertAlmostEqual(self.pitch(master_tune=1.0), 225, delta=1.5)   # A = 450 Hz
+        self.assertAlmostEqual(self.pitch(bend_range=11 / 23, pitch_bend=1.0), 440, delta=2.5)
+
+    def test_globals_survive_a_patch_change(self):
+        s = Synth()
+        s.set_param("transpose", 1.0)
+        s.set_param("polyphony", 0.0)
+        s.load_params(dict(DEFAULTS))
+        self.assertEqual(s.get_param("transpose"), 1.0)
+        self.assertEqual(s.voice_limit, 1)
+        for note in (48, 52, 55):
+            s.note_on(note)
+        self.assertEqual(list(s.voices), [55])
+
+    def test_spread_balance_and_volume(self):
+        def play(**params):
+            s = Synth()
+            s.load_params(params, keep_globals=False)
+            s.note_on(57)
+            return np.concatenate([s.render(512) for _ in range(30)])
+        narrow, wide = play(voice_mode=1.0), play(voice_mode=1.0, unison_spread=1.0)
+        self.assertLess(np.abs(narrow[:, 0] - narrow[:, 1]).max(), 1e-6)
+        self.assertGreater(np.abs(wide[:, 0] - wide[:, 1]).max(), 0.02)
+        left = play(balance=0.0)
+        self.assertEqual(float(np.abs(left[:, 1]).max()), 0.0)
+        half = play(global_volume=0.5)
+        np.testing.assert_allclose(half, np.clip(play() * 0.5, -0.95, 0.95), atol=1e-6)
+
+    def test_glide_const_rate_takes_longer_for_wide_jumps(self):
+        def remaining(const):
+            s = Synth()
+            s.load_params({"glide_time": 0.3, "glide_const": const})
+            s.note_on(48)
+            s.note_off(48)
+            s.note_on(72)
+            s.render(4410)
+            return abs(s.voices[72]["glide"])
+        self.assertGreater(remaining(0.0), remaining(1.0))
+
+    def test_xmod_and_osc3_key_sync(self):
+        plain = self.pitch()
+        self.assertAlmostEqual(plain, 220, delta=1.5)
+        s = Synth()
+        s.load_params(dict(self.SINE, osc2_xmod=1.0, osc2_fm=0.7, osc2_tune=0.5 + 3 / 24))
+        s.note_on(57)
+        audio = np.concatenate([s.render(512) for _ in range(40)])
+        self.assertTrue(np.isfinite(audio).all())
+        synced = self.pitch(osc1_level=0.0, osc3_level=1.0, osc3_wave=0.0,
+                            osc3_tune=0.5 + 7 / 24, osc3_sync=1.0)
+        self.assertAlmostEqual(synced, 220, delta=2)          # follows the key, not +7
+
+
 class TestArpeggiator(unittest.TestCase):
     def run_arp(self, keys=(60, 64, 67), steps=8, block=64, **params):
         s = Synth()

@@ -65,6 +65,10 @@ PARAM_LABELS = {
     "polymod_freq": "Poly-Mod Freq A", "polymod_pw": "Poly-Mod PW A",
     "polymod_filter": "Poly-Mod Filter", "moog_mix": "Mod Mix", "moog_osc": "Osc Mod",
     "moog_filter": "Filter Mod", "osc3_lo": "OSC3 LO", "vintage": "Vintage", "hpf": "HPF",
+    "transpose": "Transpose", "octave_shift": "Oitava", "bend_range": "Bend Range",
+    "polyphony": "Vozes", "master_tune": "Afinação", "global_volume": "Volume global",
+    "balance": "Balanço", "unison_spread": "Spread (unison)", "glide_const": "Glide CONST",
+    "osc2_xmod": "X-MOD OSC2", "osc3_sync": "Sync OSC3",
     "voice_mode": "Modo de voz", "unison_detune": "Detune (unison)", "glide_time": "Glide",
     "arp_on": "Arpeggiator", "arp_mode": "Modo do arpejo", "arp_rate": "Arp Rate",
     "arp_gate": "Arp Gate", "arp_oct": "Arp Oitavas", "arp_hold": "Arp Hold",
@@ -99,7 +103,7 @@ def instrument_style(params, category=""):
     if get("ep_level") > 0.0001:
         layers.append("Yamaha CP-70" if get("ep_model") >= 0.5 else "Fender Rhodes")
     return " + ".join(layers) or "—"
-SWITCH_PARAMS = {"osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise", "polymod_freq",
+SWITCH_PARAMS = {"glide_const", "osc2_xmod", "osc3_sync", "osc1_sync", "osc2_sync", "osc1_ring", "osc3_noise", "polymod_freq",
                  "polymod_pw", "polymod_filter", "moog_osc", "moog_filter", "osc3_lo", "arp_on", "arp_hold", "chorus_on", "phaser_on", "reverb_on", "filter_env_on", "lfo_sync",
                  "lfo2_sync", "organ_perc", "organ_perc_third", "organ_perc_fast", "organ_click",
                  "organ_vibrato", "organ_chorus", "leslie", "leslie_fast",
@@ -115,6 +119,19 @@ def format_value(param, value):
     if param == "filter_type":
         from .synth import FILTER_TYPES
         return FILTER_TYPES[round(value * 3)]
+    if param == "transpose":
+        return f"{round((value - 0.5) * 24):+d} st"
+    if param == "octave_shift":
+        return f"{round((value - 0.5) * 6):+d}"
+    if param == "bend_range":
+        return f"{1 + round(value * 23)} st"
+    if param == "polyphony":
+        return f"{1 + round(value * 15)} vozes"
+    if param == "master_tune":
+        return f"{440 + (value - 0.5) * 20:.1f} Hz"
+    if param == "balance":
+        side = round((value - 0.5) * 200)
+        return "C" if side == 0 else (f"R {side}" if side > 0 else f"L {-side}")
     if param == "chorus_type":
         from .synth import CHORUS_TYPES
         return CHORUS_TYPES[round(value * 4)].title()
