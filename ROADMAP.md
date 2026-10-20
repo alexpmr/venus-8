@@ -44,6 +44,18 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.30 — Vista 3D com painel traseiro (etapa 4 do plano)
+
+- ✅ Botão VISTA 3D (no topo, à direita) e atalho F3: abre o Venus-8 como teclado físico, sem parar o som.
+- ✅ Renderizador 3D próprio (texturas em perspectiva): painel com teclas, knobs, faders e drawbars nas posições atuais, laterais de madeira, sombra.
+- ✅ Girar arrastando, aproximar com a roda do mouse e ângulos prontos: Frente, Perfil, Trás e Cima.
+- ✅ Painel traseiro de hardware: POWER (IEC e chave), USB, MIDI IN/OUT/THRU, pedais SUSTAIN/EXPRESSION/FOOTSWITCH, CV OUT/GATE OUT/CLOCK IN, saídas L/MONO e R, PHONES e placa com número de série e versão.
+- ✅ Ao passar o mouse em cada conector, explica o que é e como ligar.
+- ✅ Ao vivo: teclas tocadas acendem no 3D; LED do USB pisca com o MIDI e LED do sustain acende com o pedal.
+- ✅ Testes da projeção, da traseira só visível por trás, da identificação de conectores e das teclas acesas.
+- [ ] Knobs girando ao vivo na vista 3D (hoje: posição ao abrir a janela).
+- [ ] Homologar no Windows real.
+
 ## v0.2.29 — Layer / Split (etapa 3 do plano)
 
 - ✅ LAYER/SPLIT ativo: LOWER (LED + seletor de timbre por categoria) liga uma segunda parte com o seu próprio motor; UPPER é o timbre do painel (o LED desliga/liga cada parte).
@@ -83,7 +95,7 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - ✅ Etapa 1 — Painel completo (v0.2.27).
 - ✅ Etapa 2 — Step Sequencer (v0.2.28).
 - ✅ Etapa 3 — Split/Layer (v0.2.29).
-- [ ] Etapa 4 — Vista 3D com painel traseiro.
+- ✅ Etapa 4 — Vista 3D com painel traseiro (v0.2.30).
 - [ ] Etapa 5 — Biblioteca ampliada, Wurlitzer e controles do piano elétrico.
 - [ ] Etapa 6 — Diálogos vintage, sincronismo com clock MIDI e otimização do motor.
 
@@ -610,12 +622,12 @@ Inspirada na válvula visível de pianos de palco como o Korg SV-1: uma válvula
 
 Ver o Venus-8 como um teclado físico real, girando em 3D, inclusive a parte de trás com todas as conexões.
 
-- [ ] Botão "3D" (ou atalho) que abre a vista 3D sem interromper o som; voltar ao painel com um clique.
+- ✅ Botão "3D" (ou atalho) que abre a vista 3D sem interromper o som; voltar ao painel com um clique. (v0.2.30)
 - [ ] Modelo 3D do gabinete com as proporções do painel atual: laterais de madeira, painel frontal, teclado de 61/88 teclas, rodas de pitch e modulação.
-- [ ] Girar, aproximar e afastar com o mouse (e com gestos no touch), com ângulos prontos: frente, perfil, trás e vista superior.
+- ✅ Girar, aproximar e afastar com o mouse (e com gestos no touch), com ângulos prontos: frente, perfil, trás e vista superior. (v0.2.30)
 - [ ] Painel traseiro realista, como seria uma versão de hardware: entrada de energia e chave liga/desliga, USB-B (MIDI/áudio), MIDI IN/OUT/THRU (DIN), saídas Main L/Mono e R, saída de fones, entradas de pedal (Sustain, Expression, Footswitch), CV/Gate e Clock, placa com nome, número de série e versão.
 - [ ] Conexões com estado ao vivo: LED do USB/MIDI piscando ao receber notas, indicação do pedal de sustain e do áudio ativo.
-- [ ] Ao passar o mouse em cada conector, mostrar o que é e como ligar (ex.: "Sustain: pedal tipo switch").
+- ✅ Ao passar o mouse em cada conector, mostrar o que é e como ligar (ex.: "Sustain: pedal tipo switch"). (v0.2.30)
 - [ ] Teclas e controles da vista 3D acompanham o que está sendo tocado (teclas descendo, knobs girando).
 - [ ] Iluminação e materiais vintage (madeira, metal escovado, plástico), com sombras suaves; desempenho que não atrapalhe o áudio.
 - [ ] Homologar no Windows real.

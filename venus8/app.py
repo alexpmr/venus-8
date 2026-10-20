@@ -221,6 +221,7 @@ class App:
         self.split_note = self.settings.get("split_note")
         self.root.bind("<Escape>", lambda e: self.panic())
         self.root.bind("<F11>", self.toggle_fullscreen)
+        self.root.bind("<F3>", lambda e: self.action("view3d"))
         self.root.bind("<Control-s>", lambda e: self.save_patch())
         self.canvas = tk.Canvas(self.root, bg=DARK, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
@@ -753,6 +754,9 @@ class App:
         elif ident.startswith("seqstep"):
             param=f"seq_step{int(ident[7:])+1}"
             self.change(param,0.0 if self.synth.get_param(param)>=0.5 else 1.0)
+        elif ident=="view3d":
+            from . import view3d
+            view3d.open_view(self)
         elif ident=="search":
             self.browse_patches(search=True)
         elif ident=="keyboard_tab":
