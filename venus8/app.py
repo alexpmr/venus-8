@@ -246,6 +246,7 @@ class App:
         self.events = queue.Queue()
         self.release = None
         self.updating = False
+        self._update_prompted = None
         self.update_label = "VERIFICAR UPDATE"
         # UPD button: idle, checking, current, available, downloading or error.
         self.update_state = "idle"
@@ -1583,6 +1584,36 @@ class App:
         self.draw()
         updater.start_check(lambda release,error:self.events.put(("update_check",release,error,manual)))
 
+    UPDATE_PROMPT_SNOOZE_SECONDS=24*3600
+
+    def maybe_prompt_update(self,release):
+        """Pergunta se deseja atualizar ao detectar versão nova (v0.2.33).
+
+        "Atualizar agora" segue o mesmo fluxo do botão UPD; "Depois" adia a
+        mesma versão por 24 h. Usa a janela vintage do painel e não abre
+        sobre outro diálogo nem durante o download.
+        """
+        tag=str(release.get("tag_name") or "")
+        if not tag or self.updating or self.release is not release or self._update_prompted==tag:
+            return
+        snooze=self.settings.get("update_prompt_snooze") or {}
+        if (snooze.get("version")==tag
+                and time.time()-float(snooze.get("at") or 0)<self.UPDATE_PROMPT_SNOOZE_SECONDS):
+            return
+        if self.root.grab_current() is not None:
+            self.root.after(5000,lambda:self.maybe_prompt_update(release))
+            return
+        self._update_prompted=tag
+
+        def later():
+            self.settings["update_prompt_snooze"]={"version":tag,"at":time.time()}
+            self._save_settings()
+
+        vintage_dialog(
+            self.root,"Nova versão disponível",
+            f"VENUS-8 {tag} está disponível (instalada: v{__version__}).\n\nDeseja atualizar agora?",
+            (("ATUALIZAR AGORA",self.install_update),("DEPOIS",later)))
+
     def install_update(self):
         release=self.release
         if not release or self.updating:return
@@ -1624,6 +1655,7 @@ class App:
                     self.release=rel
                     self.update_label="UPDATE "+rel["tag_name"]
                     self.update_state="available"
+                    self.root.after(300,lambda r=rel:self.maybe_prompt_update(r))
                 else:
                     self.release=None
                     self.update_label="ATUALIZADO" if not error else "VERIFICAR UPDATE"
