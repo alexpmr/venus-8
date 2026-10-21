@@ -44,6 +44,12 @@ Este arquivo é o **checklist oficial por etapa**. Cada recurso só deve receber
 - [ ] Monitor DSP, latência, underruns, pico e atividade MIDI
 - [ ] Logs, diagnóstico e mensagens de falha compreensíveis
 
+## v0.2.33 — Aviso de nova versão
+
+- ✅ Ao encontrar versão nova, além do botão UPD piscando, abre a janela vintage perguntando se deseja atualizar agora. ATUALIZAR AGORA segue o mesmo download com SHA-256 do botão UPD; DEPOIS adia a mesma versão por 24 horas. Não abre sobre outra janela nem durante o download.
+- ✅ Testes do aviso (atualizar, adiar, não sobrepor outra janela).
+- [ ] Homologar no Windows real.
+
 ## v0.2.32 — Sync MIDI, diálogos vintage e motor mais leve (etapa 6 do plano)
 
 - ✅ SYNC (Arpeggiator e Step Sequencer): segue o clock MIDI do teclado/DAW (24 pulsos por tempo); START recomeça o padrão; sem clock, volta ao RATE. O BPM aparece na faixa do sequencer.
