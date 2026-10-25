@@ -2,12 +2,14 @@
 
 ## Downloads — Venus-8 v0.2.33 (Windows)
 
-| Plataforma | Pacote | Download | Tamanho | Data | Downloads |
-|---|---|---|---|---|---|
-| Windows 10/11 x64 | Instalador | [`Venus-8-v0.2.33-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.33/Venus-8-v0.2.33-Windows-Setup.exe) | 25.2 MB | 2026-10-21 | 0 |
-| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.2.33-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.33/Venus-8-v0.2.33-Windows-Portable.exe) | 34.0 MB | 2026-10-21 | 0 |
+| Plataforma | Pacote | Download | Tamanho | Data | Downloads da versão | Todas as versões |
+|---|---|---|---|---|---|---|
+| Windows 10/11 x64 | Instalador | [`Venus-8-v0.2.33-Windows-Setup.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.33/Venus-8-v0.2.33-Windows-Setup.exe) | 25.2 MB | 2026-10-21 | 0 | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Falexpmr%2Fvenus-8%2Fbadges%2Fdownloads%2Fsetup.json) |
+| Windows 10/11 x64 | Portátil (EXE único) | [`Venus-8-v0.2.33-Windows-Portable.exe`](https://github.com/alexpmr/venus-8/releases/download/v0.2.33/Venus-8-v0.2.33-Windows-Portable.exe) | 34.0 MB | 2026-10-21 | 0 | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Falexpmr%2Fvenus-8%2Fbadges%2Fdownloads%2Fportable.json) |
 
-**Downloads:** quantidade de downloads por arquivo no GitHub Releases (não representa instalações ou usuários únicos). Atualização periódica da tabela. [Histórico de versões](https://github.com/alexpmr/venus-8/releases).
+**Total (todas as versões):** ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Falexpmr%2Fvenus-8%2Fbadges%2Fdownloads%2Ftotal.json)
+
+**Downloads:** quantidade de downloads por arquivo desta versão no GitHub Releases; "Todas as versões" soma as versões já publicadas (atualizada a cada hora) (não representa instalações ou usuários únicos). Atualização periódica da tabela. [Histórico de versões](https://github.com/alexpmr/venus-8/releases).
 
 ![VENUS-8 — Interface do sintetizador](docs/venus-8-mockup.png)
 

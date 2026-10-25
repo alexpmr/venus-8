@@ -1,0 +1,14 @@
+{
+ "types": [
+  [
+   "setup",
+   "-Windows-Setup\\.exe$"
+  ],
+  [
+   "portable",
+   "-Windows-Portable\\.exe$"
+  ]
+ ],
+ "groups": {},
+ "total": []
+}
